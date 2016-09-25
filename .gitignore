@@ -4,7 +4,7 @@
 .project
 .settings/
 .cache-main
-
+.cache-tests
 # sbt specific
 .cache
 .history

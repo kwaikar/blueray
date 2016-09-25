@@ -1,24 +1,9 @@
 package edu.utd.security.blueray
 
-import java.lang.reflect.Field
-
-import scala.collection.mutable.HashMap
-import scala.util.control.Breaks._
-
-import org.apache.hadoop.mapred.JobConf
-import org.apache.spark.InterruptibleIterator
-import org.apache.spark.Partition
 import org.apache.spark.SparkConf
 import org.apache.spark.SparkContext
-import org.apache.spark.SparkContext._
-import org.apache.spark.TaskContext
-import org.apache.spark.rdd.HadoopPartition
-import org.apache.spark.rdd.RDD
-import org.aspectj.lang.ProceedingJoinPoint
-import org.aspectj.lang.annotation.Around
-import org.aspectj.lang.annotation.Aspect
+import org.apache.spark.rdd.RDD.rddToPairRDDFunctions
 import org.apache.spark.sql.SQLContext
-import org.apache.spark.sql._
 
 class AccessAuthorizer {
   def foo() = {
