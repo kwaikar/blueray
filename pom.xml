@@ -1,0 +1,131 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>edu.utd.security.</groupId>
+	<artifactId>blueray</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<name>blueray</name>
+	<description>Access control in Spark</description>
+	<inceptionYear>2016</inceptionYear>
+
+	<properties>
+		<maven.compiler.source>1.8</maven.compiler.source>
+		<maven.compiler.target>1.8</maven.compiler.target>
+		<encoding>UTF-8</encoding>
+		<scala.tools.version>2.11</scala.tools.version>
+		<scala.version>2.11.8</scala.version>
+		<spark.version>2.0.0</spark.version>
+		<aspectj.runtime.version>1.8.5</aspectj.runtime.version>
+		<aspectj-maven-plugin.version>1.8.5</aspectj-maven-plugin.version>
+		<maven-surefire-plugin.version>2.19.1</maven-surefire-plugin.version>
+	</properties>
+
+	<dependencies>
+		<dependency>
+			<groupId>org.scala-lang</groupId>
+			<artifactId>scala-library</artifactId>
+			<version>${scala.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.spark</groupId>
+			<artifactId>spark-core_${scala.tools.version}</artifactId>
+			<version>${spark.version}</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.spark</groupId>
+			<artifactId>spark-sql_${scala.tools.version}</artifactId>
+			<version>${spark.version}</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.aspectj</groupId>
+			<artifactId>aspectjweaver</artifactId>
+			<version>${aspectj.runtime.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.aspectj</groupId>
+			<artifactId>aspectjrt</artifactId>
+			<version>${aspectj.runtime.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.typesafe.scala-logging</groupId>
+			<artifactId>scala-logging_2.11</artifactId>
+			<version>3.5.0</version>
+		</dependency>
+
+
+		<!-- Test -->
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>4.11</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.specs2</groupId>
+			<artifactId>specs2-core_${scala.tools.version}</artifactId>
+			<version>3.7.2</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.specs2</groupId>
+			<artifactId>specs2-junit_${scala.tools.version}</artifactId>
+			<version>3.7.2</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.scalatest</groupId>
+			<artifactId>scalatest_${scala.tools.version}</artifactId>
+			<version>3.0.0-M15</version>
+			<scope>test</scope>
+		</dependency>
+
+	</dependencies>
+
+	<build>
+		<sourceDirectory>src/main/scala</sourceDirectory>
+		<testSourceDirectory>src/test/scala</testSourceDirectory>
+		<plugins>
+
+			<plugin>
+				<!-- see http://davidb.github.com/scala-maven-plugin -->
+				<groupId>net.alchim31.maven</groupId>
+				<artifactId>scala-maven-plugin</artifactId>
+				<version>3.2.0</version>
+				<executions>
+					<execution>
+						<goals>
+							<goal>compile</goal>
+							<goal>testCompile</goal>
+						</goals>
+						<configuration>
+							<args>
+								<arg>-dependencyfile</arg>
+								<arg>${project.build.directory}/.scala_dependencies</arg>
+							</args>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
+
+			<plugin>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>${maven-surefire-plugin.version}</version>
+				<configuration>
+				<argLine>"-javaagent:/home/kanchan/Downloads/aspectjweaver-1.8.5.jar"</argLine>
+				</configuration>
+			</plugin> 
+		</plugins>
+		<resources>
+			<resource>
+				<directory>src/main/resources</directory>
+				<includes>
+					<include>aop.xml</include> <!-- ensures aop.xml ends inside the META-INF -->
+				</includes>
+				<targetPath>META-INF</targetPath>
+			</resource>
+		</resources>
+	</build>
+</project>
