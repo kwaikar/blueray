@@ -4,27 +4,70 @@ import org.apache.spark.SparkConf
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.Encoder
 import org.apache.spark.sql.SQLContext
+import org.apache.spark.streaming._
+import org.apache.spark.streaming.Seconds
+import org.apache.spark.streaming.StreamingContext
 import org.junit.Test
 
 /**
  * Unit Test class for testing AccessAuthorization functionality.
  */
 class AccessAuthorizerTest {
-  @Test
+  //@Test
   def testDriver() = {
     val conf = new SparkConf().setAppName("Simple Application").setMaster("local[2]");
     val sc = new SparkContext(conf)
     sc.setLogLevel("ERROR")
-    var policy = new Policy("hdfs://localhost/user/user_small.csv", "Lii");
+    var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user_small.csv", "Lii");
+    edu.utd.security.blueray.AccessAuthorizationManager.registerPolicy(policy);
+    /*   policy = new Policy("hdfs://localhost/user/user.json", "Lii");
     AccessAuthorizationManager.registerPolicy(policy);
-   /*   policy = new Policy("hdfs://localhost/user/user.json", "Lii");
-    AccessAuthorizationManager.registerPolicy(policy);
-   */ 
+   */
     assertDataSetSize(2, sc);
     AccessAuthorizationManager.deRegisterPolicy(policy);
     assertDataSetSize(3, sc);
     println("")
 
+  }
+  @Test
+  def testSparkSQL()=
+  {
+    
+    val conf = new SparkConf().setAppName("Simple Application").setMaster("local[2]");
+    val sc = new SparkContext(conf)
+    val sqlContext = new SQLContext(sc)
+    //  sc.setLogLevel("DEBUG")
+
+    var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user.json", "Lii");   
+    AccessAuthorizationManager.registerPolicy(policy);
+    val dfs = sqlContext.read.json("hdfs://localhost/user/user.json")
+     dfs.select("id").show()
+  }
+  
+  
+  //@Test
+  def testSparkStreaming()={
+    val conf = new SparkConf().setAppName("Simple Application").setMaster("local[2]");
+    val sc = new SparkContext(conf)
+      sc.setLogLevel("DEBUG")
+    var inputFile = sc.textFile("hdfs://localhost/user/user_small.csv")
+    
+    var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user_small.csv", "Lii");
+    edu.utd.security.blueray.AccessAuthorizationManager.registerPolicy(policy);
+    
+     val ssc = new StreamingContext(sc, Seconds(2))
+     
+    val lines = ssc.textFileStream("hdfs://localhost/user/user_small.csv")
+    val words = lines.flatMap(_.split("\n"))
+    // Count each word in each batch
+    val pairs = words.map(word => (1, 1))
+    println(pairs.count().toString())
+    val wordCounts = pairs.reduceByKey(_ + _)
+    println("--->"+wordCounts.count().toString())
+    wordCounts.print()
+ ssc.start()
+   
+    ssc.awaitTermination()
   }
 
   def assertDataSetSize(count: Int, sc: SparkContext) = {
@@ -55,11 +98,7 @@ class AccessAuthorizerTest {
     assert(count == savedFile.count(), "savedFile method testing")
     assert(fs.delete(new org.apache.hadoop.fs.Path(fileName), true))
 
-    val sqlContext = new SQLContext(sc)
-
-
-    //val dfs = sqlContext.read.json("hdfs://localhost/user/user.json")
-    //dfs.select("id").show()
+   
   }
 
   def splitLine(line: String) = {

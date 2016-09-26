@@ -2,7 +2,6 @@ package edu.utd.security.blueray
 
 import scala.collection.mutable.HashMap
 import com.typesafe.scalalogging._
-import org.slf4j.LoggerFactory
 
 /**
  * Singleton object for implementing Access Control in Spark
@@ -10,7 +9,7 @@ import org.slf4j.LoggerFactory
 object AccessAuthorizationManager {
  
 
-  val logger = Logger(LoggerFactory.getLogger(this.getClass))
+ // val logger = Logger(LoggerFactory.getLogger(this.getClass))
   private val policies: HashMap[String, Policy] = new scala.collection.mutable.HashMap
 
   /**
@@ -18,7 +17,7 @@ object AccessAuthorizationManager {
    */
   def registerPolicy(policy: Policy) {
     policies.put(policy.resourcePath, policy)
-    logger.debug("registered policy"+policy)
+  //  logger.debug("registered policy"+policy)
   }
   def deRegisterPolicy(policy: Policy) {
     policies.remove(policy.resourcePath)
@@ -28,6 +27,6 @@ object AccessAuthorizationManager {
    */
   def getPolicy(path: String): Option[Policy] =
     {
-      policies.get(path)
+      policies.get(path.trim())
     }
 }

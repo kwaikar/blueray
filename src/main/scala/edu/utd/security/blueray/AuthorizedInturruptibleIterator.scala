@@ -24,8 +24,10 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
       if (hasNextVal) {
 
         var localNextElement = super.next()
+          println("checking" + localNextElement.toString())
         while (localNextElement.toString().contains(valueToBeBlocked) && hasNextVal) {
 
+          println("Blocking" + localNextElement)
           localNextElement = super.next();
           hasNextVal = super.hasNext
         }
@@ -56,6 +58,7 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
     /**
      * Consume the authorized next element by returning the same
      */
+          println("returning" + nextElement)
     nextConsumed = true;
     return nextElement;
   }

@@ -1,7 +1,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>edu.utd.security.</groupId>
+	<groupId>edu.utd.security</groupId>
 	<artifactId>blueray</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>blueray</name>
@@ -80,7 +80,11 @@
 			<version>3.0.0-M15</version>
 			<scope>test</scope>
 		</dependency>
-
+<dependency>
+    <groupId>org.apache.spark</groupId>
+    <artifactId>spark-streaming_2.11</artifactId>
+    <version>2.0.0</version>
+</dependency>
 	</dependencies>
 
 	<build>
@@ -128,4 +132,9 @@
 			</resource>
 		</resources>
 	</build>
+	<repositories><repository>
+			<id>sonatype-nexus-staging</id>
+			<name>Nexus Release Repository</name>
+			<url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+		</repository></repositories>
 </project>
