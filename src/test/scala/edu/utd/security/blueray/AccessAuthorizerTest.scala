@@ -2,7 +2,8 @@ package edu.utd.security.blueray
 
 import org.apache.spark.SparkConf
 import org.apache.spark.SparkContext
-import org.apache.spark.rdd.RDD.rddToPairRDDFunctions
+import org.apache.spark.sql.Encoder
+import org.apache.spark.sql.SQLContext
 import org.junit.Test
 
 /**
@@ -16,6 +17,9 @@ class AccessAuthorizerTest {
     sc.setLogLevel("ERROR")
     var policy = new Policy("hdfs://localhost/user/user_small.csv", "Lii");
     AccessAuthorizationManager.registerPolicy(policy);
+   /*   policy = new Policy("hdfs://localhost/user/user.json", "Lii");
+    AccessAuthorizationManager.registerPolicy(policy);
+   */ 
     assertDataSetSize(2, sc);
     AccessAuthorizationManager.deRegisterPolicy(policy);
     assertDataSetSize(3, sc);
@@ -50,7 +54,19 @@ class AccessAuthorizerTest {
     var savedFile = sc.textFile(fileName)
     assert(count == savedFile.count(), "savedFile method testing")
     assert(fs.delete(new org.apache.hadoop.fs.Path(fileName), true))
-    
-    
+
+    val sqlContext = new SQLContext(sc)
+
+
+    //val dfs = sqlContext.read.json("hdfs://localhost/user/user.json")
+    //dfs.select("id").show()
+  }
+
+  def splitLine(line: String) = {
+    val splits = line.split("\\^");
+    if (splits.size == 3)
+      List(splits(0), splits(1), splits(2));
+    else
+      List(splits(0), splits(1), splits(2), splits(3));
   }
 }
