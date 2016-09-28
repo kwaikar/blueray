@@ -21,7 +21,7 @@ class AccessAuthorizerAspect {
     @Around(value = "execution(* org.apache.spark.streaming.dstream.MappedDStream.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")*/
 
   @Around(value = "execution(* org.apache.spark.rdd.MapPartitionsRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
-  def aroundAdvice_SparkStreaming(jp: ProceedingJoinPoint, theSplit: Partition, job: JobConf, context: TaskContext): AnyRef = {
+  def aroundAdvice_spark(jp: ProceedingJoinPoint, theSplit: Partition, job: JobConf, context: TaskContext): AnyRef = {
     // logger.debug("Invoking advice")
     var path: String = "";
     var auth = context.getLocalProperty("PRIVILEDGE")
@@ -53,6 +53,7 @@ class AccessAuthorizerAspect {
       }
       val iterator = (jp.proceed(jp.getArgs()))
       val policyFound = AccessMonitor.getPolicy(path, auth)
+      println("Policy: "+policyFound +" : "+ jp.getTarget)
       if (policyFound != None) {
         val authorizedIterator = new AuthorizedInterruptibleIterator(context, iterator.asInstanceOf[Iterator[_]], "Lii");
         return authorizedIterator

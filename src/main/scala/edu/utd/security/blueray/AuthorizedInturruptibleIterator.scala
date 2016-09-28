@@ -1,9 +1,11 @@
-package  edu.utd.security.blueray
+package edu.utd.security.blueray
 
 import org.apache.spark.InterruptibleIterator
 import org.apache.spark.TaskContext
 import org.apache.spark.TaskKilledException
 import org.apache.spark.annotation.DeveloperApi
+import org.apache.spark.sql.catalyst.expressions.UnsafeRow
+
 /**
  * Custom Implementation of InteruptibleIterator that blocks the value passed while iterating over the array.
  */
@@ -24,16 +26,33 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
       if (hasNextVal) {
 
         var localNextElement = super.next()
-        while (localNextElement.toString().contains(valueToBeBlocked) && hasNextVal) {
+hasNextVal = super.hasNext;
+        // SparkSQL specific
+        var localNextElementStr = "";
+        if (localNextElement.getClass() == classOf[UnsafeRow]) {
+          var localNextElementStr = new String(localNextElement.asInstanceOf[UnsafeRow].getBytes);
+          println("checking " + localNextElementStr)
+          while (localNextElementStr.contains(valueToBeBlocked) && hasNextVal) {
 
-          println("Blocking" + localNextElement)
-          localNextElement = super.next();
-          hasNextVal = super.hasNext
+            println("Blocking" + localNextElementStr)
+            localNextElement = super.next();
+            localNextElementStr = new String(localNextElement.asInstanceOf[UnsafeRow].getBytes);
+            hasNextVal = super.hasNext
+          }
+        } else {
+          println("checking " + localNextElement)
+          while (localNextElement.toString().contains(valueToBeBlocked) && hasNextVal) {
+
+            println("Blocking" + localNextElement)
+            localNextElement = super.next();
+            hasNextVal = super.hasNext
+          }
+          localNextElementStr = localNextElement.toString()
         }
         /**
          * Iterator could
          */
-        if (localNextElement != null && (!localNextElement.toString().contains(valueToBeBlocked))) {
+        if (localNextElement != null && (!localNextElementStr.contains(valueToBeBlocked))) {
           nextElement = localNextElement;
           /**
            * Enable element for consumption
