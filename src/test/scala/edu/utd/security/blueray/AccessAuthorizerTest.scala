@@ -1,6 +1,5 @@
 package edu.utd.security.blueray
 
-import scala.annotation.elidable
 import scala.annotation.elidable.ASSERTION
 
 import org.apache.spark.SparkConf
@@ -11,9 +10,6 @@ import org.apache.spark.streaming.Seconds
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.dstream.DStream.toPairDStreamFunctions
 import org.junit.Test
-import javax.crypto.SecretKey
-import javax.crypto.KeyGenerator
-import javax.crypto.spec.SecretKeySpec
 
 /**
  * Unit Test class for testing AccessAuthorization functionality.
@@ -34,7 +30,7 @@ class AccessAuthorizerTest {
     var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user_small.csv",Util.encrypt("ADMIN"), "Lii");
     edu.utd.security.blueray.AccessMonitor.enforcePolicy(policy);
     assertDataSetSize(3, sc);
-    sc.setLocalProperty("PRIVILEDGE", "ADMIN");
+    sc.setLocalProperty( ("PRIVILEDGE"),  Util.encrypt("ADMIN"));
     assertDataSetSize(2, sc);
     AccessMonitor.deRegisterPolicy(policy);
     assertDataSetSize(3, sc);
@@ -81,7 +77,7 @@ class AccessAuthorizerTest {
     val sc = new SparkContext(conf)
     val sqlContext = new SQLContext(sc)
      sc.setLogLevel("DEBUG")
-    sc.setLocalProperty("PRIVILEDGE", "ADMIN");
+    sc.setLocalProperty( ("PRIVILEDGE"), Util.encrypt("ADMIN"));
 
     var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user.json",Util.encrypt("ADMIN"), "Lii");   
     AccessMonitor.enforcePolicy(policy);
@@ -95,7 +91,7 @@ class AccessAuthorizerTest {
     val conf = new SparkConf().setAppName("Simple Application").setMaster("local[2]");
     val sc = new SparkContext(conf)
       sc.setLogLevel("DEBUG")
-    sc.setLocalProperty("PRIVILEDGE", "ADMIN");
+    sc.setLocalProperty("PRIVILEDGE",Util.encrypt( "ADMIN"));
     
     var inputFile = sc.textFile("hdfs://localhost/user/user_small.csv")
     

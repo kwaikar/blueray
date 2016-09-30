@@ -19,7 +19,7 @@ object AccessMonitor {
    */
   def enforcePolicy(policy: Policy) {
     var policiesSet: HashSet[Policy] = if (policies.get(policy.resourcePath) != None) (policies.get(policy.resourcePath).get) else (new HashSet[Policy]);
-
+    policy.priviledgeRestriction = Util.decrypt(policy.priviledgeRestriction)
     policiesSet.add(policy)
 
     policies.put(policy.resourcePath, policiesSet)
