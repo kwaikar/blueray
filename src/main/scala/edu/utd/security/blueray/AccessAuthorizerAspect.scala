@@ -24,9 +24,10 @@ class AccessAuthorizerAspect {
   def aroundAdvice_spark(jp: ProceedingJoinPoint, theSplit: Partition, job: JobConf, context: TaskContext): AnyRef = {
     // logger.debug("Invoking advice")
     var path: String = "";
-    var auth = context.getLocalProperty("PRIVILEDGE")
-
-    if (auth != null) {
+    
+    var auth = Util.decrypt(context.getLocalProperty("PRIVILEDGE"))
+    
+    if (auth != null && context.getLocalProperty("PRIVILEDGE").trim().length()!=0) {
       var pathFound = false;
       breakable {
         for (argument <- jp.getArgs()) {

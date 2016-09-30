@@ -11,17 +11,27 @@ import org.apache.spark.streaming.Seconds
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.dstream.DStream.toPairDStreamFunctions
 import org.junit.Test
+import javax.crypto.SecretKey
+import javax.crypto.KeyGenerator
+import javax.crypto.spec.SecretKeySpec
 
 /**
  * Unit Test class for testing AccessAuthorization functionality.
  */
 class AccessAuthorizerTest {
+  
+  @Test
+  def testUtil()={
+
+      
+      assert(Util.decrypt(Util.encrypt("Hello"))=="Hello");
+  }
  // @Test
   def testSpark() = {
     val conf = new SparkConf().setAppName("Simple Application").setMaster("local[2]");
     val sc = new SparkContext(conf)
     sc.setLogLevel("ERROR")
-    var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user_small.csv","ADMIN", "Lii");
+    var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user_small.csv",Util.encrypt("ADMIN"), "Lii");
     edu.utd.security.blueray.AccessMonitor.enforcePolicy(policy);
     assertDataSetSize(3, sc);
     sc.setLocalProperty("PRIVILEDGE", "ADMIN");
@@ -73,7 +83,7 @@ class AccessAuthorizerTest {
      sc.setLogLevel("DEBUG")
     sc.setLocalProperty("PRIVILEDGE", "ADMIN");
 
-    var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user.json","ADMIN", "Lii");   
+    var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user.json",Util.encrypt("ADMIN"), "Lii");   
     AccessMonitor.enforcePolicy(policy);
     val dfs = sqlContext.read.json("hdfs://localhost/user/user.json")
      dfs.select("id").show()
@@ -89,7 +99,7 @@ class AccessAuthorizerTest {
     
     var inputFile = sc.textFile("hdfs://localhost/user/user_small.csv")
     
-    var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user_small.csv","ADMIN", "Lii");
+    var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user_small.csv",Util.encrypt("ADMIN"), "Lii");
     edu.utd.security.blueray.AccessMonitor.enforcePolicy(policy);
     
      val ssc = new StreamingContext(sc, Seconds(2))

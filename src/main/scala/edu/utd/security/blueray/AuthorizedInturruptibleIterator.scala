@@ -2,8 +2,6 @@ package edu.utd.security.blueray
 
 import org.apache.spark.InterruptibleIterator
 import org.apache.spark.TaskContext
-import org.apache.spark.TaskKilledException
-import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.sql.catalyst.expressions.UnsafeRow
 
 /**
@@ -26,12 +24,17 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
       if (hasNextVal) {
 
         var localNextElement = super.next()
-hasNextVal = super.hasNext;
+        hasNextVal = super.hasNext;
         // SparkSQL specific
         var localNextElementStr = "";
-        if (localNextElement.getClass() == classOf[UnsafeRow]) {
-          var localNextElementStr = new String(localNextElement.asInstanceOf[UnsafeRow].getBytes);
-          println("checking " + localNextElementStr)
+        /* if (localNextElement.getClass == classOf[UnsafeRow]) {
+
+          var objectVal: Array[Byte] = localNextElement.asInstanceOf[UnsafeRow].getBytes.asInstanceOf[Array[Byte]];
+          for (c <- objectVal) {
+            localNextElementStr += c.toChar
+          }
+
+          println(":checking " + localNextElementStr.trim())
           while (localNextElementStr.contains(valueToBeBlocked) && hasNextVal) {
 
             println("Blocking" + localNextElementStr)
@@ -39,25 +42,28 @@ hasNextVal = super.hasNext;
             localNextElementStr = new String(localNextElement.asInstanceOf[UnsafeRow].getBytes);
             hasNextVal = super.hasNext
           }
-        } else {
-          println("checking " + localNextElement)
+        }
+         else */ {
+
+          println("checking " + localNextElement + " : " + localNextElement.getClass.getSimpleName)
           while (localNextElement.toString().contains(valueToBeBlocked) && hasNextVal) {
 
             println("Blocking" + localNextElement)
             localNextElement = super.next();
             hasNextVal = super.hasNext
           }
-          localNextElementStr = localNextElement.toString()
+          // localNextElementStr = localNextElement.toString()
         }
         /**
          * Iterator could
          */
-        if (localNextElement != null && (!localNextElementStr.contains(valueToBeBlocked))) {
+        if (localNextElement != null && (!localNextElement.toString().contains(valueToBeBlocked))) {
           nextElement = localNextElement;
           /**
            * Enable element for consumption
            */
           nextConsumed = false;
+          println("setting for consumption" + nextElement)
 
           return true
         }
@@ -71,6 +77,7 @@ hasNextVal = super.hasNext;
    */
   override def next(): T = {
     if (nextConsumed) {
+      println("nothing to consume")
       this.hasNext;
     }
     /**
