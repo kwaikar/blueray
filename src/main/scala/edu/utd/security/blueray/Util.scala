@@ -42,7 +42,6 @@ object Util {
   }
 
   def extractAuth(context: org.apache.spark.TaskContext) = {
-    println(context.getLocalProperty("PRIVILEDGE"))
     var auth = Util.decrypt(context.getLocalProperty("PRIVILEDGE"))
     println(" auth:" + auth);
     auth
