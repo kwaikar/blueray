@@ -27,7 +27,7 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
         hasNextVal = super.hasNext;
         // SparkSQL specific
         var localNextElementStr = "";
-        /* if (localNextElement.getClass == classOf[UnsafeRow]) {
+         if (localNextElement.getClass == classOf[UnsafeRow]) {
 
           var objectVal: Array[Byte] = localNextElement.asInstanceOf[UnsafeRow].getBytes.asInstanceOf[Array[Byte]];
           for (c <- objectVal) {
@@ -43,7 +43,7 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
             hasNextVal = super.hasNext
           }
         }
-         else */ {
+         else  {
 
           println("checking " + localNextElement + " : " + localNextElement.getClass.getSimpleName)
           while (localNextElement.toString().contains(valueToBeBlocked) && hasNextVal) {

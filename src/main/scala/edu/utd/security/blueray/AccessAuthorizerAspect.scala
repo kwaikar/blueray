@@ -1,7 +1,6 @@
 package edu.utd.security.blueray
 
-import scala.util.control.Breaks.break
-import scala.util.control.Breaks.breakable
+import java.util.Enumeration
 
 import org.apache.hadoop.mapred.JobConf
 import org.apache.spark.Partition
@@ -16,53 +15,49 @@ import org.aspectj.lang.annotation.Aspect
 @Aspect
 class AccessAuthorizerAspect {
 
-  // val logger = Logger(LoggerFactory.getLogger(this.getClass))
-  /* 
-    @Around(value = "execution(* org.apache.spark.streaming.dstream.MappedDStream.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")*/
+ 
 
-  @Around(value = "execution(* org.apache.spark.rdd.MapPartitionsRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
+ // @Around(value = "execution(* org.apache.spark.rdd.MapPartitionsRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
   def aroundAdvice_spark(jp: ProceedingJoinPoint, theSplit: Partition, job: JobConf, context: TaskContext): AnyRef = {
-    // logger.debug("Invoking advice")
-    var path: String = "";
-    println(context.getLocalProperty("PRIVILEDGE"))
-    var auth = Util.decrypt(context.getLocalProperty("PRIVILEDGE"))
-    println("path("+path+") auth:"+auth);
-    if (auth != null && context.getLocalProperty("PRIVILEDGE").trim().length()!=0) {
-      var pathFound = false;
-      breakable {
-        for (argument <- jp.getArgs()) {
-          for (field <- argument.getClass.getDeclaredFields) {
-            if (field.getName.equalsIgnoreCase("inputSplit") || field.getName.equalsIgnoreCase("split")) {
-              field.setAccessible(true)
-              val fullPath = field.get(jp.getArgs()(0)).toString()
-              path = fullPath.subSequence(0, fullPath.lastIndexOf(":")).toString()
-              pathFound = true;
-              break;
-            } else if (field.getName.equalsIgnoreCase("files")) {
-              field.setAccessible(true)
-              val partitionedFile = field.get(jp.getArgs()(0)).toString()
-              println(partitionedFile.toString())
-              path = partitionedFile.subSequence(partitionedFile.indexOf(" "), partitionedFile.indexOf(",")).toString();
-              pathFound = true;
-              break;
-            }
-          }
-          if (pathFound) {
-            break;
-          }
-        }
-      }
-      val iterator = (jp.proceed(jp.getArgs()))
-      val policyFound = AccessMonitor.getPolicy(path, auth)
-      println("Policy: "+policyFound +" : "+ jp.getTarget)
-      if (policyFound != None) {
-        val authorizedIterator = new AuthorizedInterruptibleIterator(context, iterator.asInstanceOf[Iterator[_]], "Lii");
-        return authorizedIterator
-      }
-      return iterator;
-    } else {
+    val policy = getPolicy(context, jp, PointCutType.SPARK);
 
-      return (jp.proceed(jp.getArgs()))
+    val iterator = (jp.proceed(jp.getArgs()));
+    if (policy != None) {
+      val authorizedIterator = new AuthorizedInterruptibleIterator(context, iterator.asInstanceOf[Iterator[_]], "Lii");
+      return authorizedIterator
     }
+
+    return iterator;
+  }
+
+  @Around(value = "execution(* org.apache.spark.sql.execution.datasources.FileScanRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
+  def aroundAdvice_sparkSQL(jp: ProceedingJoinPoint, theSplit: Partition, job: JobConf, context: TaskContext): AnyRef = {
+    val policy = getPolicy(context, jp, PointCutType.SPARKSQL);
+    println("Executing FileScanRDD iterator")
+    val iterator = (jp.proceed(jp.getArgs()));
+    if (policy != None) {
+      val authorizedIterator = new AuthorizedInterruptibleIterator(context, iterator.asInstanceOf[Iterator[_]], "Lii");
+      return authorizedIterator
+    }
+
+    return iterator;
+  }
+  def getPolicy(context: org.apache.spark.TaskContext, jp: org.aspectj.lang.ProceedingJoinPoint, pcType:Any): Option[Policy] = {
+    var policy: Option[Policy] = None;
+
+    val auth = Util.extractAuth(context)
+    if (auth != null) {
+      if (pcType == PointCutType.SPARK) {
+
+        var path = Util.extractPathForSpark(jp);
+        policy = AccessMonitor.getPolicy(path, auth)
+      } else if (pcType == PointCutType.SPARKSQL) {
+
+        var path = Util.extractPathForSparkSQL(jp);
+        policy = AccessMonitor.getPolicy(path, auth)
+      }
+    }
+    println("policy found:"+policy+ " : "+pcType)
+    policy
   }
 }
