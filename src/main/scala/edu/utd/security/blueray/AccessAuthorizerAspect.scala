@@ -15,34 +15,36 @@ import org.aspectj.lang.annotation.Aspect
 @Aspect
 class AccessAuthorizerAspect {
 
- 
-
- // @Around(value = "execution(* org.apache.spark.rdd.MapPartitionsRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
+  @Around(value = "execution(* org.apache.spark.rdd.MapPartitionsRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
   def aroundAdvice_spark(jp: ProceedingJoinPoint, theSplit: Partition, job: JobConf, context: TaskContext): AnyRef = {
-    val policy = getPolicy(context, jp, PointCutType.SPARK);
 
     val iterator = (jp.proceed(jp.getArgs()));
-    if (policy != None) {
-      val authorizedIterator = new AuthorizedInterruptibleIterator(context, iterator.asInstanceOf[Iterator[_]], "Lii");
-      return authorizedIterator
-    }
+    if (context.getLocalProperty("PRIVILEDGE") != null) {
+      val policy = getPolicy(context, jp, PointCutType.SPARK);
 
-    return iterator;
+      if (policy != None) {
+        val authorizedIterator = new AuthorizedInterruptibleIterator(context, iterator.asInstanceOf[Iterator[_]], "Lii");
+        return authorizedIterator
+      }
+    }
+    return iterator
   }
 
   @Around(value = "execution(* org.apache.spark.sql.execution.datasources.FileScanRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
   def aroundAdvice_sparkSQL(jp: ProceedingJoinPoint, theSplit: Partition, job: JobConf, context: TaskContext): AnyRef = {
-    val policy = getPolicy(context, jp, PointCutType.SPARKSQL);
-    println("Executing FileScanRDD iterator")
-    val iterator = (jp.proceed(jp.getArgs()));
-    if (policy != None) {
-      val authorizedIterator = new AuthorizedInterruptibleIterator(context, iterator.asInstanceOf[Iterator[_]], "Lii");
-      return authorizedIterator
-    }
 
+    val iterator = (jp.proceed(jp.getArgs()));
+    if (context.getLocalProperty("PRIVILEDGE") != null) {
+      val policy = getPolicy(context, jp, PointCutType.SPARKSQL);
+      println("Executing FileScanRDD iterator")
+      if (policy != None) {
+        val authorizedIterator = new AuthorizedInterruptibleIterator(context, iterator.asInstanceOf[Iterator[_]], "Lii");
+        return authorizedIterator
+      }
+    }
     return iterator;
   }
-  def getPolicy(context: org.apache.spark.TaskContext, jp: org.aspectj.lang.ProceedingJoinPoint, pcType:Any): Option[Policy] = {
+  def getPolicy(context: org.apache.spark.TaskContext, jp: org.aspectj.lang.ProceedingJoinPoint, pcType: Any): Option[Policy] = {
     var policy: Option[Policy] = None;
 
     val auth = Util.extractAuth(context)
@@ -57,7 +59,7 @@ class AccessAuthorizerAspect {
         policy = AccessMonitor.getPolicy(path, auth)
       }
     }
-    println("policy found:"+policy+ " : "+pcType)
+    println("policy found:" + policy + " : " + pcType)
     policy
   }
 }
