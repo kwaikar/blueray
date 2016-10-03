@@ -131,6 +131,17 @@ class AccessAuthorizerTest {
     ssc.stop()
   }
 
+  @Test
+  def testForShell() {
+    var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user_small.csv", Util.encrypt("ADMIN"), "Lii");
+    edu.utd.security.blueray.AccessMonitor.enforcePolicy(policy);
+    assertDataSetSize(3, sc);
+    sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
+    var inputFile = sc.textFile("hdfs://localhost/user/user_small.csv")
+    inputFile.collect().foreach(println)
+    assertDataSetSize(2, sc);
+
+  }
   def splitLine(line: String) = {
     val splits = line.split("\\^");
     if (splits.size == 3)

@@ -80,11 +80,11 @@
 			<version>3.0.0-M15</version>
 			<scope>test</scope>
 		</dependency>
-<dependency>
-    <groupId>org.apache.spark</groupId>
-    <artifactId>spark-streaming_2.11</artifactId>
-    <version>2.0.0</version>
-</dependency>
+		<dependency>
+			<groupId>org.apache.spark</groupId>
+			<artifactId>spark-streaming_2.11</artifactId>
+			<version>2.0.0</version>
+		</dependency>
 	</dependencies>
 
 	<build>
@@ -113,14 +113,37 @@
 				</executions>
 			</plugin>
 
-
 			<plugin>
 				<artifactId>maven-surefire-plugin</artifactId>
 				<version>${maven-surefire-plugin.version}</version>
 				<configuration>
-				<argLine>"-javaagent:/home/kanchan/Downloads/aspectjweaver-1.8.5.jar"</argLine>
+					<argLine>"-javaagent:/home/kanchan/Downloads/aspectjweaver-1.8.5.jar"</argLine>
 				</configuration>
 			</plugin> 
+			
+			<plugin>
+        <artifactId>maven-resources-plugin</artifactId>
+        <version>3.0.1</version>
+        <executions>
+          <execution>
+            <id>copy-resources</id>
+            <!-- here the phase you need -->
+            <phase>validates</phase>
+            <goals>
+              <goal>copy-resources</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>${basedir}/META-INF/</outputDirectory>
+              <resources>          
+                <resource>
+                  <directory>${basedir}/src/main/resources/META-INF/</directory>
+                  <filtering>true</filtering>
+                </resource>
+              </resources>              
+            </configuration>            
+          </execution>
+        </executions>
+      </plugin>
 		</plugins>
 		<resources>
 			<resource>
@@ -132,9 +155,11 @@
 			</resource>
 		</resources>
 	</build>
-	<repositories><repository>
+	<repositories>
+		<repository>
 			<id>sonatype-nexus-staging</id>
 			<name>Nexus Release Repository</name>
 			<url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
-		</repository></repositories>
+		</repository>
+	</repositories>
 </project>
