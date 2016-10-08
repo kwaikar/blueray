@@ -1,4 +1,3 @@
-import scala.annotation.elidable
 import scala.annotation.elidable.ASSERTION
 
 import org.apache.spark.SparkConf
@@ -7,14 +6,14 @@ import org.apache.spark.rdd.RDD.rddToPairRDDFunctions
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.streaming.Seconds
 import org.apache.spark.streaming.StreamingContext
-import org.apache.spark.streaming.dstream.DStream.toPairDStreamFunctions
+import org.junit.After
+import org.junit.Before
 import org.junit.Test
 
 import edu.utd.security.blueray.AccessMonitor
 import edu.utd.security.blueray.Util
-import org.junit.Before
-import org.apache.spark.api.java.JavaSparkContext
-import org.junit.After
+import org.apache.spark.streaming.dstream.FileInputDStream
+import org.apache.hadoop.fs.Path
 
 /**
  * Unit Test class for testing AccessAuthorization functionality.
@@ -30,19 +29,21 @@ class AccessAuthorizerTest {
   }
   @After
   def destroy() {
-    sc.stop();
+
+ 
+     sc.stop();
     sc = null;
   }
 
   def main(args: Array[String]): Unit = {
     testSparkSQL();
   }
-  @Test
+  //@Test
   def testUtil() = {
 
     assert(Util.decrypt(Util.encrypt("Hello")) == "Hello");
   }
-  @Test
+  //@Test
   def testSpark() = {
     sc.setLogLevel("ERROR")
     var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user_small.csv", Util.encrypt("ADMIN"), "Lii");
@@ -85,7 +86,7 @@ class AccessAuthorizerTest {
 
   }
 
-  @Test
+  //@Test
   def testSparkSQL() =
     {
 
@@ -96,6 +97,7 @@ class AccessAuthorizerTest {
       AccessMonitor.enforcePolicy(policy);
       val dfs = sqlContext.read.json("hdfs://localhost/user/user.json")
       assert(dfs.select("id").collect().length == 2)
+      assert(dfs.count() == 2);
       println("done")
       sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("SomeRANDOMSTRIng"));
       assert(dfs.select("id").collect().length == 3)
@@ -105,6 +107,7 @@ class AccessAuthorizerTest {
       assert(dfs.select("id").collect().length == 3)
 
     }
+   def defaultFilter(path: Path): Boolean = !path.getName().startsWith(".")
 
   @Test
   def testSparkStreaming() = {
@@ -113,33 +116,40 @@ class AccessAuthorizerTest {
 
     var inputFile = sc.textFile("hdfs://localhost/user/user_small.csv")
 
-    var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user_small.csv", Util.encrypt("ADMIN"), "Lii");
+    var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/stream/", Util.encrypt("ADMIN"), "Jan");
     edu.utd.security.blueray.AccessMonitor.enforcePolicy(policy);
 
-    val ssc = new StreamingContext(sc, Seconds(2))
+    val ssc = new StreamingContext(sc, Seconds(1))
 
-    val lines = ssc.textFileStream("hdfs://localhost/user/user_small.csv")
-    val words = lines.flatMap(_.split("\n"))
-    // Count each word in each batch
-    val pairs = words.map(word => (1, 1))
-    println(pairs.count().toString())
-    val wordCounts = pairs.reduceByKey(_ + _)
-    println("--->" + wordCounts.count().toString())
-    wordCounts.print()
+    val lines = ssc.fileStream("hdfs://localhost/stream/",  defaultFilter, false) 
+
+
+    var testCasePassed = false;
+    lines.foreachRDD(rdd =>
+      {
+        if (rdd.collect().length != 0) {
+          assert(rdd.collect().length == 3);
+          testCasePassed = true;
+        }
+       
+      })
+    println( ":" + lines.count())
     ssc.start()
-
-    ssc.stop()
+    ssc.awaitTerminationOrTimeout(9000)
+    // 
+    println("=============================>>>>>")
+    assert(testCasePassed);
   }
 
-  @Test
+  //@Test
   def testForShell() {
-    var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user_small.csv", Util.encrypt("ADMIN"), "Lii");
+    var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user_small.csv", edu.utd.security.blueray.Util.encrypt("ADMIN"), "Lii");
     edu.utd.security.blueray.AccessMonitor.enforcePolicy(policy);
     assertDataSetSize(3, sc);
-    sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
+    sc.setLocalProperty(("PRIVILEDGE"), edu.utd.security.blueray.Util.encrypt("ADMIN"));
     var inputFile = sc.textFile("hdfs://localhost/user/user_small.csv")
     inputFile.collect().foreach(println)
-    assertDataSetSize(2, sc);
+    assertDataSetSize(2, sc)
 
   }
   def splitLine(line: String) = {
