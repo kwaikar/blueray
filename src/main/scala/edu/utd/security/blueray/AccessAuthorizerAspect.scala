@@ -15,23 +15,7 @@ import org.aspectj.lang.annotation.Aspect
 @Aspect
 class AccessAuthorizerAspect {
 
-  
-  @Around(value = "execution(* org.apache.spark.rdd.NewHadoopRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
-  def aroundAdvice_sparkStreaming(jp: ProceedingJoinPoint, theSplit: Partition, job: JobConf, context: TaskContext): AnyRef = {
-
-    val iterator = (jp.proceed(jp.getArgs()));
-    if (context.getLocalProperty("PRIVILEDGE") != null) {
-      val policy = getPolicy(context, jp, PointCutType.SPARK);
-
-      if (policy != None) {
-        val authorizedIterator = new AuthorizedInterruptibleIterator(context, iterator.asInstanceOf[Iterator[_]], policy.get.filterExpression);
-        return authorizedIterator
-      }
-    }
-    return iterator
-  }
-  
- // @Around(value = "execution(* org.apache.spark.rdd.MapPartitionsRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
+  @Around(value = "execution(* org.apache.spark.rdd.MapPartitionsRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
   def aroundAdvice_spark(jp: ProceedingJoinPoint, theSplit: Partition, job: JobConf, context: TaskContext): AnyRef = {
 
     val iterator = (jp.proceed(jp.getArgs()));

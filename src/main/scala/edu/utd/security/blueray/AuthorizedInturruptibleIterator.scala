@@ -45,7 +45,7 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
         }
          else  {
 
-          println("checking " + localNextElement + " : " + localNextElement.getClass.getSimpleName)
+          println("::::::::::::::::::::checking " + localNextElement + " : " + localNextElement.getClass.getSimpleName)
           while (localNextElement.toString().contains(valueToBeBlocked) && hasNextVal) {
 
             println("Blocking" + localNextElement)
