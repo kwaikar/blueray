@@ -1,7 +1,9 @@
 import scala.annotation.elidable.ASSERTION
 
+import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkConf
 import org.apache.spark.SparkContext
+import org.apache.spark.rdd.RDD
 import org.apache.spark.rdd.RDD.rddToPairRDDFunctions
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.streaming.Seconds
@@ -12,9 +14,9 @@ import org.junit.Test
 
 import edu.utd.security.blueray.AccessMonitor
 import edu.utd.security.blueray.Util
-import org.apache.spark.streaming.dstream.FileInputDStream
-import org.apache.hadoop.fs.Path
-import org.apache.spark.rdd.RDD
+import org.apache.hadoop.io.LongWritable 
+import org.apache.hadoop.io.{BytesWritable, LongWritable, Text}
+import org.apache.hadoop.mapreduce.lib.input.TextInputFormat
 
 /**
  * Unit Test class for testing AccessAuthorization functionality.
@@ -122,19 +124,24 @@ class AccessAuthorizerTest {
     edu.utd.security.blueray.AccessMonitor.enforcePolicy(policy);
 
     val ssc = new StreamingContext(sc, Seconds(1))
-
-    val lines = ssc.textFileStream("hdfs://localhost/stream/")  
-
+/*ssc.fileStream[LongWritable, Text, TextInputFormat]("hdfs://localhost/stream/",  defaultFilter: Path => Boolean, false).map(_._2.toString)*/
+    val lines =  ssc.textFileStream("hdfs://localhost/stream/")
     var testCasePassed = false;
     lines.foreachRDD(rdd =>
       {
         if (rdd.collect().length != 0) {
-          assertDataSetSize(2, sc, rdd)
+          assertDataSetSize(2, sc, rdd) 
+    sc.setLocalProperty(("PRIVILEDGE"), edu.utd.security.blueray.Util.encrypt("ADMIwN"));
+          assertDataSetSize(3, sc, rdd) 
+      sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
+          assertDataSetSize(2, sc, rdd) 
+      AccessMonitor.deRegisterPolicy(policy);
+          assertDataSetSize(3, sc, rdd) 
           testCasePassed = true;
           ssc.stop();
         }
 
-      })
+      }) 
     println(":" + lines.count())
     ssc.start()
     ssc.awaitTermination()
