@@ -1,3 +1,4 @@
+package edu.utd.security.blueray
 import scala.annotation.elidable
 import scala.annotation.elidable.ASSERTION
 
@@ -16,14 +17,9 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 
-import edu.utd.security.blueray.AccessMonitor
-import edu.utd.security.blueray.Util
-/**
- * Unit Test class for testing AccessAuthorization functionality.
- */
-class AccessAuthorizerTest {
-
+class StreamingTest {
   var sc: SparkContext = _;
+  def defaultFilter(path: Path): Boolean = !path.getName().startsWith(".")
 
   @Before
   def setUp() {
@@ -36,28 +32,50 @@ class AccessAuthorizerTest {
     sc.stop();
     sc = null;
   }
-
-  def main(args: Array[String]): Unit = {
-    testSparkSQL();
-  }
   @Test
-  def testUtil() = {
+  def testSparkStreaming() = {
 
-    assert(Util.decrypt(Util.encrypt("Hello")) == "Hello");
-  }
-  @Test
-  def testSpark() = {
-    sc.setLogLevel("ERROR")
-    var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user_small.csv", Util.encrypt("ADMIN"), "Lii");
+    // sc.setLogLevel("DEBUG")
+    sc.setLocalProperty("PRIVILEDGE", Util.encrypt("ADMIN"));
+
+    var inputFile = sc.textFile("hdfs://localhost/user/user_stream.csv")
+
+    var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/stream/", Util.encrypt("ADMIN"), "Lii");
     edu.utd.security.blueray.AccessMonitor.enforcePolicy(policy);
+    // required so tht it can read exiting files
+    val ssc = new StreamingContext(sc, Seconds(1))
+    ssc.sparkContext.getConf.set("spark.streaming.fileStream.minRememberDuration", "624000")
 
-    var inputFile = sc.textFile("hdfs://localhost/user/user_small.csv")
-    assertDataSetSize(3, sc, inputFile);
-    sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
-    assertDataSetSize(2, sc, inputFile);
-    AccessMonitor.deRegisterPolicy(policy);
-    assertDataSetSize(3, sc, inputFile);
-    println("")
+    /*ssc.fileStream[LongWritable, Text, TextInputFormat]("hdfs://localhost/stream/",  defaultFilter: Path => Boolean, false).map(_._2.toString)*/
+    var (lines, testCasePassed) = streamFile(ssc, policy) /*.textFileStream("hdfs://localhost/stream/")*/
+    println(":" + lines.count())
+    ssc.start()
+    ssc.awaitTermination()
+  }
+
+  def streamFile(ssc: org.apache.spark.streaming.StreamingContext, policy: edu.utd.security.blueray.Policy) = {
+
+    /*ssc.fileStream[LongWritable, Text, TextInputFormat]("hdfs://localhost/stream/",  defaultFilter: Path => Boolean, false).map(_._2.toString)*/
+    val lines = ssc.fileStream[LongWritable, Text, TextInputFormat]("hdfs://localhost/stream/", defaultFilter(_), newFilesOnly = false).map(_._2.toString)
+    /*.textFileStream("hdfs://localhost/stream/")*/
+    var testCasePassed = false;
+    lines.foreachRDD(rdd =>
+      {
+        if (rdd.collect().length != 0) {
+          assertDataSetSize(2, sc, rdd)
+          sc.setLocalProperty(("PRIVILEDGE"), edu.utd.security.blueray.Util.encrypt("ADMIwN"));
+          assertDataSetSize(3, sc, rdd)
+          sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
+          assertDataSetSize(2, sc, rdd)
+          AccessMonitor.deRegisterPolicy(policy);
+          assertDataSetSize(3, sc, rdd)
+          testCasePassed = true;
+          println("test case status: "+ testCasePassed)
+          ssc.stop();
+        }
+
+      })
+    (lines, testCasePassed)
   }
 
   def assertDataSetSize(count: Int, sc: SparkContext, inputFile: RDD[String]) = {
@@ -88,49 +106,5 @@ class AccessAuthorizerTest {
     assert(count == savedFile.count(), "savedFile method testing")
     assert(fs.delete(new org.apache.hadoop.fs.Path(fileName), true))
 
-  }
-
-  @Test
-  def testSparkSQL() =
-    {
-
-      val sqlContext = new SQLContext(sc)
-      sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
-
-      var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user.json", Util.encrypt("ADMIN"), "Lii");
-      AccessMonitor.enforcePolicy(policy);
-      val dfs = sqlContext.read.json("hdfs://localhost/user/user.json")
-      assert(dfs.select("id").collect().length == 2)
-      assert(dfs.count() == 2);
-      println("done")
-      sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("SomeRANDOMSTRIng"));
-      assert(dfs.select("id").collect().length == 3)
-
-      sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
-      AccessMonitor.deRegisterPolicy(policy);
-      assert(dfs.select("id").collect().length == 3)
-
-    }
-
-  @Test
-  def testForShell() {
-    var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user_small.csv", edu.utd.security.blueray.Util.encrypt("ADMIN"), "Lii");
-    edu.utd.security.blueray.AccessMonitor.enforcePolicy(policy);
-    var inputFile = sc.textFile("hdfs://localhost/user/user_small.csv")
-    assertDataSetSize(3, sc, inputFile);
-    sc.setLocalProperty(("PRIVILEDGE"), edu.utd.security.blueray.Util.encrypt("ADMIN"));
-    inputFile.collect().foreach(println)
-    assertDataSetSize(2, sc, inputFile)
-
-    //     val fs = org.apache.hadoop.fs.FileSystem.get(new java.net.URI("hdfs://localhost/sream/user_small.csv"), sc.hadoopConfiguration)
-    //fs.delete(new org.apache.hadoop.fs.Path("hdfs://localhost/stream/"))
-
-  }
-  def splitLine(line: String) = {
-    val splits = line.split("\\^");
-    if (splits.size == 3)
-      List(splits(0), splits(1), splits(2));
-    else
-      List(splits(0), splits(1), splits(2), splits(3));
   }
 }
