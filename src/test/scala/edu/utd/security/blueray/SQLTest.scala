@@ -28,7 +28,7 @@ class SQLTest {
     testSparkSQL();
   }
 
-  @Test
+  //@Test
   def testSparkSQL() =
     {
       val sqlContext = new SQLContext(sc)
@@ -50,7 +50,7 @@ class SQLTest {
       println("==========================>")
     }
 
-  //  @Test
+    @Test
   def testSparkSQLToRDDVersion() =
     {
       val sqlContext = new SQLContext(sc)

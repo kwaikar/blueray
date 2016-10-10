@@ -7,15 +7,41 @@ import scala.util.control.Breaks.breakable
 
 import javax.crypto.Cipher
 import javax.crypto.spec.SecretKeySpec
+import org.apache.spark.SparkContext
+import org.apache.spark.SparkConf
+import java.io.PrintWriter
+import java.io.FileWriter
+import java.io.File
+import org.apache.hadoop.fs.Path
 
- 
- 
 object Util {
 
   val secretKey = new SecretKeySpec("MY_SECRET_KEY_12".getBytes, "AES")
+  var sc: SparkContext = _;
 
-  
-  
+  def getSC(): SparkContext = {
+    if (sc == null) {
+      val conf = new SparkConf().setAppName("Simple Application").setMaster("local[2]");
+      sc = new SparkContext(conf)
+    }
+
+    sc;
+  }
+
+  def getFileAsString(path: String): String = {
+    var sc: SparkContext = getSC()
+val value=sc.textFile(path).collect().mkString
+   println("===3>"+ sc.textFile(path).collect().size)
+    value
+  }
+
+  def storeStringAsFile(fileString: String, path: String) = {
+    var sc = getSC();
+    val fs = org.apache.hadoop.fs.FileSystem.get(new java.net.URI("hdfs://localhost/sream/user_small.csv"), sc.hadoopConfiguration)
+    val os = fs.create(new Path(path))
+    os.write(fileString.getBytes)
+
+  }
   def splitLine(line: String) = {
     val splits = line.split("\\^");
     if (splits.size == 3)
@@ -80,8 +106,7 @@ object Util {
             path = fullPath.subSequence(0, fullPath.lastIndexOf(":")).toString()
             pathFound = true;
             break;
-          }
-        else if (field.getName.equalsIgnoreCase("files")) {
+          } else if (field.getName.equalsIgnoreCase("files")) {
             field.setAccessible(true)
             val partitionedFile = field.get(jp.getArgs()(0)).toString()
             println(partitionedFile.toString())
@@ -100,7 +125,7 @@ object Util {
 }
 
 object PointCutType extends Enumeration {
-    type PointCutType = String;
-    val SPARK = "SPARK";
-    val SPARKSQL = "SPARKSQL";
-  }
+  type PointCutType = String;
+  val SPARK = "SPARK";
+  val SPARKSQL = "SPARKSQL";
+}

@@ -1,3 +1,5 @@
+package edu.utd.security.blueray
+
 import scala.annotation.elidable
 import scala.annotation.elidable.ASSERTION
 
@@ -16,8 +18,6 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 
-import edu.utd.security.blueray.AccessMonitor
-import edu.utd.security.blueray.Util
 /**
  * Unit Test class for testing AccessAuthorization functionality.
  */

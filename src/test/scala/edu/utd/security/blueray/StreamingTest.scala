@@ -32,7 +32,7 @@ class StreamingTest {
     sc.stop();
     sc = null;
   }
-  @Test
+  //@Test
   def testSparkStreaming() = {
 
     // sc.setLogLevel("DEBUG")
