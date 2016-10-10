@@ -67,10 +67,17 @@ val value=sc.textFile(path).collect().mkString
 
   }
 
-  def extractAuth(context: org.apache.spark.TaskContext) = {
+  def extractAuth(context: org.apache.spark.TaskContext):Option[String] = {
+    if(context.getLocalProperty("PRIVILEDGE")!=null)
+    {
     var auth = Util.decrypt(context.getLocalProperty("PRIVILEDGE"))
     println(" auth:" + auth);
-    auth
+    Some(auth)
+    }
+    else
+    {
+      return None
+    }
   }
 
   def extractPathForSpark(jp: org.aspectj.lang.ProceedingJoinPoint): String = {

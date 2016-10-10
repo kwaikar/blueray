@@ -19,20 +19,18 @@ class AccessAuthorizerAspect {
   def aroundAdvice_spark(jp: ProceedingJoinPoint, theSplit: Partition, job: JobConf, context: TaskContext): AnyRef = {
 
     val iterator = (jp.proceed(jp.getArgs()));
-   
-    if (context.getLocalProperty("PRIVILEDGE") != null) {
-      val policy = getPolicy(context, jp, PointCutType.SPARK);
 
-      if (policy != None) {
-        val authorizedIterator = new AuthorizedInterruptibleIterator(context, iterator.asInstanceOf[Iterator[_]], policy.get.filterExpression);
-        return authorizedIterator
-      }
+    // if (context.getLocalProperty("PRIVILEDGE") != null) {
+    val policy = getPolicy(context, jp, PointCutType.SPARK);
+
+    if (policy != None) {
+      val authorizedIterator = new AuthorizedInterruptibleIterator(context, iterator.asInstanceOf[Iterator[_]], policy.get.filterExpression);
+      return authorizedIterator
     }
+    //}
     return iterator
   }
 
-  
-  
   @Around(value = "execution(* org.apache.spark.sql.execution.datasources.FileScanRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
   def aroundAdvice_sparkSQL(jp: ProceedingJoinPoint, theSplit: Partition, job: JobConf, context: TaskContext): AnyRef = {
 
@@ -49,18 +47,16 @@ class AccessAuthorizerAspect {
   }
   def getPolicy(context: org.apache.spark.TaskContext, jp: org.aspectj.lang.ProceedingJoinPoint, pcType: Any): Option[Policy] = {
     var policy: Option[Policy] = None;
-    val auth = Util.extractAuth(context)
-    if (auth != null) {
-      if (pcType == PointCutType.SPARK) {
+    val auth: Option[String] = Util.extractAuth(context)
+    if (pcType == PointCutType.SPARK) {
 
-        var path = Util.extractPathForSpark(jp);
-        println("Path found:"+path);
-        policy = AccessMonitor.getPolicy(path, auth)
-      } else if (pcType == PointCutType.SPARKSQL) {
+      var path = Util.extractPathForSpark(jp);
+      println("Path found:" + path);
+      policy = AccessMonitor.getPolicy(path, auth)
+    } else if (pcType == PointCutType.SPARKSQL) {
 
-        var path = Util.extractPathForSparkSQL(jp);
-        policy = AccessMonitor.getPolicy(path, auth)
-      }
+      var path = Util.extractPathForSparkSQL(jp);
+      policy = AccessMonitor.getPolicy(path, auth)
     }
     println("policy found:" + policy + " : " + pcType)
     policy

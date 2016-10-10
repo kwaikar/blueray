@@ -37,7 +37,6 @@ class AccessAuthorizerTest {
     sc = null;
   }
 
-  
   @Test
   def testUtil() = {
 
@@ -50,9 +49,15 @@ class AccessAuthorizerTest {
     edu.utd.security.blueray.AccessMonitor.enforcePolicy(policy);
 
     var inputFile = sc.textFile("hdfs://localhost/user/user_small.csv")
-    assertDataSetSize(3, sc, inputFile);
+    assertDataSetSize(0, sc, inputFile);
+    
+    
     sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
     assertDataSetSize(2, sc, inputFile);
+
+    sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN2"));
+    assertDataSetSize(0, sc, inputFile);
+
     AccessMonitor.deRegisterPolicy(policy);
     assertDataSetSize(3, sc, inputFile);
     println("")
@@ -69,10 +74,13 @@ class AccessAuthorizerTest {
     assert(inputFile.flatMap(_.split("\n")).countByValue().size == count, "countByValue ")
     inputFile.foreach(println)
     assert(count == inputFile.map(x => (x(1), 1)).reduceByKey(_ + _).collect().size, "reduceByKey ")
-    assert(count == inputFile.map(x => (1)).collect().reduceLeft({ (x, y) => x + y }), "reduceLeft ")
-    assert(count == inputFile.map(x => (1)).collect().reduce({ (x, y) => x + y }), "reduce ")
-    assert(inputFile.collect()(0).size == inputFile.first().size, "Size function testing")
 
+    if (count > 0) {
+      assert(count == inputFile.map(x => (1)).collect().reduceLeft({ (x, y) => x + y }), "reduceLeft ")
+      assert(count == inputFile.map(x => (1)).collect().reduce({ (x, y) => x + y }), "reduce ")
+      assert(inputFile.collect()(0).size == inputFile.first().size, "Size function testing")
+
+    }
     val fileName = "hdfs://localhost/user/user_authorized_single" + currentMillis + ".csv";
     inputFile.coalesce(1).saveAsTextFile(fileName);
     var coalescedFile = sc.textFile(fileName)

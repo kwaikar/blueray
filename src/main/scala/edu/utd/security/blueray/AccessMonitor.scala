@@ -30,19 +30,24 @@ object AccessMonitor {
   /**
    * Returns policy from map based on authorization
    */
-  def getPolicy(path: String, priviledgeRestriction: String): Option[Policy] =
+  def getPolicy(path: String, priviledgeRestriction: Option[String]): Option[Policy] =
     {
       var policyToBeReturned: Option[Policy] = None;
 
       for (hashSet <- policies) {
         breakable {
           if (hashSet._1.startsWith(path.trim())) {
+            if (priviledgeRestriction == None) {
+              return Some(new Policy(path, "", ""))
+            }
             for (policy <- hashSet._2) {
-              if (policy.priviledgeRestriction.equalsIgnoreCase(priviledgeRestriction)) {
+              if (policy.priviledgeRestriction.equalsIgnoreCase(priviledgeRestriction.get)) {
                 policyToBeReturned = Some(policy);
                 break;
               }
             }
+
+            return Some(new Policy(path, "", ""))
           }
         }
       }
