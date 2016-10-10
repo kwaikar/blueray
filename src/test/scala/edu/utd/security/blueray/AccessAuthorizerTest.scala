@@ -37,9 +37,7 @@ class AccessAuthorizerTest {
     sc = null;
   }
 
-  def main(args: Array[String]): Unit = {
-    testSparkSQL();
-  }
+  
   @Test
   def testUtil() = {
 
@@ -89,28 +87,6 @@ class AccessAuthorizerTest {
     assert(fs.delete(new org.apache.hadoop.fs.Path(fileName), true))
 
   }
-
-  @Test
-  def testSparkSQL() =
-    {
-
-      val sqlContext = new SQLContext(sc)
-      sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
-
-      var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user.json", Util.encrypt("ADMIN"), "Lii");
-      AccessMonitor.enforcePolicy(policy);
-      val dfs = sqlContext.read.json("hdfs://localhost/user/user.json")
-      assert(dfs.select("id").collect().length == 2)
-      assert(dfs.count() == 2);
-      println("done")
-      sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("SomeRANDOMSTRIng"));
-      assert(dfs.select("id").collect().length == 3)
-
-      sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
-      AccessMonitor.deRegisterPolicy(policy);
-      assert(dfs.select("id").collect().length == 3)
-
-    }
 
   @Test
   def testForShell() {

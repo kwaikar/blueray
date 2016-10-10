@@ -19,6 +19,7 @@ class AccessAuthorizerAspect {
   def aroundAdvice_spark(jp: ProceedingJoinPoint, theSplit: Partition, job: JobConf, context: TaskContext): AnyRef = {
 
     val iterator = (jp.proceed(jp.getArgs()));
+   
     if (context.getLocalProperty("PRIVILEDGE") != null) {
       val policy = getPolicy(context, jp, PointCutType.SPARK);
 

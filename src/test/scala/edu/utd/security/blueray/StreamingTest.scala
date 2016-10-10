@@ -42,15 +42,39 @@ class StreamingTest {
 
     var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/stream/", Util.encrypt("ADMIN"), "Lii");
     edu.utd.security.blueray.AccessMonitor.enforcePolicy(policy);
-    // required so tht it can read exiting files
     val ssc = new StreamingContext(sc, Seconds(1))
     ssc.sparkContext.getConf.set("spark.streaming.fileStream.minRememberDuration", "624000")
 
-    /*ssc.fileStream[LongWritable, Text, TextInputFormat]("hdfs://localhost/stream/",  defaultFilter: Path => Boolean, false).map(_._2.toString)*/
-    var (lines, testCasePassed) = streamFile(ssc, policy) /*.textFileStream("hdfs://localhost/stream/")*/
+    var (lines, testCasePassed) = streamSocket(ssc, policy)
     println(":" + lines.count())
     ssc.start()
     ssc.awaitTermination()
+  }
+
+  //@TODO : Make this work.
+  def streamSocket(ssc: org.apache.spark.streaming.StreamingContext, policy: edu.utd.security.blueray.Policy) = {
+
+    val lines = ssc.socketTextStream("localhost", 9999)
+    sc.setLogLevel("DEBUG")
+    // For streaming from commandline - nc -lk 9999
+    var testCasePassed = false;
+    lines.foreachRDD(rdd =>
+      {
+        if (rdd.collect().length != 0) {
+          assertDataSetSize(2, sc, rdd)
+          sc.setLocalProperty(("PRIVILEDGE"), edu.utd.security.blueray.Util.encrypt("ADMIwN"));
+          assertDataSetSize(3, sc, rdd)
+          sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
+          assertDataSetSize(2, sc, rdd)
+          AccessMonitor.deRegisterPolicy(policy);
+          assertDataSetSize(3, sc, rdd)
+          testCasePassed = true;
+          println("test case status: " + testCasePassed)
+          ssc.stop();
+        }
+
+      })
+    (lines, testCasePassed)
   }
 
   def streamFile(ssc: org.apache.spark.streaming.StreamingContext, policy: edu.utd.security.blueray.Policy) = {
@@ -70,7 +94,7 @@ class StreamingTest {
           AccessMonitor.deRegisterPolicy(policy);
           assertDataSetSize(3, sc, rdd)
           testCasePassed = true;
-          println("test case status: "+ testCasePassed)
+          println("test case status: " + testCasePassed)
           ssc.stop();
         }
 
