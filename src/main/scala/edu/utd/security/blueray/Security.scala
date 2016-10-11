@@ -53,9 +53,13 @@ object Security {
   def encrypt(plainText: String): String =
     {
       val pbeKey = getSecretEncryptionKey();
+      if(cipherEncrypt==null)
+      {
       cipherEncrypt = Cipher.getInstance(pbeKey.getAlgorithm);
       cipherEncrypt.init(Cipher.ENCRYPT_MODE, pbeKey, pbeParamSpec);
+      }
       var cipherText: Array[Byte] = cipherEncrypt.doFinal(plainText.getBytes);
+      println("Encrypted:"+      Base64.getEncoder().encodeToString(cipherText))
       Base64.getEncoder().encodeToString(cipherText)
     }
 }

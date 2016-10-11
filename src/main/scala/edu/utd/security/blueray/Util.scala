@@ -30,8 +30,8 @@ object Util {
 
   def getFileAsString(path: String): String = {
     var sc: SparkContext = getSC()
-val value=sc.textFile(path).collect().mkString
-   println("===3>"+ sc.textFile(path).collect().size)
+    val value = sc.textFile(path).collect().mkString
+    println("===3>" + sc.textFile(path).collect().size)
     value
   }
 
@@ -52,30 +52,29 @@ val value=sc.textFile(path).collect().mkString
 
   def encrypt(plainText: String): String =
     {
-      var cipher = Cipher.getInstance("AES");
+      /*var cipher = Cipher.getInstance("AES");
       var plainTextByte: Array[Byte] = plainText.getBytes();
       cipher.init(Cipher.ENCRYPT_MODE, secretKey);
       var encryptedByte: Array[Byte] = cipher.doFinal(plainTextByte);
-      return Base64.getEncoder().encodeToString(encryptedByte);
+      return Base64.getEncoder().encodeToString(encryptedByte);*/
+      Security.encrypt(plainText)
     }
 
   def decrypt(encryptedText: String): String = {
-    var cipher = Cipher.getInstance("AES");
+    /*    var cipher = Cipher.getInstance("AES");
     var encryptedTextByte: Array[Byte] = Base64.getDecoder().decode(encryptedText);
     cipher.init(Cipher.DECRYPT_MODE, secretKey);
-    return (new String(cipher.doFinal(encryptedTextByte)));
-
+    return (new String(cipher.doFinal(encryptedTextByte)));*/
+    Security.decrypt(encryptedText)
   }
 
-  def extractAuth(context: org.apache.spark.TaskContext):Option[String] = {
-    if(context.getLocalProperty("PRIVILEDGE")!=null)
-    {
-    var auth = Util.decrypt(context.getLocalProperty("PRIVILEDGE"))
-    println(" auth:" + auth);
-    Some(auth)
-    }
-    else
-    {
+  def extractAuth(context: org.apache.spark.TaskContext): Option[String] = {
+    if (context.getLocalProperty("PRIVILEDGE") != null) {
+      println("PRIVILEDGE"+context.getLocalProperty("PRIVILEDGE"))
+      var auth = Util.decrypt(context.getLocalProperty("PRIVILEDGE"))
+      println(" auth:" + auth);
+      Some(auth)
+    } else {
       return None
     }
   }
