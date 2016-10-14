@@ -21,7 +21,6 @@ object Security {
 
   val pbeParamSpec: PBEParameterSpec = new PBEParameterSpec(salt, 10)
 
-  val password = "ADMIN_1_PASSWORD"
 
   def main(args: Array[String]): Unit = {
     val encryptedText = Security.encrypt("hello Its me")
@@ -33,17 +32,14 @@ object Security {
   }
   def decrypt(encryptedText: String): String =
     {
-
-      val pbeKey = getSecretEncryptionKey();
+      val pbeKey = getSecretKey("ADMIN_1_PASSWORD");
       var pbeCipherDecrypt: Cipher = Cipher.getInstance(pbeKey.getAlgorithm);
       pbeCipherDecrypt.init(Cipher.DECRYPT_MODE, pbeKey, cipherEncrypt.getParameters);
-      val encryptedBytes = Base64.getDecoder.decode(encryptedText);
-      var deCipheredText: Array[Byte] = pbeCipherDecrypt.doFinal(encryptedBytes);
-      println("--->" + new String(deCipheredText))
+      var deCipheredText: Array[Byte] = pbeCipherDecrypt.doFinal(Base64.getDecoder.decode(encryptedText));
       new String(deCipheredText)
     }
 
-  def getSecretEncryptionKey() = {
+  def getSecretKey(password:String) = {
     val pbeKeySpec: PBEKeySpec = new PBEKeySpec(password.toCharArray());
     val keyFac: SecretKeyFactory = SecretKeyFactory.getInstance(ALGORITHM);
     val pbeKey: SecretKey = keyFac.generateSecret(pbeKeySpec);
@@ -52,7 +48,7 @@ object Security {
 
   def encrypt(plainText: String): String =
     {
-      val pbeKey = getSecretEncryptionKey();
+      val pbeKey = getSecretKey("ADMIN_1_PASSWORD");
       if (cipherEncrypt == null) {
         cipherEncrypt = Cipher.getInstance(pbeKey.getAlgorithm);
         cipherEncrypt.init(Cipher.ENCRYPT_MODE, pbeKey, pbeParamSpec);

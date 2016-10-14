@@ -14,12 +14,14 @@ class SecurityTest {
   @Test
   def testEncryptDecrypt() =
     { 
-    val encryptedText = Security.encrypt("hello Its me")
+    val input="hello Its me";
+    val encryptedText = Security.encrypt(input)
     println(encryptedText)
     val decryptedText = Security.decrypt(encryptedText)
     println(decryptedText)
+    assert(decryptedText.equalsIgnoreCase(input))
     
   //  Util.storeStringAsFile("MEEEE","hdfs://localhost/user/222.csv")
-    assert(Util.getFileAsString("hdfs://localhost/user/222.csv")=="MEEEE")
+  //  assert(Util.getFileAsString("hdfs://localhost/user/222.csv")=="MEEEE")
     } 
 }
