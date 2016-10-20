@@ -3,17 +3,10 @@ package edu.utd.security.blueray
 import scala.annotation.elidable
 import scala.annotation.elidable.ASSERTION
 
-import org.apache.hadoop.fs.Path
-import org.apache.hadoop.io.LongWritable
-import org.apache.hadoop.io.Text
-import org.apache.hadoop.mapreduce.lib.input.TextInputFormat
 import org.apache.spark.SparkConf
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.rdd.RDD.rddToPairRDDFunctions
-import org.apache.spark.sql.SQLContext
-import org.apache.spark.streaming.Seconds
-import org.apache.spark.streaming.StreamingContext
 import org.junit.After
 import org.junit.Before
 import org.junit.Test

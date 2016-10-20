@@ -1,13 +1,16 @@
 package edu.utd.security.blueray
 
+import scala.annotation.elidable
+import scala.annotation.elidable.ASSERTION
+
 import org.apache.spark.SparkConf
 import org.apache.spark.SparkContext
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.Row
 import org.apache.spark.sql.SQLContext
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.Row
 
 class SQLTest {
   var sc: SparkContext = _;
@@ -28,7 +31,7 @@ class SQLTest {
     testSparkSQL();
   }
 
-  //@Test
+  @Test
   def testSparkSQL() =
     {
       val sqlContext = new SQLContext(sc)
@@ -36,21 +39,38 @@ class SQLTest {
       var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user.json", Util.encrypt("ADMIN"), "Lii");
       AccessMonitor.enforcePolicy(policy);
       val dfs = sqlContext.read.json("hdfs://localhost/user/user.json")
+      
       dfs.select("id").collect().foreach(println)
-      println("=============----------------->>>>>" + dfs.select("id").collect().length)
       assert(dfs.select("id").collect().length == 2)
+      dfs.filter(!_.mkString.contains("Lii"));
+      dfs.collect().foreach(println)
+      assert(dfs.select("age").collect().length == 2)
+      assert(dfs.count() == 2)
+      assert(dfs.groupBy("age").count() == 2)
+      val currentMillis = System.currentTimeMillis;
+
+      val fileName = "hdfs://localhost/user/user" + currentMillis + ".json";
+      dfs.write.format("json").save(fileName)
+    println("==========================>"+fileName)
+  
+      var fileSaved = sc.textFile(fileName)
+      println("==============wd============>"+fileName)
+      fileSaved.collect().foreach(println);
+      println("============dcd==============>")
+      assert(2 == fileSaved.count(), "saved testing")
+
+      val fs = org.apache.hadoop.fs.FileSystem.get(new java.net.URI(fileName), sc.hadoopConfiguration)
+      assert(fs.delete(new org.apache.hadoop.fs.Path(fileName), true))
+
       //assertDataSetSize(2, sc, dfs.rdd);
-      println("=============----------------->>>>>" + dfs.select("id").count())
-      println("done")
       sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("SomeRANDOMSTRIng"));
       //assertDataSetSize(3, sc, dfs.rdd );
       sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
       AccessMonitor.deRegisterPolicy(policy);
       //      assertDataSetSize(3, sc, dfs.rdd);
-      println("==========================>")
     }
 
-    @Test
+  //@Test
   def testSparkSQLToRDDVersion() =
     {
       val sqlContext = new SQLContext(sc)
@@ -60,10 +80,10 @@ class SQLTest {
       val dfs = sqlContext.read.json("hdfs://localhost/user/user.json")
       dfs.select("id").collect().foreach(println)
       println("=============----------------->>>>>" + dfs.select("id").collect().length)
+      sc.setLogLevel("DEBUG")
       assert(dfs.select("id").collect().length == 2)
       assertDataSetSize(2, sc, dfs.rdd);
       println("=============----------------->>>>>" + dfs.select("id").count())
-      println("done")
       sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("SomeRANDOMSTRIng"));
       assert(dfs.select("id").collect().length == 3)
       assertDataSetSize(3, sc, dfs.rdd);

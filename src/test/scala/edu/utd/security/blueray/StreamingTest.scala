@@ -1,4 +1,5 @@
 package edu.utd.security.blueray
+
 import scala.annotation.elidable
 import scala.annotation.elidable.ASSERTION
 
@@ -10,7 +11,6 @@ import org.apache.spark.SparkConf
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.rdd.RDD.rddToPairRDDFunctions
-import org.apache.spark.sql.SQLContext
 import org.apache.spark.streaming.Seconds
 import org.apache.spark.streaming.StreamingContext
 import org.junit.After
@@ -32,7 +32,7 @@ class StreamingTest {
     sc.stop();
     sc = null;
   }
-  //@Test
+  @Test
   def testSparkStreaming() = {
 
     // sc.setLogLevel("DEBUG")
