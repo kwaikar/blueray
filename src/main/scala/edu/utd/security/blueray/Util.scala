@@ -1,18 +1,13 @@
 package edu.utd.security.blueray
 
-import java.util.Base64
-
 import scala.util.control.Breaks.break
 import scala.util.control.Breaks.breakable
 
-import javax.crypto.Cipher
-import javax.crypto.spec.SecretKeySpec
-import org.apache.spark.SparkContext
-import org.apache.spark.SparkConf
-import java.io.PrintWriter
-import java.io.FileWriter
-import java.io.File
 import org.apache.hadoop.fs.Path
+import org.apache.spark.SparkConf
+import org.apache.spark.SparkContext
+
+import javax.crypto.spec.SecretKeySpec
 
 object Util {
 

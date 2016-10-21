@@ -1,7 +1,6 @@
 package edu.utd.security.blueray
 
 import scala.collection.mutable.HashMap
-import com.typesafe.scalalogging._
 import scala.collection.mutable.HashSet
 import scala.util.control.Breaks.break
 import scala.util.control.Breaks.breakable
@@ -25,7 +24,19 @@ object AccessMonitor {
     //  logger.debug("registered policy"+policy)
   }
   def deRegisterPolicy(policy: Policy) {
-    policies.remove(policy.resourcePath)
+    var policiesSet: Option[HashSet[Policy]] = policies.get(policy.resourcePath)
+    if (policiesSet != None) {
+      for (entry <- policiesSet.get) {
+        if (entry.filterExpression.equalsIgnoreCase(policy.filterExpression) && entry.resourcePath.equalsIgnoreCase(policy.resourcePath) && entry.filterExpression.equalsIgnoreCase(policy.filterExpression)) {
+          policiesSet.get.remove(entry)
+          if (policiesSet.get.size > 0) {
+            policies.put(policy.resourcePath, policiesSet.get);
+          } else {
+            policies.remove(entry.resourcePath)
+          }
+        }
+      }
+    }
   }
   /**
    * Returns policy from map based on authorization

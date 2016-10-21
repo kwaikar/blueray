@@ -37,7 +37,7 @@ class AccessAuthorizerAspect {
     val iterator = (jp.proceed(jp.getArgs()));
     if (context.getLocalProperty("PRIVILEDGE") != null) {
       val policy = getPolicy(context, jp, PointCutType.SPARKSQL);
-      println("Executing FileScanRDD iterator")
+      //println("Executing FileScanRDD iterator")
       if (policy != None) {
         val authorizedIterator = new AuthorizedInterruptibleIterator(context, iterator.asInstanceOf[Iterator[_]], policy.get.filterExpression);
         return authorizedIterator
@@ -51,14 +51,18 @@ class AccessAuthorizerAspect {
     if (pcType == PointCutType.SPARK) {
 
       var path = Util.extractPathForSpark(jp);
-      println("Path found:" + path);
+      //println("Path found:" + path);
       policy = AccessMonitor.getPolicy(path, auth)
     } else if (pcType == PointCutType.SPARKSQL) {
 
       var path = Util.extractPathForSparkSQL(jp);
+      if (path == null || path.trim().length() == 0) {
+        path = Util.extractPathForSpark(jp);
+      }
+      //println("Path found:" + path);
       policy = AccessMonitor.getPolicy(path, auth)
     }
-    println("policy found:" + policy + " : " + pcType)
+    //println("policy found:" + policy + " : " + pcType)
     policy
   }
 }

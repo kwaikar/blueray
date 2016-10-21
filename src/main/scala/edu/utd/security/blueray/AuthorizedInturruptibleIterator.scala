@@ -26,7 +26,7 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
    */
   override def next(): T = {
 
-    println("Called " + valueToBeBlocked)
+    //println("Called " + valueToBeBlocked)
     /**
      * Consume the authorized next element by returning the same
      */
@@ -42,13 +42,13 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
         for (c <- objectVal) {
           localNextElementStr += c.toChar
         }
-        println("==>" + localNextElementStr)
+        //println("==>" + localNextElementStr)
       } else {
         localNextElementStr = nextElement.toString();
       }
       if (localNextElementStr.contains(valueToBeBlocked)) {
-        println("Blocking: " + localNextElementStr.toString().trim())
-        println("|||" + nextElement.getClass() + "====")
+        //println("Blocking: " + localNextElementStr.toString().trim())
+        //println("|||" + nextElement.getClass() + "====")
 
         if (nextElement.getClass == classOf[String]) {
           val newElement = nextElement.toString().replaceAll(valueToBeBlocked, BLOCKED_VALUE_WRAPPER).asInstanceOf[T];
@@ -58,7 +58,7 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
           var newElement: UnsafeRow = new UnsafeRow(unsafeRow.numFields());
           var value: Array[Byte] = (unsafeRow.getBaseObject).asInstanceOf[Array[Byte]]
           localNextElementStr = localNextElementStr.replaceAll(valueToBeBlocked, BLOCKED_VALUE_WRAPPER);
-          println("newValue: " + localNextElementStr.toString().trim())
+          //println("newValue: " + localNextElementStr.toString().trim())
           newElement.pointTo(localNextElementStr.getBytes, unsafeRow.getBaseOffset, unsafeRow.getSizeInBytes)
 
           return  newElement.asInstanceOf[T];
@@ -66,7 +66,7 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
           return nextElement;
         }
       } else {
-        println("Passing original" + nextElement)
+        //println("Passing original" + nextElement)
         return nextElement;
       }
     } else {
