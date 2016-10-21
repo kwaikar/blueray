@@ -12,7 +12,7 @@ import org.apache.spark.sql.types.StringType
 class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterator[T], val valueToBeBlocked: String)
     extends InterruptibleIterator[T](context, delegate) {
 
-  private val BLOCKED_VALUE_WRAPPER = "**********";
+  private val BLOCKED_VALUE_WRAPPER = "_BLOCKED_";
   /**
    * This method verifies whether next element available through iterator is authorized or not. If authorized, it holds it in the memory for serving via next method.
    */
@@ -57,7 +57,7 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
           val unsafeRow: UnsafeRow = nextElement.asInstanceOf[UnsafeRow];
           var newElement: UnsafeRow = new UnsafeRow(unsafeRow.numFields());
           var value: Array[Byte] = (unsafeRow.getBaseObject).asInstanceOf[Array[Byte]]
-          localNextElementStr = localNextElementStr.replaceAll(valueToBeBlocked, "_BLOCKED_");
+          localNextElementStr = localNextElementStr.replaceAll(valueToBeBlocked, BLOCKED_VALUE_WRAPPER);
           println("newValue: " + localNextElementStr.toString().trim())
           newElement.pointTo(localNextElementStr.getBytes, unsafeRow.getBaseOffset, unsafeRow.getSizeInBytes)
 
