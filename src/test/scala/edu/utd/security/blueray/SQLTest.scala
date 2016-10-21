@@ -51,7 +51,7 @@ class SQLTest {
     }
 
 
-  // @Test
+   @Test
   def testSparkSQLToRDDVersion() =
     {
       val sqlContext = new SQLContext(sc)
@@ -62,12 +62,9 @@ class SQLTest {
       GenericTests.rdd_BlockLii(sc, dfs.rdd, false);
       sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("SomeRANDOMSTRIng"));
       GenericTests.rdd_BlockAll(sc, dfs.rdd, false)
-
       sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
       AccessMonitor.deRegisterPolicy(policy);
-      assert(dfs.select("id").collect().length == 3)
       GenericTests.rdd_BlockNone(sc, dfs.rdd, false);
-      println("==========================>")
     }
 
 }

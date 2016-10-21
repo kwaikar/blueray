@@ -48,11 +48,13 @@ object AccessMonitor {
       for (hashSet <- policies) {
         breakable {
           if (hashSet._1.startsWith(path.trim())) {
+            println("Found -->"+hashSet._1+ " =="+priviledgeRestriction)
             if (priviledgeRestriction == None) {
               return Some(new Policy(path, "", ""))
             }
             for (policy <- hashSet._2) {
               if (policy.priviledgeRestriction.equalsIgnoreCase(priviledgeRestriction.get)) {
+                println("++++++++++++++++++++++++sdfsdf+++++++++++++++++++++++++")
                 policyToBeReturned = Some(policy);
                 break;
               }

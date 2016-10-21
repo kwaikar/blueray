@@ -1,21 +1,14 @@
 package edu.utd.security.blueray
 
-import scala.annotation.elidable
 import scala.annotation.elidable.ASSERTION
 
-import org.apache.spark.SparkConf
 import org.apache.spark.SparkContext
-import org.apache.spark.annotation.Experimental
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.SQLContext
-import org.junit.After
-import org.junit.Before
-import org.junit.Test
 
 object GenericTests {
 
-  def rdd_BlockLii(sc: SparkContext, inputFile: RDD[Row], mapReduceOpsTesting: Boolean) = {
+  def rdd_BlockLii[T](sc: SparkContext, inputFile: RDD[T], mapReduceOpsTesting: Boolean) = {
     val currentMillis = System.currentTimeMillis;
     println(inputFile.collect().size)
     assert(!inputFile.collect().mkString.contains("Lii"))
@@ -32,11 +25,14 @@ object GenericTests {
     assert(inputFile.takeSample(false, 3, 0).mkString.contains("BLOCK"), "takeSample testing")
     inputFile.foreach(println)
     if (mapReduceOpsTesting) {
-      // assert(count == inputFile.map(x => (x(1), 1)).reduceByKey(_ + _).collect().size, "reduceByKey ")
-      //assert(count == inputFile.map(x => (1)).collect().reduceLeft({ (x, y) => x + y }), "reduceLeft ")
-      // assert(count == inputFile.map(x => (1)).collect().reduce({ (x, y) => x + y }), "reduce ")
+      val inputFileMapped = inputFile.asInstanceOf[RDD[String]]
+       assert(  !inputFileMapped.map(x => (x(1), 1)).reduceByKey(_ + _).collect().toString().contains("Lii"), "reduceByKey ")
+       assert(  !inputFileMapped.map(x => (x(1), 1)).reduceByKey(_ + _).collect().toString().contains("jane"), "reduceByKey ")
+       assert(  !inputFileMapped.map(x => (x(1), 1)).reduceByKey(_ + _).collect().toString().contains("saki"), "reduceByKey ")
+      assert(3 == inputFileMapped.map(x => (1)).collect().reduceLeft({ (x, y) => x + y }), "reduceLeft ")
+       assert(3== inputFileMapped.map(x => (1)).collect().reduce({ (x, y) => x + y }), "reduce ")
     }
-    assert(inputFile.first().mkString.contains("BLOCK"), "Size function testing")
+    assert(inputFile.first().toString().contains("BLOCK"), "Size function testing")
 
     val fileName = "hdfs://localhost/user/user_authorized_single" + currentMillis + ".csv";
     inputFile.coalesce(1).saveAsTextFile(fileName);
@@ -53,7 +49,7 @@ object GenericTests {
 
   }
 
-  def rdd_BlockNone(sc: SparkContext, inputFile: RDD[Row], mapReduceOpsTesting: Boolean) = {
+  def rdd_BlockNone[T](sc: SparkContext, inputFile: RDD[T], mapReduceOpsTesting: Boolean) = {
     val currentMillis = System.currentTimeMillis;
     println(inputFile.collect().size)
     assert(inputFile.collect().mkString.contains("Lii"))
@@ -68,13 +64,7 @@ object GenericTests {
     assert(inputFile.take(3).mkString.contains("Lii"), "take(3)  testing")
     assert(inputFile.takeSample(false, 3, 0).mkString.contains("Lii"), "takeSample testing")
     inputFile.foreach(println)
-    if (mapReduceOpsTesting) {
-      // assert(count == inputFile.map(x => (x(1), 1)).reduceByKey(_ + _).collect().size, "reduceByKey ")
-      //assert(count == inputFile.map(x => (1)).collect().reduceLeft({ (x, y) => x + y }), "reduceLeft ")
-      // assert(count == inputFile.map(x => (1)).collect().reduce({ (x, y) => x + y }), "reduce ")
-    }
-
-    assert(inputFile.first().mkString.contains("Lii"), "Size function testing")
+    assert(inputFile.first().toString().contains("Lii"), "Size function testing")
 
     val fileName = "hdfs://localhost/user/user_authorized_single" + currentMillis + ".csv";
     inputFile.coalesce(1).saveAsTextFile(fileName);
@@ -91,7 +81,7 @@ object GenericTests {
 
   }
 
-  def rdd_BlockAll(sc: SparkContext, inputFile: RDD[Row], mapReduceOpsTesting: Boolean) = {
+  def rdd_BlockAll[T](sc: SparkContext, inputFile: RDD[T], mapReduceOpsTesting: Boolean) = {
     val currentMillis = System.currentTimeMillis;
     println(inputFile.collect().size)
     assert(!inputFile.collect().mkString.contains("Lii"))
@@ -111,7 +101,7 @@ object GenericTests {
       // assert(count == inputFile.map(x => (1)).collect().reduce({ (x, y) => x + y }), "reduce ")
     }
 
-    assert(!inputFile.first().mkString.contains("Lii"), "Size function testing")
+    assert(!inputFile.first().toString.contains("Lii"), "Size function testing")
 
     val fileName = "hdfs://localhost/user/user_authorized_single" + currentMillis + ".csv";
     inputFile.coalesce(1).saveAsTextFile(fileName);

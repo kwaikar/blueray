@@ -26,7 +26,7 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
    */
   override def next(): T = {
 
-    //println("Called " + valueToBeBlocked)
+  //   println("Called " + valueToBeBlocked.trim())
     /**
      * Consume the authorized next element by returning the same
      */
@@ -46,12 +46,13 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
       } else {
         localNextElementStr = nextElement.toString();
       }
-      if (localNextElementStr.contains(valueToBeBlocked)) {
-        //println("Blocking: " + localNextElementStr.toString().trim())
+      if (localNextElementStr.contains(valueToBeBlocked.trim())) {
+      //  println("Blocking: " +valueToBeBlocked+" ==> "+ localNextElementStr.toString().trim())
         //println("|||" + nextElement.getClass() + "====")
 
         if (nextElement.getClass == classOf[String]) {
           val newElement = nextElement.toString().replaceAll(valueToBeBlocked, BLOCKED_VALUE_WRAPPER).asInstanceOf[T];
+       //   println("returning :"+newElement)
           return newElement;
         } else if (nextElement.getClass == classOf[UnsafeRow]) {
           val unsafeRow: UnsafeRow = nextElement.asInstanceOf[UnsafeRow];
