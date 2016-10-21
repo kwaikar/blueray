@@ -41,12 +41,18 @@ class SQLTest {
       val dfs = sqlContext.read.json("hdfs://localhost/user/user.json")
       
       dfs.select("id").collect().foreach(println)
-      assert(dfs.select("id").collect().length == 2)
+      println("-------------&&&&&&&&&&&&&&&&&-------------")
+      assert(dfs.select("id").collect().length == 3)
+      assert(!dfs.select("id").collect().mkString.contains("Lii"))
+      assert(dfs.select("id").collect().mkString.contains("jane"))
+      assert(dfs.select("id").collect().mkString.contains("saki"))
+      assert(dfs.select("id").collect().mkString.contains("_BLOCK"));
       dfs.filter(!_.mkString.contains("Lii"));
       dfs.collect().foreach(println)
-      assert(dfs.select("age").collect().length == 2)
-      assert(dfs.count() == 2)
-      assert(dfs.groupBy("age").count() == 2)
+      assert(dfs.select("age").collect().length == 3)
+      assert(dfs.count() == 3)
+      println("===="+dfs.groupBy("age").count().count())
+      assert(dfs.groupBy("age").count().count() == 3)
       val currentMillis = System.currentTimeMillis;
 
       val fileName = "hdfs://localhost/user/user" + currentMillis + ".json";
@@ -57,8 +63,13 @@ class SQLTest {
       println("==============wd============>"+fileName)
       fileSaved.collect().foreach(println);
       println("============dcd==============>")
-      assert(2 == fileSaved.count(), "saved testing")
+      assert(3 == fileSaved.count(), "saved testing")
 
+      assert(!fileSaved.collect().mkString.contains("Lii"))
+      assert(fileSaved.collect().mkString.contains("jane"))
+      assert(fileSaved.collect().mkString.contains("saki"))
+      assert(fileSaved.collect().mkString.contains("_BLOCK"));
+      
       val fs = org.apache.hadoop.fs.FileSystem.get(new java.net.URI(fileName), sc.hadoopConfiguration)
       assert(fs.delete(new org.apache.hadoop.fs.Path(fileName), true))
 
