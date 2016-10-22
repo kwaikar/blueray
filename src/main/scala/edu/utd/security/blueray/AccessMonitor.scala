@@ -21,7 +21,6 @@ object AccessMonitor {
     policiesSet.add(policy)
 
     policies.put(policy.resourcePath, policiesSet)
-    //  logger.debug("registered policy"+policy)
   }
   def deRegisterPolicy(policy: Policy) {
     var policiesSet: Option[HashSet[Policy]] = policies.get(policy.resourcePath)
@@ -37,6 +36,7 @@ object AccessMonitor {
         }
       }
     }
+    println("Policies deregistered:"+policies)
   }
   /**
    * Returns policy from map based on authorization
@@ -47,19 +47,20 @@ object AccessMonitor {
 
       for (hashSet <- policies) {
         breakable {
+          println("path.trim:" + path.trim())
           if (hashSet._1.startsWith(path.trim())) {
-            println("Found -->"+hashSet._1+ " =="+priviledgeRestriction)
             if (priviledgeRestriction == None) {
+              println("policyToBeReturned:" + "New")
               return Some(new Policy(path, "", ""))
             }
             for (policy <- hashSet._2) {
               if (policy.priviledgeRestriction.equalsIgnoreCase(priviledgeRestriction.get)) {
-                println("++++++++++++++++++++++++sdfsdf+++++++++++++++++++++++++")
                 policyToBeReturned = Some(policy);
+                println("policyToBeReturned:" + policyToBeReturned)
                 break;
               }
             }
-
+            println("returning some")
             return Some(new Policy(path, "", ""))
           }
         }

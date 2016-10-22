@@ -47,20 +47,13 @@ class AccessAuthorizerAspect {
   def getPolicy(context: org.apache.spark.TaskContext, jp: org.aspectj.lang.ProceedingJoinPoint, pcType: Any): Option[Policy] = {
     var policy: Option[Policy] = None;
     val auth: Option[String] = Util.extractAuth(context)
-    if (pcType == PointCutType.SPARK) {
 
-      var path = Util.extractPathForSpark(jp);
-      //println("Path found:" + path);
-      policy = AccessMonitor.getPolicy(path, auth)
-    } else if (pcType == PointCutType.SPARKSQL) {
-
-      var path = Util.extractPathForSparkSQL(jp);
-      if (path == null || path.trim().length() == 0) {
-        path = Util.extractPathForSpark(jp);
-      }
-     println("Path found:" + path);
-      policy = AccessMonitor.getPolicy(path, auth)
+    var path = Util.extractPathForSpark(jp);
+    if (path == null || path.trim().length() == 0) {
+      path = Util.extractPathForSparkSQL(jp);
     }
+    println("Path found:" + path);
+    policy = AccessMonitor.getPolicy(path, auth)
     println("policy found:" + policy + " : " + pcType)
     policy
   }

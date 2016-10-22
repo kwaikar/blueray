@@ -26,7 +26,6 @@ object Util {
   def getFileAsString(path: String): String = {
     var sc: SparkContext = getSC()
     val value = sc.textFile(path).collect().mkString
-    println("===3>" + sc.textFile(path).collect().size)
     value
   }
 
@@ -65,9 +64,7 @@ object Util {
 
   def extractAuth(context: org.apache.spark.TaskContext): Option[String] = {
     if (context.getLocalProperty("PRIVILEDGE") != null) {
-      println("PRIVILEDGE"+context.getLocalProperty("PRIVILEDGE"))
       var auth = Util.decrypt(context.getLocalProperty("PRIVILEDGE"))
-      println(" auth:" + auth);
       Some(auth)
     } else {
       return None
