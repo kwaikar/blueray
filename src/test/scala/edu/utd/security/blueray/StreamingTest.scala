@@ -18,32 +18,27 @@ import org.junit.Before
 import org.junit.Test
 
 class StreamingTest {
-  var sc: SparkContext = _;
   def defaultFilter(path: Path): Boolean = !path.getName().startsWith(".")
 
  
-  def testSparkStreaming(sc: SparkContext,valueToBeBlocked:String,newValue:String) = {
+  def testSparkStreaming(sc: SparkContext,filePath:String,valueToBeBlocked:String,newValue:String) = {
 
-  if(sc==None  )
-    {
-      this.sc =sc;
-    }
-      
+   
     sc.setLocalProperty("PRIVILEDGE", Util.encrypt("ADMIN"));
 
-    var inputFile = sc.textFile("hdfs://localhost/user/user_stream.csv")
+    var inputFile = sc.textFile(filePath)
 
     var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/stream/", Util.encrypt("ADMIN"), valueToBeBlocked);
     edu.utd.security.blueray.AccessMonitor.enforcePolicy(policy);
     val ssc = new StreamingContext(sc, Seconds(1))
     ssc.sparkContext.getConf.set("spark.streaming.fileStream.minRememberDuration", "624000")
 
-    var (lines, testCasePassed) = streamFile(ssc, policy,valueToBeBlocked,newValue)
+    var (lines, testCasePassed) = streamFile(sc,ssc, policy,valueToBeBlocked,newValue)
     println(":" + lines.count())
     ssc.start()
     ssc.awaitTermination()
   } 
- private  def streamFile(ssc: org.apache.spark.streaming.StreamingContext, policy: edu.utd.security.blueray.Policy,valueToBeBlocked:String,newValue:String) = {
+ private  def streamFile(sc:SparkContext,ssc: org.apache.spark.streaming.StreamingContext, policy: edu.utd.security.blueray.Policy,valueToBeBlocked:String,newValue:String) = {
 
     val lines = ssc.fileStream[LongWritable, Text, TextInputFormat]("hdfs://localhost/stream/", defaultFilter(_), newFilesOnly = false).map(_._2.toString)
     var testCasePassed = false;

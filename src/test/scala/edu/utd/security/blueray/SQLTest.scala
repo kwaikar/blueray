@@ -14,21 +14,16 @@ import org.junit.Before
 import org.junit.Test
 
 class SQLTest {
-  var sc: SparkContext = _;
 
   
  
 
-  def testSparkSQL(sc:SparkContext,valueToBlock: String, newValue: String) =
+  def testSparkSQL(sc:SparkContext,filePath:String, valueToBlock: String, newValue: String) =
     {
-    if(sc==None  )
-    {
-      this.sc =sc;
-    }
       val sqlContext = new SQLContext(sc)
       sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
-      var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user.json", Util.encrypt("ADMIN"), valueToBlock);
-      val dfs = sqlContext.read.json("hdfs://localhost/user/user.json")
+      var policy = new edu.utd.security.blueray.Policy(filePath, Util.encrypt("ADMIN"), valueToBlock);
+      val dfs = sqlContext.read.json(filePath)
       GenericTests.df_BlockNone(sc, dfs, valueToBlock,newValue)
       AccessMonitor.enforcePolicy(policy);
       GenericTests.df_BlockLii(sc, dfs, valueToBlock,newValue)
@@ -36,21 +31,17 @@ class SQLTest {
       GenericTests.df_BlockAll(sc, dfs, valueToBlock,newValue)
       AccessMonitor.deRegisterPolicy(policy);
       GenericTests.df_BlockNone(sc, dfs, valueToBlock,newValue)
-      testSparkSQLToRDDVersion(sc,valueToBlock,newValue);
+      testSparkSQLToRDDVersion(sc,filePath,valueToBlock,newValue);
     } 
   
   
- private def testSparkSQLToRDDVersion(sc:SparkContext,valueToBlock:String,newValue:String) =
+ private def testSparkSQLToRDDVersion(sc:SparkContext,filePath:String,valueToBlock:String,newValue:String) =
     {
-   if(sc==None  )
-    {
-      this.sc =sc;
-    }
       val sqlContext = new SQLContext(sc)
       sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
-      var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user.json", Util.encrypt("ADMIN"), valueToBlock);
+      var policy = new edu.utd.security.blueray.Policy(filePath, Util.encrypt("ADMIN"), valueToBlock);
       AccessMonitor.enforcePolicy(policy);
-      val dfs = sqlContext.read.json("hdfs://localhost/user/user.json")
+      val dfs = sqlContext.read.json(filePath)
       GenericTests.rdd_BlockLii(sc, dfs.rdd, false, valueToBlock,newValue);
       sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("SomeRANDOMSTRIng"));
      GenericTests. rdd_BlockAll(sc, dfs.rdd, false, valueToBlock,newValue)

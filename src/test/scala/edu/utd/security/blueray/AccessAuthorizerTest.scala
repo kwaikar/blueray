@@ -39,17 +39,17 @@ class AccessAuthorizerTest {
   def executeTestCases() {
     val valueToBlock = "Lii";
     val newValue = "------";
-    testSpark(valueToBlock, newValue);
-    new SQLTest().testSparkSQL(sc,valueToBlock, newValue);
- //   new StreamingTest().testSparkStreaming(sc,valueToBlock, newValue);
+    testSpark("hdfs://localhost/user/user_small.csv",valueToBlock, newValue);
+    new SQLTest().testSparkSQL(sc,"hdfs://localhost/user/user.json",valueToBlock, newValue);
+     new StreamingTest().testSparkStreaming(sc,"hdfs://localhost/user/user_small.csv",valueToBlock, newValue);
   }
 
-  private def testSpark(valueToBlock: String, newValue: String) = {
+  private def testSpark(filePath:String,valueToBlock: String, newValue: String) = {
     sc.setLogLevel("ERROR")
-    var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user_small.csv", Util.encrypt("ADMIN"), "Lii");
+    var policy = new edu.utd.security.blueray.Policy(filePath, Util.encrypt("ADMIN"), "Lii");
     edu.utd.security.blueray.AccessMonitor.enforcePolicy(policy);
 
-    var inputFile = sc.textFile("hdfs://localhost/user/user_small.csv")
+    var inputFile = sc.textFile(filePath)
     sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
     GenericTests.rdd_BlockLii(sc, inputFile, true, "Lii", "------");
     sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("SomeRANDOMSTRIng"));
