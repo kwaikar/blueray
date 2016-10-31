@@ -16,54 +16,47 @@ import org.junit.Test
 class SQLTest {
   var sc: SparkContext = _;
 
-  @Before
-  def setUp() {
-    val conf = new SparkConf().setAppName("Simple Application").setMaster("local[2]");
-    sc = new SparkContext(conf)
-  }
-  @After
-  def destroy() {
+  
+ 
 
-    sc.stop();
-    sc = null;
-  }
-
-  def main(args: Array[String]): Unit = {
-    testSparkSQL();
-  }
-
-  @Test
-  def testSparkSQL() =
+  def testSparkSQL(sc:SparkContext,valueToBlock: String, newValue: String) =
     {
+    if(sc==None  )
+    {
+      this.sc =sc;
+    }
       val sqlContext = new SQLContext(sc)
       sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
-      var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user.json", Util.encrypt("ADMIN"), "Lii");
+      var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user.json", Util.encrypt("ADMIN"), valueToBlock);
       val dfs = sqlContext.read.json("hdfs://localhost/user/user.json")
-      GenericTests.df_BlockNone(sc, dfs, "Lii","------")
+      GenericTests.df_BlockNone(sc, dfs, valueToBlock,newValue)
       AccessMonitor.enforcePolicy(policy);
-      GenericTests.df_BlockLii(sc, dfs, "Lii","------")
+      GenericTests.df_BlockLii(sc, dfs, valueToBlock,newValue)
       sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMON"));
-      GenericTests.df_BlockAll(sc, dfs, "Lii","------")
+      GenericTests.df_BlockAll(sc, dfs, valueToBlock,newValue)
       AccessMonitor.deRegisterPolicy(policy);
-      GenericTests.df_BlockNone(sc, dfs, "Lii","------")
-
+      GenericTests.df_BlockNone(sc, dfs, valueToBlock,newValue)
+      testSparkSQLToRDDVersion(sc,valueToBlock,newValue);
     } 
   
   
- // @Test
-  def testSparkSQLToRDDVersion() =
+ private def testSparkSQLToRDDVersion(sc:SparkContext,valueToBlock:String,newValue:String) =
     {
+   if(sc==None  )
+    {
+      this.sc =sc;
+    }
       val sqlContext = new SQLContext(sc)
       sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
-      var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user.json", Util.encrypt("ADMIN"), "Lii");
+      var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user.json", Util.encrypt("ADMIN"), valueToBlock);
       AccessMonitor.enforcePolicy(policy);
       val dfs = sqlContext.read.json("hdfs://localhost/user/user.json")
-      GenericTests.rdd_BlockLii(sc, dfs.rdd, false, "Lii","------");
+      GenericTests.rdd_BlockLii(sc, dfs.rdd, false, valueToBlock,newValue);
       sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("SomeRANDOMSTRIng"));
-     GenericTests. rdd_BlockAll(sc, dfs.rdd, false, "Lii","------")
+     GenericTests. rdd_BlockAll(sc, dfs.rdd, false, valueToBlock,newValue)
       sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
       AccessMonitor.deRegisterPolicy(policy);
-      GenericTests.rdd_BlockNone(sc, dfs.rdd, false, "Lii","------");
+      GenericTests.rdd_BlockNone(sc, dfs.rdd, false, valueToBlock,newValue);
     }
 
 }

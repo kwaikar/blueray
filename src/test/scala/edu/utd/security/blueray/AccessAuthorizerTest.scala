@@ -32,31 +32,34 @@ class AccessAuthorizerTest {
 
   @Test
   def testUtil() = {
-
     assert(Util.decrypt(Util.encrypt("Hello")) == "Hello");
   }
-  
- 
 
   @Test
-  def testSpark() = {
+  def executeTestCases() {
+    val valueToBlock = "Lii";
+    val newValue = "------";
+    testSpark(valueToBlock, newValue);
+    new SQLTest().testSparkSQL(sc,valueToBlock, newValue);
+ //   new StreamingTest().testSparkStreaming(sc,valueToBlock, newValue);
+  }
+
+  private def testSpark(valueToBlock: String, newValue: String) = {
     sc.setLogLevel("ERROR")
     var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user_small.csv", Util.encrypt("ADMIN"), "Lii");
     edu.utd.security.blueray.AccessMonitor.enforcePolicy(policy);
 
     var inputFile = sc.textFile("hdfs://localhost/user/user_small.csv")
-      sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
-      GenericTests.rdd_BlockLii(sc, inputFile, true, "Lii","------");
-   sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("SomeRANDOMSTRIng"));
-     GenericTests.rdd_BlockAll(sc, inputFile, true, "Lii","------")
-      sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
-      AccessMonitor.deRegisterPolicy(policy);
-      GenericTests.rdd_BlockNone(sc, inputFile, true, "Lii","------");
- 
+    sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
+    GenericTests.rdd_BlockLii(sc, inputFile, true, "Lii", "------");
+    sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("SomeRANDOMSTRIng"));
+    GenericTests.rdd_BlockAll(sc, inputFile, true, "Lii", "------")
+    sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
+    AccessMonitor.deRegisterPolicy(policy);
+    GenericTests.rdd_BlockNone(sc, inputFile, true, "Lii", "------");
   }
- 
- // @Test
-  def testForShell() {
+
+  private def testForShell() {
     var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/user/user_small.csv", edu.utd.security.blueray.Util.encrypt("ADMIN"), "Lii");
     edu.utd.security.blueray.AccessMonitor.enforcePolicy(policy);
     var inputFile = sc.textFile("hdfs://localhost/user/user_small.csv")

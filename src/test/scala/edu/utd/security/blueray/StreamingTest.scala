@@ -21,35 +21,29 @@ class StreamingTest {
   var sc: SparkContext = _;
   def defaultFilter(path: Path): Boolean = !path.getName().startsWith(".")
 
-  @Before
-  def setUp() {
-    val conf = new SparkConf().setAppName("Simple Application").setMaster("local[2]");
-    sc = new SparkContext(conf)
-  }
-  @After
-  def destroy() {
+ 
+  def testSparkStreaming(sc: SparkContext,valueToBeBlocked:String,newValue:String) = {
 
-    sc.stop();
-    sc = null;
-  }
-  @Test
-  def testSparkStreaming() = {
-
+  if(sc==None  )
+    {
+      this.sc =sc;
+    }
+      
     sc.setLocalProperty("PRIVILEDGE", Util.encrypt("ADMIN"));
 
     var inputFile = sc.textFile("hdfs://localhost/user/user_stream.csv")
 
-    var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/stream/", Util.encrypt("ADMIN"), "Lii");
+    var policy = new edu.utd.security.blueray.Policy("hdfs://localhost/stream/", Util.encrypt("ADMIN"), valueToBeBlocked);
     edu.utd.security.blueray.AccessMonitor.enforcePolicy(policy);
     val ssc = new StreamingContext(sc, Seconds(1))
     ssc.sparkContext.getConf.set("spark.streaming.fileStream.minRememberDuration", "624000")
 
-    var (lines, testCasePassed) = streamFile(ssc, policy)
+    var (lines, testCasePassed) = streamFile(ssc, policy,valueToBeBlocked,newValue)
     println(":" + lines.count())
     ssc.start()
     ssc.awaitTermination()
   } 
-  def streamFile(ssc: org.apache.spark.streaming.StreamingContext, policy: edu.utd.security.blueray.Policy) = {
+ private  def streamFile(ssc: org.apache.spark.streaming.StreamingContext, policy: edu.utd.security.blueray.Policy,valueToBeBlocked:String,newValue:String) = {
 
     val lines = ssc.fileStream[LongWritable, Text, TextInputFormat]("hdfs://localhost/stream/", defaultFilter(_), newFilesOnly = false).map(_._2.toString)
     var testCasePassed = false;
@@ -57,12 +51,12 @@ class StreamingTest {
       {
         if (rdd.collect().length != 0) {
           sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
-          GenericTests.rdd_BlockLii(sc, rdd, true, "Lii","------");
+          GenericTests.rdd_BlockLii(sc, rdd, true, valueToBeBlocked,newValue);
           sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("SomeRANDOMSTRIng"));
-          GenericTests.rdd_BlockAll(sc, rdd, true, "Lii","------")
+          GenericTests.rdd_BlockAll(sc, rdd, true, valueToBeBlocked,newValue)
           sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
           AccessMonitor.deRegisterPolicy(policy);
-          GenericTests.rdd_BlockNone(sc, rdd, true, "Lii","------");
+          GenericTests.rdd_BlockNone(sc, rdd, true, valueToBeBlocked,newValue);
           ssc.stop();
         }
 
