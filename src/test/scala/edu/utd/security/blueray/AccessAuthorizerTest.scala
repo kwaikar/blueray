@@ -35,28 +35,40 @@ class AccessAuthorizerTest {
     assert(Util.decrypt(Util.encrypt("Hello")) == "Hello");
   }
 
-  @Test
-  def executeTestCases() {
+  //@Test
+  def executeSimpleBlockTestCase() {
     val valueToBlock = "Lii";
+    val valueNotBlocked = "saki U.";
     val newValue = "------";
-    testSpark("hdfs://localhost/user/user_small.csv",valueToBlock, newValue);
-    new SQLTest().testSparkSQL(sc,"hdfs://localhost/user/user.json",valueToBlock, newValue);
-     new StreamingTest().testSparkStreaming(sc,"hdfs://localhost/user/user_small.csv",valueToBlock, newValue);
+    testSpark("hdfs://localhost/user/user_small.csv",valueToBlock, newValue,valueNotBlocked);
+    new SQLTest().testSparkSQL(sc,"hdfs://localhost/user/user.json",valueToBlock, newValue,valueNotBlocked);
+    new StreamingTest().testSparkStreaming(sc,"hdfs://localhost/user/user_small.csv",valueToBlock, newValue,valueNotBlocked);
   }
 
-  private def testSpark(filePath:String,valueToBlock: String, newValue: String) = {
+  
+  @Test
+  def executePhoneNumberBlockTestCase() {
+    val valueToBlock = "460-027-0120";
+    val valueNotBlocked = "460-028-0120";
+    val newValue = "------";
+    testSpark("hdfs://localhost/user/user_phone.csv",valueToBlock, newValue,valueNotBlocked);
+    new SQLTest().testSparkSQL(sc,"hdfs://localhost/user/user_phone.json",valueToBlock, newValue,valueNotBlocked);
+    new StreamingTest().testSparkStreaming(sc,"hdfs://localhost/user/user_phone.csv",valueToBlock, newValue,valueNotBlocked);
+  }
+  
+  private def testSpark(filePath:String,valueToBlock: String, newValue: String,valueNotBlocked:String) = {
     sc.setLogLevel("ERROR")
-    var policy = new edu.utd.security.blueray.Policy(filePath, Util.encrypt("ADMIN"), "Lii");
+    var policy = new edu.utd.security.blueray.Policy(filePath, Util.encrypt("ADMIN"), valueToBlock);
     edu.utd.security.blueray.AccessMonitor.enforcePolicy(policy);
 
     var inputFile = sc.textFile(filePath)
     sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
-    GenericTests.rdd_BlockLii(sc, inputFile, true, "Lii", "------");
+    GenericTests.rdd_BlockLii(sc, inputFile, true, valueToBlock, newValue,valueNotBlocked);
     sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("SomeRANDOMSTRIng"));
-    GenericTests.rdd_BlockAll(sc, inputFile, true, "Lii", "------")
+    GenericTests.rdd_BlockAll(sc, inputFile, true, valueToBlock, newValue)
     sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
     AccessMonitor.deRegisterPolicy(policy);
-    GenericTests.rdd_BlockNone(sc, inputFile, true, "Lii", "------");
+    GenericTests.rdd_BlockNone(sc, inputFile, true, valueToBlock, newValue);
   }
 
   private def testForShell() {

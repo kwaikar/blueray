@@ -52,7 +52,6 @@ class AccessAuthorizerAspect {
     if (path == null || path.trim().length() == 0) {
       path = Util.extractPathForSparkSQL(jp);
     }
-    println("Path found:" + path);
     policy = AccessMonitor.getPolicy(path, auth)
     println("policy found:" + policy + " : " + pcType)
     policy

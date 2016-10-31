@@ -8,12 +8,11 @@ import org.apache.spark.sql.Row
 
 object GenericTests {
 
-  def rdd_BlockLii[T](sc: SparkContext, inputFile: RDD[T], mapReduceOpsTesting: Boolean, stringToBeBlocked:String, newString:String) = {
+  def rdd_BlockLii[T](sc: SparkContext, inputFile: RDD[T], mapReduceOpsTesting: Boolean, stringToBeBlocked:String, newString:String,valueNotBlocked:String) = {
     val currentMillis = System.currentTimeMillis;
-    println(inputFile.collect().size+" : "+inputFile.collect().mkString)
+    println(inputFile.collect().size+" =======> "+inputFile.collect().mkString)
     assert(!inputFile.collect().mkString.contains(stringToBeBlocked))
-    assert(inputFile.collect().mkString.contains("jane"))
-    assert(inputFile.collect().mkString.contains("saki"))
+    assert(inputFile.collect().mkString.contains(valueNotBlocked))
     println("#$%#$%" + inputFile.collect().mkString)
     assert(inputFile.collect().mkString.contains(newString))
     assert(inputFile.collect().mkString.contains("23"))
@@ -27,8 +26,7 @@ object GenericTests {
     if (mapReduceOpsTesting) {
       val inputFileMapped = inputFile.asInstanceOf[RDD[String]]
        assert(  !inputFileMapped.map(x => (x(1), 1)).reduceByKey(_ + _).collect().toString().contains(stringToBeBlocked), "reduceByKey ")
-       assert(  !inputFileMapped.map(x => (x(1), 1)).reduceByKey(_ + _).collect().toString().contains("jane"), "reduceByKey ")
-       assert(  !inputFileMapped.map(x => (x(1), 1)).reduceByKey(_ + _).collect().toString().contains("saki"), "reduceByKey ")
+       assert(  !inputFileMapped.map(x => (x(1), 1)).reduceByKey(_ + _).collect().toString().contains(valueNotBlocked), "reduceByKey ")
       assert(3 == inputFileMapped.map(x => (1)).collect().reduceLeft({ (x, y) => x + y }), "reduceLeft ")
        assert(3== inputFileMapped.map(x => (1)).collect().reduce({ (x, y) => x + y }), "reduce ")
     }
@@ -53,8 +51,6 @@ object GenericTests {
     val currentMillis = System.currentTimeMillis;
     println(inputFile.collect().size)
     assert(inputFile.collect().mkString.contains(stringToBeBlocked))
-    assert(inputFile.collect().mkString.contains("jane"))
-    assert(inputFile.collect().mkString.contains("saki"))
     assert(!inputFile.collect().mkString.contains(newString))
     assert(inputFile.collect().mkString.contains("23"))
     assert(inputFile.collect().mkString.contains("22"))
@@ -63,7 +59,6 @@ object GenericTests {
     assert(3 == inputFile.count(), "Count method testing")
     assert(inputFile.take(3).mkString.contains(stringToBeBlocked), "take(3)  testing")
     assert(inputFile.takeSample(false, 3, 0).mkString.contains(stringToBeBlocked), "takeSample testing")
-    inputFile.foreach(println)
     assert(inputFile.first().toString().contains(stringToBeBlocked), "Size function testing")
 
     val fileName = "hdfs://localhost/user/user_authorized_single" + currentMillis + ".csv";
@@ -86,8 +81,6 @@ object GenericTests {
     println(inputFile.collect().size)
     inputFile.collect().foreach(println)
     assert(!inputFile.collect().mkString.contains(stringToBeBlocked))
-    assert(!inputFile.collect().mkString.contains("jane"))
-    assert(!inputFile.collect().mkString.contains("saki"))
     println("**********************************"+inputFile.collect().mkString)
      assert( inputFile.collect().mkString.contains("-"))
     assert(!inputFile.collect().mkString.contains("23"))
@@ -119,16 +112,14 @@ object GenericTests {
 
   }
 
-  def df_BlockLii(sc: SparkContext, dfs: org.apache.spark.sql.DataFrame, stringToBeBlocked:String, newString:String) = {
+  def df_BlockID(sc: SparkContext, dfs: org.apache.spark.sql.DataFrame, stringToBeBlocked:String, newString:String,valueNotBlocked:String) = {
     dfs.select("id").collect().foreach(println)
     println("-------------&&&&&&&&&&&&&&&&&-------------"+dfs.select("id").collect().mkString)
     assert(dfs.select("id").collect().length == 3)
     assert(!dfs.select("id").collect().mkString.contains(stringToBeBlocked))
-    assert(dfs.select("id").collect().mkString.contains("jane"))
-    assert(dfs.select("id").collect().mkString.contains("saki"))
+    assert(dfs.select("id").collect().mkString.contains(valueNotBlocked))
     assert(dfs.select("id").collect().mkString.contains(newString));
     dfs.filter(!_.mkString.contains(stringToBeBlocked));
-    dfs.collect().foreach(println)
     assert(dfs.select("age").collect().length == 3)
     assert(dfs.count() == 3)
     println("====" + dfs.groupBy("age").count().count())
@@ -137,17 +128,10 @@ object GenericTests {
 
     val fileName = "hdfs://localhost/user/user" + currentMillis + ".json";
     dfs.write.format("json").save(fileName)
-    println("==========================>" + fileName)
-
     var fileSaved = sc.textFile(fileName)
-    println("==============wd============>" + fileName)
-    fileSaved.collect().foreach(println);
-    println("============dcd==============>")
     assert(3 == fileSaved.count(), "saved testing")
 
     assert(!fileSaved.collect().mkString.contains(stringToBeBlocked))
-    assert(fileSaved.collect().mkString.contains("jane"))
-    assert(fileSaved.collect().mkString.contains("saki"))
     assert(dfs.select("age").collect().mkString.contains("23"));
     assert(dfs.select("age").collect().mkString.contains("22"));
     assert(dfs.select("age").collect().mkString.contains("21"));
@@ -161,8 +145,6 @@ object GenericTests {
     println("-------------&&&&&&&&&&&&&&&&&-------------" + dfs.select("id").collect().mkString)
     assert(dfs.select("id").collect().length == 3)
     assert(!dfs.select("id").collect().mkString.contains(stringToBeBlocked))
-    assert(!dfs.select("id").collect().mkString.contains("jane"))
-    assert(!dfs.select("id").collect().mkString.contains("saki"))
     // assert(dfs.select("id").collect().mkString.contains(newString));
     //assert(dfs.select("age").collect().mkString.contains(newString));
     assert(!dfs.select("age").collect().mkString.contains("21"));
@@ -177,12 +159,7 @@ object GenericTests {
 
     val fileName = "hdfs://localhost/user/user" + currentMillis + ".json";
     dfs.write.format("json").save(fileName)
-    println("==========================>" + fileName)
-
     var fileSaved = sc.textFile(fileName)
-    println("==============wd============>" + fileName)
-    fileSaved.collect().foreach(println);
-    println("============dcd==============>")
     assert(3 == fileSaved.count(), "saved testing")
 
     assert(!fileSaved.collect().mkString.contains(stringToBeBlocked))
@@ -198,12 +175,9 @@ object GenericTests {
     val fileName = "hdfs://localhost/user/user" + System.currentTimeMillis() + ".json";
     val fs = org.apache.hadoop.fs.FileSystem.get(new java.net.URI(fileName), sc.hadoopConfiguration)
 
-    dfs.select("id").collect().foreach(println)
-    println("-------------&&&&&&&&&&&&&&&&&-------------")
+    println("-------------&&&&&&&&&&&&&&&&&-------------"+dfs.select("id").collect().mkString+"|")
     assert(dfs.select("id").collect().length == 3)
     assert(dfs.select("id").collect().mkString.contains(stringToBeBlocked))
-    assert(dfs.select("id").collect().mkString.contains("jane"))
-    assert(dfs.select("id").collect().mkString.contains("saki"))
     assert(!dfs.select("id").collect().mkString.contains(newString));
     assert(dfs.select("age").collect().mkString.contains("23"));
     assert(dfs.select("age").collect().mkString.contains("22"));
@@ -215,17 +189,10 @@ object GenericTests {
     println("====" + dfs.groupBy("age").count().count())
     assert(dfs.groupBy("age").count().count() == 3)
     dfs.write.format("json").save(fileName)
-    println("==========================>" + fileName)
-
     val fileSaved = sc.textFile(fileName)
-    println("==============wd============>" + fileName)
-    fileSaved.collect().foreach(println);
-    println("============dcd==============>")
     assert(3 == fileSaved.count(), "saved testing")
 
     assert(fileSaved.collect().mkString.contains(stringToBeBlocked))
-    assert(fileSaved.collect().mkString.contains("jane"))
-    assert(fileSaved.collect().mkString.contains("saki"))
     assert(!fileSaved.collect().mkString.contains(newString));
 
     assert(fs.delete(new org.apache.hadoop.fs.Path(fileName), true))
