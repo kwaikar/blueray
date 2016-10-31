@@ -120,8 +120,20 @@ object Util {
     }
     path
   }
-}
+  
+   val BLOCKED_VALUE_WRAPPER = "-";
 
+  def getStringOfLength(arr:Array[Char]) :String= {
+    var sb:StringBuilder = new StringBuilder();
+    for(c<-arr)
+    {
+      sb.append(BLOCKED_VALUE_WRAPPER);
+            }
+    sb.toString
+  }
+}
+  
+  
 object PointCutType extends Enumeration {
   type PointCutType = String;
   val SPARK = "SPARK";

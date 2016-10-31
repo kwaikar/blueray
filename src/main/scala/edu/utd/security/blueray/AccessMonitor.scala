@@ -47,20 +47,20 @@ object AccessMonitor {
 
       for (hashSet <- policies) {
         breakable {
-          println("path.trim:" + path.trim())
+          //println("path.trim:" + path.trim())
           if (hashSet._1.startsWith(path.trim())) {
             if (priviledgeRestriction == None) {
-              println("policyToBeReturned:" + "New")
+             // println("policyToBeReturned:" + "New")
               return Some(new Policy(path, "", ""))
             }
             for (policy <- hashSet._2) {
               if (policy.priviledgeRestriction.equalsIgnoreCase(priviledgeRestriction.get)) {
                 policyToBeReturned = Some(policy);
-                println("policyToBeReturned:" + policyToBeReturned)
+              //  println("policyToBeReturned:" + policyToBeReturned)
                 break;
               }
             }
-            println("returning some")
+            //println("returning some")
             return Some(new Policy(path, "", ""))
           }
         }

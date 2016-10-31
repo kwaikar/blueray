@@ -57,12 +57,12 @@ class StreamingTest {
       {
         if (rdd.collect().length != 0) {
           sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
-          GenericTests.rdd_BlockLii(sc, rdd, true);
+          GenericTests.rdd_BlockLii(sc, rdd, true, "Lii","------");
           sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("SomeRANDOMSTRIng"));
-          GenericTests.rdd_BlockAll(sc, rdd, true)
+          GenericTests.rdd_BlockAll(sc, rdd, true, "Lii","------")
           sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
           AccessMonitor.deRegisterPolicy(policy);
-          GenericTests.rdd_BlockNone(sc, rdd, true);
+          GenericTests.rdd_BlockNone(sc, rdd, true, "Lii","------");
           ssc.stop();
         }
 

@@ -45,13 +45,13 @@ class AccessAuthorizerTest {
     edu.utd.security.blueray.AccessMonitor.enforcePolicy(policy);
 
     var inputFile = sc.textFile("hdfs://localhost/user/user_small.csv")
-      //sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
-      GenericTests.rdd_BlockLii(sc, inputFile, true);
+      sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
+      GenericTests.rdd_BlockLii(sc, inputFile, true, "Lii","------");
    sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("SomeRANDOMSTRIng"));
-     GenericTests.rdd_BlockAll(sc, inputFile, true)
+     GenericTests.rdd_BlockAll(sc, inputFile, true, "Lii","------")
       sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
       AccessMonitor.deRegisterPolicy(policy);
-      GenericTests.rdd_BlockNone(sc, inputFile, true);
+      GenericTests.rdd_BlockNone(sc, inputFile, true, "Lii","------");
  
   }
  

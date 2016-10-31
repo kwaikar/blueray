@@ -12,7 +12,7 @@ import org.apache.spark.sql.types.StringType
 class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterator[T], val valueToBeBlocked: String)
     extends InterruptibleIterator[T](context, delegate) {
 
-  private val BLOCKED_VALUE_WRAPPER = "-";
+  val BLOCKED_VALUE_WRAPPER = "-";
   /**
    * This method verifies whether next element available through iterator is authorized or not. If authorized, it holds it in the memory for serving via next method.
    */
@@ -46,7 +46,7 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
       } else {
         localNextElementStr = nextElement.toString();
       }
-      if (localNextElementStr.contains(valueToBeBlocked.trim())  ) {
+      if (localNextElementStr.contains(valueToBeBlocked.trim())) {
         println("Blocking: " + valueToBeBlocked + " ==> " + localNextElementStr.toString().trim())
         //println("|||" + nextElement.getClass() + "====")
 
@@ -54,31 +54,24 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
           if (valueToBeBlocked.trim().length() == 0) {
             return BLOCKED_VALUE_WRAPPER.asInstanceOf[T]
           } else {
-            val newElement = nextElement.toString().replaceAll(valueToBeBlocked, BLOCKED_VALUE_WRAPPER).asInstanceOf[T];
-            //   println("returning :"+newElement)
-            return newElement;
 
+            var replacedString: String = Util.getStringOfLength(valueToBeBlocked.toCharArray());
+            return nextElement.toString().replaceAll(valueToBeBlocked, replacedString).asInstanceOf[T];
           }
         } else if (nextElement.getClass == classOf[UnsafeRow]) {
           val unsafeRow: UnsafeRow = nextElement.asInstanceOf[UnsafeRow];
           var newElement: UnsafeRow = new UnsafeRow(unsafeRow.numFields());
           if (valueToBeBlocked.trim().length() == 0) {
-           // localNextElementStr = localNextElementStr.replaceAll(localNextElementStr.trim(), BLOCKED_VALUE_WRAPPER);
-             var sb:StringBuilder = new StringBuilder();
-            for(c<-localNextElementStr)
-            {
-              if(c.toInt>0){
-              sb.append(BLOCKED_VALUE_WRAPPER);
-            }
+            var sb: StringBuilder = new StringBuilder();
+            for (c <- localNextElementStr) {
+              if (c.toInt > 0) {
+                sb.append(BLOCKED_VALUE_WRAPPER);
+              }
             }
             newElement.pointTo(sb.toString().getBytes, unsafeRow.getBaseOffset, sb.toString().getBytes.length)
           } else {
-            var sb:StringBuilder = new StringBuilder();
-            for(c<-valueToBeBlocked)
-            {
-              sb.append(BLOCKED_VALUE_WRAPPER);
-            }
-            localNextElementStr = localNextElementStr.replaceAll(valueToBeBlocked,sb.toString() );
+            var sb: String = Util.getStringOfLength(valueToBeBlocked.toCharArray());
+            localNextElementStr = localNextElementStr.replaceAll(valueToBeBlocked, sb);
             newElement.pointTo(localNextElementStr.getBytes, unsafeRow.getBaseOffset, unsafeRow.getSizeInBytes)
           }
           return newElement.asInstanceOf[T];
@@ -86,7 +79,6 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
           return nextElement;
         }
       } else {
-        //println("Passing original" + nextElement)
         return nextElement;
       }
     } else {
