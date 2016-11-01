@@ -15,10 +15,10 @@ object GenericTests {
     assert(inputFile.collect().mkString.contains(valueNotBlocked))
     println("#$%#$%" + inputFile.collect().mkString)
     assert(inputFile.collect().mkString.contains(newString))
-    assert(inputFile.collect().mkString.contains("23"))
+   /* assert(inputFile.collect().mkString.contains("23"))
     assert(inputFile.collect().mkString.contains("22"))
     assert(inputFile.collect().mkString.contains("21"))
-
+*/
     assert(3 == inputFile.count(), "Count method testing")
     assert(inputFile.take(3).mkString.contains(newString), "take(3)  testing")
     assert(inputFile.takeSample(false, 3, 0).mkString.contains(newString), "takeSample testing")
@@ -47,31 +47,36 @@ object GenericTests {
 
   }
 
-  def rdd_BlockNone[T](sc: SparkContext, inputFile: RDD[T], mapReduceOpsTesting: Boolean, stringToBeBlocked:String, newString:String) = {
+  def rdd_BlockNone[T](sc: SparkContext, inputFile: RDD[T], mapReduceOpsTesting: Boolean, stringToBeBlockedMain:String, newString:String) = {
     val currentMillis = System.currentTimeMillis;
-    println(inputFile.collect().size)
-    assert(inputFile.collect().mkString.contains(stringToBeBlocked))
+    println(inputFile.collect().mkString)
+     var stringToBeBlocked:String=stringToBeBlockedMain;
+    if(stringToBeBlockedMain.startsWith("\\.\\*"))
+        {
+       stringToBeBlocked=(stringToBeBlockedMain.subSequence(2, stringToBeBlockedMain.length()-2)).toString()
+        }
+    assert((inputFile.collect().mkString.matches(stringToBeBlocked) ))
     assert(!inputFile.collect().mkString.contains(newString))
-    assert(inputFile.collect().mkString.contains("23"))
+/*    assert(inputFile.collect().mkString.contains("23"))
     assert(inputFile.collect().mkString.contains("22"))
-    assert(inputFile.collect().mkString.contains("21"))
+    assert(inputFile.collect().mkString.contains("21"))*/
 
     assert(3 == inputFile.count(), "Count method testing")
-    assert(inputFile.take(3).mkString.contains(stringToBeBlocked), "take(3)  testing")
-    assert(inputFile.takeSample(false, 3, 0).mkString.contains(stringToBeBlocked), "takeSample testing")
-    assert(inputFile.first().toString().contains(stringToBeBlocked), "Size function testing")
+    assert(inputFile.take(3).mkString.matches(stringToBeBlocked), "take(3)  testing")
+    assert(inputFile.takeSample(false, 3, 0).mkString.matches(stringToBeBlocked), "takeSample testing")
+    assert(inputFile.first().toString().matches(stringToBeBlocked), "Size function testing")
 
     val fileName = "hdfs://localhost/user/user_authorized_single" + currentMillis + ".csv";
     inputFile.coalesce(1).saveAsTextFile(fileName);
     var coalescedFile = sc.textFile(fileName)
-    assert(coalescedFile.collect().mkString.contains(stringToBeBlocked), "coalescedFile method testing")
+    assert(coalescedFile.collect().mkString.matches(stringToBeBlocked), "coalescedFile method testing")
 
     val fs = org.apache.hadoop.fs.FileSystem.get(new java.net.URI(fileName), sc.hadoopConfiguration)
     assert(fs.delete(new org.apache.hadoop.fs.Path(fileName), true))
 
     inputFile.saveAsTextFile(fileName);
     var savedFile = sc.textFile(fileName)
-    assert(savedFile.collect().mkString.contains(stringToBeBlocked), "savedFile method testing")
+    assert(savedFile.collect().mkString.matches(stringToBeBlocked), "savedFile method testing")
     assert(fs.delete(new org.apache.hadoop.fs.Path(fileName), true))
 
   }
@@ -83,9 +88,9 @@ object GenericTests {
     assert(!inputFile.collect().mkString.contains(stringToBeBlocked))
     println("**********************************"+inputFile.collect().mkString)
      assert( inputFile.collect().mkString.contains("-"))
-    assert(!inputFile.collect().mkString.contains("23"))
+/*    assert(!inputFile.collect().mkString.contains("23"))
     assert(!inputFile.collect().mkString.contains("22"))
-    assert(!inputFile.collect().mkString.contains("21"))
+    assert(!inputFile.collect().mkString.contains("21"))*/
 
     assert(3 == inputFile.count(), "Count method testing")
     assert(!inputFile.take(3).mkString.contains(stringToBeBlocked), "take(3)  testing")
@@ -177,8 +182,8 @@ object GenericTests {
 
     println("-------------&&&&&&&&&&&&&&&&&-------------"+dfs.select("id").collect().mkString+"|")
     assert(dfs.select("id").collect().length == 3)
-    assert(dfs.select("id").collect().mkString.contains(stringToBeBlocked))
-    assert(!dfs.select("id").collect().mkString.contains(newString));
+    assert(dfs.select("id").collect().mkString.matches(stringToBeBlocked))
+    assert(!dfs.select("id").collect().mkString.matches(newString));
     assert(dfs.select("age").collect().mkString.contains("23"));
     assert(dfs.select("age").collect().mkString.contains("22"));
     assert(dfs.select("age").collect().mkString.contains("21"));
@@ -192,8 +197,8 @@ object GenericTests {
     val fileSaved = sc.textFile(fileName)
     assert(3 == fileSaved.count(), "saved testing")
 
-    assert(fileSaved.collect().mkString.contains(stringToBeBlocked))
-    assert(!fileSaved.collect().mkString.contains(newString));
+    assert(fileSaved.collect().mkString.matches(stringToBeBlocked))
+    assert(!fileSaved.collect().mkString.matches(newString));
 
     assert(fs.delete(new org.apache.hadoop.fs.Path(fileName), true))
   }

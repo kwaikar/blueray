@@ -33,26 +33,40 @@ class AccessAuthorizerTest {
   @Test
   def testUtil() = {
     assert(Util.decrypt(Util.encrypt("Hello")) == "Hello");
+    val valueToBlock = """.*((\d\d\d)-(\d\d\d)-(\d\d\d\d)).*""";
+    println(valueToBlock.subSequence(2, valueToBlock.length()-2))
   }
 
-  //@Test
+ // @Test
   def executeSimpleBlockTestCase() {
     val valueToBlock = "Lii";
     val valueNotBlocked = "saki U.";
     val newValue = "------";
     testSpark("hdfs://localhost/user/user_small.csv",valueToBlock, newValue,valueNotBlocked);
     new SQLTest().testSparkSQL(sc,"hdfs://localhost/user/user.json",valueToBlock, newValue,valueNotBlocked);
-    new StreamingTest().testSparkStreaming(sc,"hdfs://localhost/user/user_small.csv",valueToBlock, newValue,valueNotBlocked);
+    //new StreamingTest().testSparkStreaming(sc,"hdfs://localhost/user/user_small.csv",valueToBlock, newValue,valueNotBlocked);
   }
 
   
-  @Test
+ // @Test
   def executePhoneNumberBlockTestCase() {
     val valueToBlock = "460-027-0120";
     val valueNotBlocked = "460-028-0120";
     val newValue = "------";
     testSpark("hdfs://localhost/user/user_phone.csv",valueToBlock, newValue,valueNotBlocked);
     new SQLTest().testSparkSQL(sc,"hdfs://localhost/user/user_phone.json",valueToBlock, newValue,valueNotBlocked);
+  //  new StreamingTest().testSparkStreaming(sc,"hdfs://localhost/user/user_phone.csv",valueToBlock, newValue,valueNotBlocked);
+  }
+  
+   
+    
+   @Test
+  def executeAllPhoneNumberBlockTestCase() {
+    val valueToBlock = """.*((\d\d\d)-(\d\d\d)-(\d\d\d\d)).*""";
+    val valueNotBlocked = "460-0a8-0120";
+    val newValue = "------";
+    testSpark("hdfs://localhost/user/user_all_phones.csv",valueToBlock, newValue,valueNotBlocked);
+    new SQLTest().testSparkSQL(sc,"hdfs://localhost/user/user_all_phones.json",valueToBlock, newValue,valueNotBlocked);
     new StreamingTest().testSparkStreaming(sc,"hdfs://localhost/user/user_phone.csv",valueToBlock, newValue,valueNotBlocked);
   }
   

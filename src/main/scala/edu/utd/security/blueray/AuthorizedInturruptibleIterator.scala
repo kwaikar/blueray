@@ -26,7 +26,6 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
    */
   override def next(): T = {
 
-    //   println("Called " + valueToBeBlocked.trim())
     /**
      * Consume the authorized next element by returning the same
      */
@@ -46,7 +45,7 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
       } else {
         localNextElementStr = nextElement.toString();
       }
-      if (localNextElementStr.contains(valueToBeBlocked.trim())) {
+      if (localNextElementStr.contains(valueToBeBlocked.trim().toString()) || localNextElementStr.matches(valueToBeBlocked.trim())) {
         println("Blocking: " + valueToBeBlocked + " ==> " + localNextElementStr.toString().trim())
         //println("|||" + nextElement.getClass() + "====")
 
