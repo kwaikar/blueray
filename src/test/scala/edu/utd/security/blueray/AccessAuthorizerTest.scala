@@ -33,10 +33,15 @@ class AccessAuthorizerTest {
   @Test
   def testUtil() = {
     assert(Util.decrypt(Util.encrypt("Hello")) == "Hello");
-    val valueToBlock = """.*((\d\d\d)-(\d\d\d)-(\d\d\d\d)).*""";
-    println(valueToBlock.subSequence(2, valueToBlock.length()-2))
+  val sb ="00460-027-0120";
+  
+ // val regex="""(\d{3}-\d{3}-\d{4})""".r;
+  val regex="460-027-0120".r 
+  println("CLASS=="+sb.toString().trim()+":"+regex.findAllIn(sb).length)
+
   }
 
+ 
  // @Test
   def executeSimpleBlockTestCase() {
     val valueToBlock = "Lii";
@@ -48,7 +53,7 @@ class AccessAuthorizerTest {
   }
 
   
- // @Test
+  //@Test
   def executePhoneNumberBlockTestCase() {
     val valueToBlock = "460-027-0120";
     val valueNotBlocked = "460-028-0120";
@@ -62,10 +67,10 @@ class AccessAuthorizerTest {
     
    @Test
   def executeAllPhoneNumberBlockTestCase() {
-    val valueToBlock = """.*((\d\d\d)-(\d\d\d)-(\d\d\d\d)).*""";
+    val valueToBlock =  """(\d{3}-\d{3}-\d{4})""";
     val valueNotBlocked = "460-0a8-0120";
     val newValue = "------";
-    testSpark("hdfs://localhost/user/user_all_phones.csv",valueToBlock, newValue,valueNotBlocked);
+  //  testSpark("hdfs://localhost/user/user_all_phones.csv",valueToBlock, newValue,valueNotBlocked);
     new SQLTest().testSparkSQL(sc,"hdfs://localhost/user/user_all_phones.json",valueToBlock, newValue,valueNotBlocked);
     new StreamingTest().testSparkStreaming(sc,"hdfs://localhost/user/user_phone.csv",valueToBlock, newValue,valueNotBlocked);
   }
