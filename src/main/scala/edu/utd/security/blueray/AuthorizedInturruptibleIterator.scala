@@ -20,7 +20,6 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
 
     super.hasNext;
   }
-
   /**
    * Returns element from memory, if not present
    */
@@ -30,31 +29,33 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
      * Consume the authorized next element by returning the same
      */
     val nextElement = super.next();
-
+var cnt=0;
     if (nextElement != null) {
       var localNextElementStr = "";
       if (nextElement.getClass == classOf[UnsafeRow]) {
 
         var row: UnsafeRow = nextElement.asInstanceOf[UnsafeRow];
-
         var objectVal: Array[Byte] = nextElement.asInstanceOf[UnsafeRow].getBytes.asInstanceOf[Array[Byte]];
+        var sb: StringBuilder = new StringBuilder();
         for (c <- objectVal) {
-          localNextElementStr += c.toChar
+          cnt+=1;
+            sb.append(c.toChar);
+            print("["+cnt+"="+c.toInt+"]")
         }
-        //println("==>" + localNextElementStr)
+        localNextElementStr = sb.toString();
+
       } else {
         localNextElementStr = nextElement.toString();
       }
-      if (localNextElementStr.contains(valueToBeBlocked.trim().toString()) || localNextElementStr.matches(valueToBeBlocked.trim())) {
+      println("Checking:"+localNextElementStr.trim()+" : " +(valueToBeBlocked.r.findAllIn(localNextElementStr).length>0));
+      if (localNextElementStr.trim().length() > 0 && (valueToBeBlocked.r.findAllIn(localNextElementStr).length>0)) {
         println("Blocking: " + valueToBeBlocked + " ==> " + localNextElementStr.toString().trim())
-        //println("|||" + nextElement.getClass() + "====")
 
         if (nextElement.getClass == classOf[String]) {
           if (valueToBeBlocked.trim().length() == 0) {
             return BLOCKED_VALUE_WRAPPER.asInstanceOf[T]
           } else {
-
-            var replacedString: String = Util.getStringOfLength(valueToBeBlocked.toCharArray());
+            var replacedString: String = Util.getStringOfLength(valueToBeBlocked.toCharArray().length);
             return nextElement.toString().replaceAll(valueToBeBlocked, replacedString).asInstanceOf[T];
           }
         } else if (nextElement.getClass == classOf[UnsafeRow]) {
@@ -67,12 +68,27 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
                 sb.append(BLOCKED_VALUE_WRAPPER);
               }
             }
-            newElement.pointTo(sb.toString().getBytes, unsafeRow.getBaseOffset, sb.toString().getBytes.length)
+            println("========pointing===========>>")
+            newElement.pointTo(unsafeRow.getBytes, unsafeRow.getBaseOffset,  unsafeRow.getBytes.length)
           } else {
-            var sb: String = Util.getStringOfLength(valueToBeBlocked.toCharArray());
-            localNextElementStr = localNextElementStr.replaceAll(valueToBeBlocked, sb);
-            newElement.pointTo(localNextElementStr.getBytes, unsafeRow.getBaseOffset, unsafeRow.getSizeInBytes)
+ 
+            
+    if (valueToBeBlocked.r.findFirstIn(localNextElementStr) != None && valueToBeBlocked.r.findFirstIn(localNextElementStr).get.length() > 0) {
+     
+            var replaceMent: String = Util.getStringOfLength(valueToBeBlocked.r.findFirstIn(localNextElementStr).get.length());
+            localNextElementStr = valueToBeBlocked.r.replaceAllIn(localNextElementStr, replaceMent );
+
+            println("===================>>"+localNextElementStr.trim()+":"+localNextElementStr.getBytes.length+" : "+cnt+":"+unsafeRow.getBaseOffset+"=>"+unsafeRow.getSizeInBytes)   
+            
+            newElement.pointTo(localNextElementStr.map(_.toByte).toArray, unsafeRow.getBaseOffset, unsafeRow.getBytes.length) 
+    }
           }
+          println("-->Returned!!!:")
+          var cnt2=0;
+           for (c <- localNextElementStr.map(_.toByte).toArray) {
+          cnt2+=1;
+            print("["+cnt2+"="+c.toInt+"]")
+        }
           return newElement.asInstanceOf[T];
         } else {
           return nextElement;
