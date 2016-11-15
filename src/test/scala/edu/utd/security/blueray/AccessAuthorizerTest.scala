@@ -33,56 +33,58 @@ class AccessAuthorizerTest {
   @Test
   def testUtil() = {
     assert(Util.decrypt(Util.encrypt("Hello")) == "Hello");
-  val sb ="00460-027-0120";
-  
- // val regex="""(\d{3}-\d{3}-\d{4})""".r;
-  val regex="460-027-0120".r 
-  println("CLASS=="+sb.toString().trim()+":"+regex.findAllIn(sb).length)
+    val sb = "00460-027-0120";
+
+    // val regex="""(\d{3}-\d{3}-\d{4})""".r;
+    val regex = "460-027-0120".r
+    var replaceMent: StringBuilder = new StringBuilder();
+    if (regex.findFirstIn(sb) != None && regex.findFirstIn(sb).get.length() > 0) {
+      for (i <- 0 to regex.findFirstIn(sb).get.length()) {
+        replaceMent.append("-")
+      }
+    }
+    println("CLASS==" + sb.toString().trim() + ":" + regex.findAllIn(sb).length + " : " + regex.replaceAllIn(sb, replaceMent.toString()))
 
   }
 
- 
- // @Test
+  // @Test
   def executeSimpleBlockTestCase() {
     val valueToBlock = "Lii";
     val valueNotBlocked = "saki U.";
     val newValue = "------";
-    testSpark("hdfs://localhost/user/user_small.csv",valueToBlock, newValue,valueNotBlocked);
-    new SQLTest().testSparkSQL(sc,"hdfs://localhost/user/user.json",valueToBlock, newValue,valueNotBlocked);
+    testSpark("hdfs://localhost/user/user_small.csv", valueToBlock, newValue, valueNotBlocked);
+    new SQLTest().testSparkSQL(sc, "hdfs://localhost/user/user.json", valueToBlock, newValue, valueNotBlocked);
     //new StreamingTest().testSparkStreaming(sc,"hdfs://localhost/user/user_small.csv",valueToBlock, newValue,valueNotBlocked);
   }
 
-  
   //@Test
   def executePhoneNumberBlockTestCase() {
     val valueToBlock = "460-027-0120";
     val valueNotBlocked = "460-028-0120";
     val newValue = "------";
-    testSpark("hdfs://localhost/user/user_phone.csv",valueToBlock, newValue,valueNotBlocked);
-    new SQLTest().testSparkSQL(sc,"hdfs://localhost/user/user_phone.json",valueToBlock, newValue,valueNotBlocked);
-  //  new StreamingTest().testSparkStreaming(sc,"hdfs://localhost/user/user_phone.csv",valueToBlock, newValue,valueNotBlocked);
+    testSpark("hdfs://localhost/user/user_phone.csv", valueToBlock, newValue, valueNotBlocked);
+    new SQLTest().testSparkSQL(sc, "hdfs://localhost/user/user_phone.json", valueToBlock, newValue, valueNotBlocked);
+    //  new StreamingTest().testSparkStreaming(sc,"hdfs://localhost/user/user_phone.csv",valueToBlock, newValue,valueNotBlocked);
   }
-  
-   
-    
-   @Test
+
+    @Test
   def executeAllPhoneNumberBlockTestCase() {
-    val valueToBlock =  """(\d{3}-\d{3}-\d{4})""";
+    val valueToBlock = """(\d{3}-\d{3}-\d{4})""";
     val valueNotBlocked = "460-0a8-0120";
     val newValue = "------";
-  //  testSpark("hdfs://localhost/user/user_all_phones.csv",valueToBlock, newValue,valueNotBlocked);
-    new SQLTest().testSparkSQL(sc,"hdfs://localhost/user/user_all_phones.json",valueToBlock, newValue,valueNotBlocked);
-    new StreamingTest().testSparkStreaming(sc,"hdfs://localhost/user/user_phone.csv",valueToBlock, newValue,valueNotBlocked);
+    //  testSpark("hdfs://localhost/user/user_all_phones.csv",valueToBlock, newValue,valueNotBlocked);
+    new SQLTest().testSparkSQL(sc, "hdfs://localhost/user/user_all_phones.json", valueToBlock, newValue, valueNotBlocked);
+    new StreamingTest().testSparkStreaming(sc, "hdfs://localhost/user/user_phone.csv", valueToBlock, newValue, valueNotBlocked);
   }
-  
-  private def testSpark(filePath:String,valueToBlock: String, newValue: String,valueNotBlocked:String) = {
+
+  private def testSpark(filePath: String, valueToBlock: String, newValue: String, valueNotBlocked: String) = {
     sc.setLogLevel("ERROR")
     var policy = new edu.utd.security.blueray.Policy(filePath, Util.encrypt("ADMIN"), valueToBlock);
     edu.utd.security.blueray.AccessMonitor.enforcePolicy(policy);
 
     var inputFile = sc.textFile(filePath)
     sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
-    GenericTests.rdd_BlockLii(sc, inputFile, true, valueToBlock, newValue,valueNotBlocked);
+    GenericTests.rdd_BlockLii(sc, inputFile, true, valueToBlock, newValue, valueNotBlocked);
     sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("SomeRANDOMSTRIng"));
     GenericTests.rdd_BlockAll(sc, inputFile, true, valueToBlock, newValue)
     sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));

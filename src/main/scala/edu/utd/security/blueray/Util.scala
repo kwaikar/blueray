@@ -123,9 +123,9 @@ object Util {
   
    val BLOCKED_VALUE_WRAPPER = "-";
 
-  def getStringOfLength(arr:Array[Char]) :String= {
+  def getStringOfLength(length:Integer) :String= {
     var sb:StringBuilder = new StringBuilder();
-    for(c<-arr)
+    for(c<-1 to length)
     {
       sb.append(BLOCKED_VALUE_WRAPPER);
             }

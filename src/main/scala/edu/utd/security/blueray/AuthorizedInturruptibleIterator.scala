@@ -29,7 +29,7 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
      * Consume the authorized next element by returning the same
      */
     val nextElement = super.next();
-var cnt=0;
+    var cnt = 0;
     if (nextElement != null) {
       var localNextElementStr = "";
       if (nextElement.getClass == classOf[UnsafeRow]) {
@@ -38,17 +38,17 @@ var cnt=0;
         var objectVal: Array[Byte] = nextElement.asInstanceOf[UnsafeRow].getBytes.asInstanceOf[Array[Byte]];
         var sb: StringBuilder = new StringBuilder();
         for (c <- objectVal) {
-          cnt+=1;
-            sb.append(c.toChar);
-            print("["+cnt+"="+c.toInt+"]")
+          cnt += 1;
+          sb.append(c.toChar);
+          print("[" + cnt + "=" + c.toInt + "]")
         }
         localNextElementStr = sb.toString();
 
       } else {
         localNextElementStr = nextElement.toString();
       }
-      println("Checking:"+localNextElementStr.trim()+" : " +(valueToBeBlocked.r.findAllIn(localNextElementStr).length>0));
-      if (localNextElementStr.trim().length() > 0 && (valueToBeBlocked.r.findAllIn(localNextElementStr).length>0)) {
+      println("Checking:" + localNextElementStr.trim() + " : " + (valueToBeBlocked.r.findAllIn(localNextElementStr).length > 0));
+      if (localNextElementStr.trim().length() > 0 && (valueToBeBlocked.r.findAllIn(localNextElementStr).length > 0)) {
         println("Blocking: " + valueToBeBlocked + " ==> " + localNextElementStr.toString().trim())
 
         if (nextElement.getClass == classOf[String]) {
@@ -62,33 +62,36 @@ var cnt=0;
           val unsafeRow: UnsafeRow = nextElement.asInstanceOf[UnsafeRow];
           var newElement: UnsafeRow = new UnsafeRow(unsafeRow.numFields());
           if (valueToBeBlocked.trim().length() == 0) {
-            var sb: StringBuilder = new StringBuilder();
-            for (c <- localNextElementStr) {
-              if (c.toInt > 0) {
-                sb.append(BLOCKED_VALUE_WRAPPER);
+
+            var objectVal: Array[Byte] = nextElement.asInstanceOf[UnsafeRow].getBytes.asInstanceOf[Array[Byte]];
+            for (i <- unsafeRow.getBaseOffset to (unsafeRow.getSizeInBytes-1)) {
+              if ((objectVal(i.toInt)).toInt > 0) {
+                objectVal(i.toInt) = '-'.toByte;
               }
             }
-            println("========pointing===========>>")
-            newElement.pointTo(unsafeRow.getBytes, unsafeRow.getBaseOffset,  unsafeRow.getBytes.length)
-          } else {
- 
-            
-    if (valueToBeBlocked.r.findFirstIn(localNextElementStr) != None && valueToBeBlocked.r.findFirstIn(localNextElementStr).get.length() > 0) {
-     
-            var replaceMent: String = Util.getStringOfLength(valueToBeBlocked.r.findFirstIn(localNextElementStr).get.length());
-            localNextElementStr = valueToBeBlocked.r.replaceAllIn(localNextElementStr, replaceMent );
+            println("===================>>" + localNextElementStr.trim() + ":" + localNextElementStr.getBytes.length + " : " + cnt + ":" + unsafeRow.getBaseOffset + "=>" + unsafeRow.getSizeInBytes)
 
-            println("===================>>"+localNextElementStr.trim()+":"+localNextElementStr.getBytes.length+" : "+cnt+":"+unsafeRow.getBaseOffset+"=>"+unsafeRow.getSizeInBytes)   
-            
-            newElement.pointTo(localNextElementStr.map(_.toByte).toArray, unsafeRow.getBaseOffset, unsafeRow.getBytes.length) 
-    }
+            newElement.pointTo(objectVal, unsafeRow.getBaseOffset, unsafeRow.getSizeInBytes)
+          } else {
+
+            if (valueToBeBlocked.r.findFirstIn(localNextElementStr) != None && valueToBeBlocked.r.findFirstIn(localNextElementStr).get.length() > 0) {
+
+              var replaceMent: String = Util.getStringOfLength(valueToBeBlocked.r.findFirstIn(localNextElementStr).get.length());
+              localNextElementStr = valueToBeBlocked.r.replaceAllIn(localNextElementStr, replaceMent);
+              newElement.pointTo(localNextElementStr.map(_.toByte).toArray, unsafeRow.getBaseOffset, unsafeRow.getSizeInBytes)
+            }
           }
-          println("-->Returned!!!:")
-          var cnt2=0;
-           for (c <- localNextElementStr.map(_.toByte).toArray) {
-          cnt2+=1;
-            print("["+cnt2+"="+c.toInt+"]")
-        }
+          var cnt2 = 0;
+          for (c <- localNextElementStr.map(_.toByte).toArray) {
+            cnt2 += 1;
+            print("[" + cnt2 + "=" + c.toChar + "]")
+          }
+          print("Returning: ")
+          for (c <- newElement.getBytes) {
+            if (c.toInt > 0)
+              print(c.toChar)
+          }
+          println();
           return newElement.asInstanceOf[T];
         } else {
           return nextElement;

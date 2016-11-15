@@ -15,7 +15,7 @@ import org.aspectj.lang.annotation.Aspect
 @Aspect
 class AccessAuthorizerAspect {
 
-  @Around(value = "execution(* org.apache.spark.rdd.MapPartitionsRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
+  @Around(value = "execution(* org.apache.spark.rdd.RDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
   def aroundAdvice_spark(jp: ProceedingJoinPoint, theSplit: Partition, job: JobConf, context: TaskContext): AnyRef = {
 
     val iterator = (jp.proceed(jp.getArgs()));
@@ -30,7 +30,7 @@ class AccessAuthorizerAspect {
     return iterator
   }
 
-  @Around(value = "execution(* org.apache.spark.sql.execution.datasources.FileScanRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
+ /* @Around(value = "execution(* org.apache.spark.sql.execution.datasources.FileScanRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
   def aroundAdvice_sparkSQL(jp: ProceedingJoinPoint, theSplit: Partition, job: JobConf, context: TaskContext): AnyRef = {
 
     val iterator = (jp.proceed(jp.getArgs()));
@@ -43,7 +43,7 @@ class AccessAuthorizerAspect {
       }
     }
     return iterator;
-  }
+  }*/
   def getPolicy(context: org.apache.spark.TaskContext, jp: org.aspectj.lang.ProceedingJoinPoint, pcType: Any): Option[Policy] = {
     var policy: Option[Policy] = None;
     val auth: Option[String] = Util.extractAuth(context)
