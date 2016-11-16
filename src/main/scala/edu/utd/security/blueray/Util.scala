@@ -107,7 +107,6 @@ object Util {
           } else if (field.getName.equalsIgnoreCase("files")) {
             field.setAccessible(true)
             val partitionedFile = field.get(jp.getArgs()(0)).toString()
-            println(partitionedFile.toString())
             path = partitionedFile.subSequence(partitionedFile.indexOf(" "), partitionedFile.indexOf(",")).toString();
             pathFound = true;
             break;
@@ -120,20 +119,18 @@ object Util {
     }
     path
   }
-  
-   val BLOCKED_VALUE_WRAPPER = "-";
 
-  def getStringOfLength(length:Integer) :String= {
-    var sb:StringBuilder = new StringBuilder();
-    for(c<-1 to length)
-    {
+  val BLOCKED_VALUE_WRAPPER = "-";
+
+  def getStringOfLength(length: Integer): String = {
+    var sb: StringBuilder = new StringBuilder();
+    for (c <- 1 to length) {
       sb.append(BLOCKED_VALUE_WRAPPER);
-            }
+    }
     sb.toString
   }
 }
-  
-  
+
 object PointCutType extends Enumeration {
   type PointCutType = String;
   val SPARK = "SPARK";

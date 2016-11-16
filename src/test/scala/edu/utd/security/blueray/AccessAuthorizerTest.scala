@@ -47,7 +47,7 @@ class AccessAuthorizerTest {
 
   }
 
-  // @Test
+  @Test
   def executeSimpleBlockTestCase() {
     val valueToBlock = "Lii";
     val valueNotBlocked = "saki U.";
@@ -57,7 +57,7 @@ class AccessAuthorizerTest {
     //new StreamingTest().testSparkStreaming(sc,"hdfs://localhost/user/user_small.csv",valueToBlock, newValue,valueNotBlocked);
   }
 
-  //@Test
+  @Test
   def executePhoneNumberBlockTestCase() {
     val valueToBlock = "460-027-0120";
     val valueNotBlocked = "460-028-0120";
@@ -72,9 +72,9 @@ class AccessAuthorizerTest {
     val valueToBlock = """(\d{3}-\d{3}-\d{4})""";
     val valueNotBlocked = "460-0a8-0120";
     val newValue = "------";
-    //  testSpark("hdfs://localhost/user/user_all_phones.csv",valueToBlock, newValue,valueNotBlocked);
+    testSpark("hdfs://localhost/user/user_all_phones.csv",valueToBlock, newValue,valueNotBlocked);
     new SQLTest().testSparkSQL(sc, "hdfs://localhost/user/user_all_phones.json", valueToBlock, newValue, valueNotBlocked);
-    new StreamingTest().testSparkStreaming(sc, "hdfs://localhost/user/user_phone.csv", valueToBlock, newValue, valueNotBlocked);
+  //  new StreamingTest().testSparkStreaming(sc, "hdfs://localhost/user/user_phone.csv", valueToBlock, newValue, valueNotBlocked);
   }
 
   private def testSpark(filePath: String, valueToBlock: String, newValue: String, valueNotBlocked: String) = {

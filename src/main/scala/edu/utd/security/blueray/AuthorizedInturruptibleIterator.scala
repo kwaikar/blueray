@@ -36,20 +36,17 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
 
         var row: UnsafeRow = nextElement.asInstanceOf[UnsafeRow];
         var objectVal: Array[Byte] = nextElement.asInstanceOf[UnsafeRow].getBytes.asInstanceOf[Array[Byte]];
-        var sb: StringBuilder = new StringBuilder();
         for (c <- objectVal) {
-          cnt += 1;
-          sb.append(c.toChar);
-          print("[" + cnt + "=" + c.toInt + "]")
+         // cnt += 1;
+          localNextElementStr+=(c.toChar);
+          //print("[" + cnt + "=" + c.toInt + "]")
         }
-        localNextElementStr = sb.toString();
 
       } else {
         localNextElementStr = nextElement.toString();
       }
-      println("Checking:" + localNextElementStr.trim() + " : " + (valueToBeBlocked.r.findAllIn(localNextElementStr).length > 0));
       if (localNextElementStr.trim().length() > 0 && (valueToBeBlocked.r.findAllIn(localNextElementStr).length > 0)) {
-        println("Blocking: " + valueToBeBlocked + " ==> " + localNextElementStr.toString().trim())
+        //println("Blocking: " + valueToBeBlocked + " ==> " + localNextElementStr.toString().trim())
 
         if (nextElement.getClass == classOf[String]) {
           if (valueToBeBlocked.trim().length() == 0) {
@@ -66,11 +63,9 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
             var objectVal: Array[Byte] = nextElement.asInstanceOf[UnsafeRow].getBytes.asInstanceOf[Array[Byte]];
             for (i <- unsafeRow.getBaseOffset to (unsafeRow.getSizeInBytes-1)) {
               if ((objectVal(i.toInt)).toInt > 0) {
-                objectVal(i.toInt) = '-'.toByte;
+                objectVal(i.toInt) = BLOCKED_VALUE_WRAPPER.toCharArray()(0).toByte;
               }
             }
-            println("===================>>" + localNextElementStr.trim() + ":" + localNextElementStr.getBytes.length + " : " + cnt + ":" + unsafeRow.getBaseOffset + "=>" + unsafeRow.getSizeInBytes)
-
             newElement.pointTo(objectVal, unsafeRow.getBaseOffset, unsafeRow.getSizeInBytes)
           } else {
 
@@ -81,7 +76,7 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
               newElement.pointTo(localNextElementStr.map(_.toByte).toArray, unsafeRow.getBaseOffset, unsafeRow.getSizeInBytes)
             }
           }
-          var cnt2 = 0;
+          /*var cnt2 = 0;
           for (c <- localNextElementStr.map(_.toByte).toArray) {
             cnt2 += 1;
             print("[" + cnt2 + "=" + c.toChar + "]")
@@ -92,6 +87,9 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
               print(c.toChar)
           }
           println();
+          */
+          
+          
           return newElement.asInstanceOf[T];
         } else {
           return nextElement;
