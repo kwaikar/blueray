@@ -8,17 +8,23 @@ import org.apache.spark.TaskContext
 import org.aspectj.lang.ProceedingJoinPoint
 import org.aspectj.lang.annotation.Around
 import org.aspectj.lang.annotation.Aspect
+import org.apache.spark.SparkContext
+import org.apache.spark.SparkConf
 
 /**
  * Aspect implementing authorized computation of the RDD
  */
 @Aspect
 class AccessAuthorizerAspect {
+  
 
-  @Around(value = "execution(* org.apache.spark.rdd.RDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
-  def aroundAdvice_spark(jp: ProceedingJoinPoint, theSplit: Partition, job: JobConf, context: TaskContext): AnyRef = {
+  @Around(value = "execution(* org.apache.spark.rdd.MapPartitionsRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
+  def aroundAdvice_spark(jp: ProceedingJoinPoint, theSplit: Partition, context: TaskContext): AnyRef = {
 
+    println("----------------------- Going through the Aspect ---------------------------------");
+  
     val iterator = (jp.proceed(jp.getArgs()));
+    
 
     // if (context.getLocalProperty("PRIVILEDGE") != null) {
     val policy = getPolicy(context, jp, PointCutType.SPARK);
@@ -31,7 +37,7 @@ class AccessAuthorizerAspect {
   }
 
  /* @Around(value = "execution(* org.apache.spark.sql.execution.datasources.FileScanRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
-  def aroundAdvice_sparkSQL(jp: ProceedingJoinPoint, theSplit: Partition, job: JobConf, context: TaskContext): AnyRef = {
+  def aroundAdvice_sparkSQL(jp: ProceedingJoinPoint, theSplit: Partition,   context: TaskContext): AnyRef = {
 
     val iterator = (jp.proceed(jp.getArgs()));
     if (context.getLocalProperty("PRIVILEDGE") != null) {
@@ -46,7 +52,7 @@ class AccessAuthorizerAspect {
   }*/
   def getPolicy(context: org.apache.spark.TaskContext, jp: org.aspectj.lang.ProceedingJoinPoint, pcType: Any): Option[Policy] = {
     var policy: Option[Policy] = None;
-    val auth: Option[String] = Util.extractAuth(context)
+    val auth: Option[String] =Some(System.getProperty("user.name", ""))// Util.extractAuth(context)
 
     var path = Util.extractPathForSpark(jp);
     if (path == null || path.trim().length() == 0) {

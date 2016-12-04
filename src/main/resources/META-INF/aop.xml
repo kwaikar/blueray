@@ -3,6 +3,7 @@
 		<aspect name="edu.utd.security.blueray.AccessAuthorizerAspect" />
 	</aspects>
 
-  <weaver options="-verbose -XnoInline -showWeaveInfo">
+  <weaver options="-XnoInline -showWeaveInfo">
+  <include within="*"/>
   	</weaver>
 </aspectj>

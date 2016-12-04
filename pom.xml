@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>edu.utd.security</groupId>
 	<artifactId>blueray</artifactId>
-	<version>0.0.2-SNAPSHOT</version>
+	<version>0.0.8-SNAPSHOT</version>
 	<name>blueray</name>
 	<description>Access control in Spark</description>
 	<inceptionYear>2016</inceptionYear>
@@ -119,35 +119,11 @@
 				<configuration>
 					<argLine>"-javaagent:/home/kanchan/Downloads/aspectjweaver-1.8.5.jar"</argLine>
 				</configuration>
-			</plugin> 
-			
-			<plugin>
-        <artifactId>maven-resources-plugin</artifactId>
-        <version>3.0.1</version>
-        <executions>
-          <execution>
-            <id>copy-resources</id>
-            <!-- here the phase you need -->
-            <phase>validates</phase>
-            <goals>
-              <goal>copy-resources</goal>
-            </goals>
-            <configuration>
-              <outputDirectory>${basedir}/META-INF/</outputDirectory>
-              <resources>          
-                <resource>
-                  <directory>${basedir}/src/main/resources/META-INF/</directory>
-                  <filtering>true</filtering>
-                </resource>
-              </resources>              
-            </configuration>            
-          </execution>
-        </executions>
-      </plugin>
+			</plugin>
 		</plugins>
 		<resources>
 			<resource>
-				<directory>src/main/resources</directory>
+				<directory>src/main/resources/META-INF</directory>
 				<includes>
 					<include>aop.xml</include> <!-- ensures aop.xml ends inside the META-INF -->
 				</includes>

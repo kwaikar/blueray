@@ -11,21 +11,23 @@ import javax.crypto.spec.SecretKeySpec
 
 object Util {
 
+   
   val secretKey = new SecretKeySpec("MY_SECRET_KEY_12".getBytes, "AES")
-  var sc: SparkContext = _;
+  val conf = new SparkConf().setAppName("Simple Application").setMaster("local[2]");
+  var sc: SparkContext = SparkContext.getOrCreate(conf);
 
-  def getSC(): SparkContext = {
+  
+  def getSC(): SparkContext = { 
     if (sc == null) {
-      val conf = new SparkConf().setAppName("Simple Application").setMaster("local[2]");
       sc = new SparkContext(conf)
     }
-
     sc;
   }
 
   def getFileAsString(path: String): String = {
     var sc: SparkContext = getSC()
     val value = sc.textFile(path).collect().mkString
+    println("Returing"+value)
     value
   }
 

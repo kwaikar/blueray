@@ -43,21 +43,36 @@ class AccessAuthorizerTest {
         replaceMent.append("-")
       }
     }
+    
     println("CLASS==" + sb.toString().trim() + ":" + regex.findAllIn(sb).length + " : " + regex.replaceAllIn(sb, replaceMent.toString()))
+    val valueToBlock = "Lii";
+    val valueNotBlocked = "saki U.";
+    val newValue = "------";
+    val filePath="hdfs://localhost/user/user_small.csv";
+    
+    
+    println("-----------@#---------"+System.getProperty("user.name", ""))
+   // sc.setLogLevel("DEBUG");
+     // var policy = new edu.utd.security.blueray.Policy(filePath, edu.utd.security.blueray.Util.encrypt("ADMIN"), valueToBlock);
+   // edu.utd.security.blueray.AccessMonitor.enforcePolicy(policy);
 
+    /*var inputFile = sc.textFile(filePath)
+    //sc.setLocalProperty(("PRIVILEDGE"), edu.utd.security.blueray.Util.encrypt("ADMIN"));
+     println(inputFile.collect().size + " =======> " + inputFile.collect().mkString);*/
+     
   }
 
-  @Test
+ // @Test
   def executeSimpleBlockTestCase() {
     val valueToBlock = "Lii";
     val valueNotBlocked = "saki U.";
     val newValue = "------";
     testSpark("hdfs://localhost/user/user_small.csv", valueToBlock, newValue, valueNotBlocked);
-    new SQLTest().testSparkSQL(sc, "hdfs://localhost/user/user.json", valueToBlock, newValue, valueNotBlocked);
+   // new SQLTest().testSparkSQL(sc, "hdfs://localhost/user/user.json", valueToBlock, newValue, valueNotBlocked);
     //new StreamingTest().testSparkStreaming(sc,"hdfs://localhost/user/user_small.csv",valueToBlock, newValue,valueNotBlocked);
   }
 
-  @Test
+ // @Test
   def executePhoneNumberBlockTestCase() {
     val valueToBlock = "460-027-0120";
     val valueNotBlocked = "460-028-0120";
@@ -67,7 +82,7 @@ class AccessAuthorizerTest {
     //  new StreamingTest().testSparkStreaming(sc,"hdfs://localhost/user/user_phone.csv",valueToBlock, newValue,valueNotBlocked);
   }
 
-    @Test
+ //   @Test
   def executeAllPhoneNumberBlockTestCase() {
     val valueToBlock = """(\d{3}-\d{3}-\d{4})""";
     val valueNotBlocked = "460-0a8-0120";
@@ -78,12 +93,11 @@ class AccessAuthorizerTest {
   }
 
   private def testSpark(filePath: String, valueToBlock: String, newValue: String, valueNotBlocked: String) = {
-    sc.setLogLevel("ERROR")
-    var policy = new edu.utd.security.blueray.Policy(filePath, Util.encrypt("ADMIN"), valueToBlock);
+      var policy = new edu.utd.security.blueray.Policy(filePath, Util.encrypt("ADMIN"), valueToBlock);
     edu.utd.security.blueray.AccessMonitor.enforcePolicy(policy);
 
     var inputFile = sc.textFile(filePath)
-    sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
+    sc.setLocalProperty(("PRIVILEDGE"), edu.utd.security.blueray.Util.encrypt("ADMIN"));
     GenericTests.rdd_BlockLii(sc, inputFile, true, valueToBlock, newValue, valueNotBlocked);
     sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("SomeRANDOMSTRIng"));
     GenericTests.rdd_BlockAll(sc, inputFile, true, valueToBlock, newValue)
