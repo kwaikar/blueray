@@ -1,4 +1,4 @@
-package edu.utd.security.blueray
+	package edu.utd.security.blueray
 
 import scala.annotation.elidable
 import scala.annotation.elidable.ASSERTION
@@ -51,6 +51,8 @@ class AccessAuthorizerTest {
     val filePath="hdfs://localhost/user/user_small.csv";
     
     
+    val valueToBlock1 = """(\d{3}-\d{3}-\d{4})""";
+	println("===>"+valueToBlock1)
     println("-----------@#---------"+System.getProperty("user.name", ""))
    // sc.setLogLevel("DEBUG");
      // var policy = new edu.utd.security.blueray.Policy(filePath, edu.utd.security.blueray.Util.encrypt("ADMIN"), valueToBlock);
@@ -62,7 +64,7 @@ class AccessAuthorizerTest {
      
   }
 
- // @Test
+  //@Test
   def executeSimpleBlockTestCase() {
     val valueToBlock = "Lii";
     val valueNotBlocked = "saki U.";
@@ -82,7 +84,7 @@ class AccessAuthorizerTest {
     //  new StreamingTest().testSparkStreaming(sc,"hdfs://localhost/user/user_phone.csv",valueToBlock, newValue,valueNotBlocked);
   }
 
- //   @Test
+  //  @Test
   def executeAllPhoneNumberBlockTestCase() {
     val valueToBlock = """(\d{3}-\d{3}-\d{4})""";
     val valueNotBlocked = "460-0a8-0120";
@@ -97,11 +99,11 @@ class AccessAuthorizerTest {
     edu.utd.security.blueray.AccessMonitor.enforcePolicy(policy);
 
     var inputFile = sc.textFile(filePath)
-    sc.setLocalProperty(("PRIVILEDGE"), edu.utd.security.blueray.Util.encrypt("ADMIN"));
+    sc.setLocalProperty(("USER"), ("ADMIN"));
     GenericTests.rdd_BlockLii(sc, inputFile, true, valueToBlock, newValue, valueNotBlocked);
-    sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("SomeRANDOMSTRIng"));
+    sc.setLocalProperty(("USER"),("SomeRANDOMSTRIng"));
     GenericTests.rdd_BlockAll(sc, inputFile, true, valueToBlock, newValue)
-    sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
+    sc.setLocalProperty(("USER"),("ADMIN"));
     AccessMonitor.deRegisterPolicy(policy);
     GenericTests.rdd_BlockNone(sc, inputFile, true, valueToBlock, newValue);
   }

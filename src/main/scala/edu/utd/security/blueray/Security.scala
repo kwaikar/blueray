@@ -32,11 +32,12 @@ object Security {
   }
   def decrypt(encryptedText: String): String =
     {
-      val pbeKey = getSecretKey("ADMIN_1_PASSWORD");
-      var pbeCipherDecrypt: Cipher = Cipher.getInstance(pbeKey.getAlgorithm);
-      pbeCipherDecrypt.init(Cipher.DECRYPT_MODE, pbeKey, cipherEncrypt.getParameters);
-      var deCipheredText: Array[Byte] = pbeCipherDecrypt.doFinal(Base64.getDecoder.decode(encryptedText));
-      new String(deCipheredText)
+     // val pbeKey = getSecretKey("ADMIN_1_PASSWORD");
+      //var pbeCipherDecrypt: Cipher = Cipher.getInstance(pbeKey.getAlgorithm);
+    //  pbeCipherDecrypt.init(Cipher.DECRYPT_MODE, pbeKey, cipherEncrypt.getParameters);
+     // var deCipheredText: Array[Byte] = pbeCipherDecrypt.doFinal(Base64.getDecoder.decode(encryptedText));
+     // new String(deCipheredText)
+      encryptedText
     }
 
   def getSecretKey(password:String) = {
@@ -48,15 +49,18 @@ object Security {
 
   def encrypt(plainText: String): String =
     {
+      
       val pbeKey = getSecretKey("ADMIN_1_PASSWORD");
+      
       if (cipherEncrypt == null) {
-        println("cipherEncrypt inited")
-        cipherEncrypt = Cipher.getInstance(pbeKey.getAlgorithm);
-        cipherEncrypt.init(Cipher.ENCRYPT_MODE, pbeKey, pbeParamSpec);
+      //println("cipherEncrypt inited")
+       // cipherEncrypt = Cipher.getInstance(pbeKey.getAlgorithm);
+        //cipherEncrypt.init(Cipher.ENCRYPT_MODE, pbeKey, pbeParamSpec);
       }
-        println("cipherEncrypt inited==>"+cipherEncrypt)
-      var cipherText: Array[Byte] = cipherEncrypt.doFinal(plainText.getBytes);
-      println("Encrypted:" + Base64.getEncoder().encodeToString(cipherText))
-      Base64.getEncoder().encodeToString(cipherText)
+      //println("cipherEncrypt inited==>"+cipherEncrypt)
+    //  var cipherText: Array[Byte] = cipherEncrypt.doFinal(plainText.getBytes);
+     // println("Encrypted:" + Base64.getEncoder().encodeToString(cipherText))
+     // Base64.getEncoder().encodeToString(cipherText)
+      plainText
     }
 }

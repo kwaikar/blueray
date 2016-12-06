@@ -47,11 +47,16 @@ object AccessMonitor {
        if(AccessMonitor.policies.size==0){
          for (line <- Source.fromFile("/home/kanchan/policies.csv").getLines()) {
          
-          val arr=line.split(",");
-          println(arr.length+"|"+arr(0))
-           AccessMonitor.enforcePolicy(new Policy(arr(2),Util.encrypt(arr(1)),(arr(0))));
+          val arr=line.split(","); 
+          var regex=arr(0);
+          if(arr(0).startsWith("\""))
+              {
+              regex=arr(0).replaceAll("\"","");
+              }
+          //println("Final: "+arr(0)+" : "+regex);
+           AccessMonitor.enforcePolicy(new Policy(arr(2),Util.encrypt(arr(1)),regex));
           }
-         println("Policiies"+policies);
+         
        }
        
       var policyToBeReturned: Option[Policy] = None;

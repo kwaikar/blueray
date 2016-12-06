@@ -27,7 +27,6 @@ object Util {
   def getFileAsString(path: String): String = {
     var sc: SparkContext = getSC()
     val value = sc.textFile(path).collect().mkString
-    println("Returing"+value)
     value
   }
 
