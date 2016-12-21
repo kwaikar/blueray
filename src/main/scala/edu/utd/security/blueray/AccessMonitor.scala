@@ -45,7 +45,7 @@ object AccessMonitor {
   def getPolicy(path: String, priviledgeRestriction: Option[String]): Option[Policy] =
     {
        if(AccessMonitor.policies.size==0){
-         for (line <- Source.fromFile("/home/kanchan/policies.csv").getLines()) {
+         for (line <- Source.fromFile("/usr/lib/blueray/policies.csv").getLines()) {
          
           val arr=line.split(","); 
           var regex=arr(0);
