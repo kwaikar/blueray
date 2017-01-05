@@ -37,8 +37,8 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
         var row: UnsafeRow = nextElement.asInstanceOf[UnsafeRow];
         var objectVal: Array[Byte] = nextElement.asInstanceOf[UnsafeRow].getBytes.asInstanceOf[Array[Byte]];
         for (c <- objectVal) {
-         // cnt += 1;
-          localNextElementStr+=(c.toChar);
+          // cnt += 1;
+          localNextElementStr += (c.toChar);
           //print("[" + cnt + "=" + c.toInt + "]")
         }
 
@@ -61,7 +61,7 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
           if (valueToBeBlocked.trim().length() == 0) {
 
             var objectVal: Array[Byte] = nextElement.asInstanceOf[UnsafeRow].getBytes.asInstanceOf[Array[Byte]];
-            for (i <- unsafeRow.getBaseOffset to (unsafeRow.getSizeInBytes-1)) {
+            for (i <- unsafeRow.getBaseOffset to (unsafeRow.getSizeInBytes - 1)) {
               if ((objectVal(i.toInt)).toInt > 0) {
                 objectVal(i.toInt) = BLOCKED_VALUE_WRAPPER.toCharArray()(0).toByte;
               }
@@ -88,8 +88,7 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
           }
           println();
           */
-          
-          
+
           return newElement.asInstanceOf[T];
         } else {
           return nextElement;

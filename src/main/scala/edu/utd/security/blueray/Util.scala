@@ -11,13 +11,11 @@ import javax.crypto.spec.SecretKeySpec
 
 object Util {
 
-   
   val secretKey = new SecretKeySpec("MY_SECRET_KEY_12".getBytes, "AES")
   val conf = new SparkConf().setAppName("Simple Application").setMaster("local[2]");
   var sc: SparkContext = SparkContext.getOrCreate(conf);
 
-  
-  def getSC(): SparkContext = { 
+  def getSC(): SparkContext = {
     if (sc == null) {
       sc = new SparkContext(conf)
     }

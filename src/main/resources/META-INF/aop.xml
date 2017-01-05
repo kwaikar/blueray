@@ -3,7 +3,8 @@
 		<aspect name="edu.utd.security.blueray.AccessAuthorizerAspect" />
 	</aspects>
 
-  <weaver options="-XnoInline -showWeaveInfo">
-  <include within="*"/>
+  <weaver options="">
+  <include within="org.apache.spark.rdd..*"/>
+  <include within="edu.utd.security.blueray..*"/>
   	</weaver>
 </aspectj>

@@ -49,7 +49,7 @@ object GenericTests {
     if (stringToBeBlockedMain.startsWith("\\.\\*")) {
       stringToBeBlocked = (stringToBeBlockedMain.subSequence(2, stringToBeBlockedMain.length() - 2)).toString()
     }
-    assert(!inputFile.collect().mkString.contains(newString),"11")
+    assert(!inputFile.collect().mkString.contains(newString), "11")
     assert(3 == inputFile.count(), "Count method testing")
 
     val fileName = "hdfs://localhost/user/user_authorized_single" + currentMillis + ".csv";
@@ -58,12 +58,12 @@ object GenericTests {
     assert(coalescedFile.count() == 3, "coalescedFile method testing")
 
     val fs = org.apache.hadoop.fs.FileSystem.get(new java.net.URI(fileName), sc.hadoopConfiguration)
-    assert(fs.delete(new org.apache.hadoop.fs.Path(fileName), true),"22")
+    assert(fs.delete(new org.apache.hadoop.fs.Path(fileName), true), "22")
 
     inputFile.saveAsTextFile(fileName);
     var savedFile = sc.textFile(fileName)
     assert(savedFile.count() == 3, "savedFile method testing33")
-    assert(fs.delete(new org.apache.hadoop.fs.Path(fileName), true),"44")
+    assert(fs.delete(new org.apache.hadoop.fs.Path(fileName), true), "44")
 
   }
 
@@ -71,9 +71,9 @@ object GenericTests {
     val currentMillis = System.currentTimeMillis;
     println(inputFile.collect().size)
     inputFile.collect().foreach(println)
-    assert(!inputFile.collect().mkString.contains(stringToBeBlocked),"1323")
+    assert(!inputFile.collect().mkString.contains(stringToBeBlocked), "1323")
     println("**********************************" + inputFile.collect().mkString)
-    assert(inputFile.collect().mkString.contains("-"),"133")
+    assert(inputFile.collect().mkString.contains("-"), "133")
     assert(3 == inputFile.count(), "Count method testing")
     assert(!inputFile.take(3).mkString.contains(stringToBeBlocked), "take(3)  testing")
     assert(!inputFile.takeSample(false, 3, 0).mkString.contains(stringToBeBlocked), "takeSample testing")
@@ -95,26 +95,26 @@ object GenericTests {
     inputFile.saveAsTextFile(fileName);
     var savedFile = sc.textFile(fileName)
     assert(!savedFile.collect().mkString.contains(stringToBeBlocked), "savedFile method testing")
-    assert(fs.delete(new org.apache.hadoop.fs.Path(fileName), true),"1324")
+    assert(fs.delete(new org.apache.hadoop.fs.Path(fileName), true), "1324")
 
   }
 
   def df_BlockID(sc: SparkContext, dfs: org.apache.spark.sql.DataFrame, stringToBeBlocked: String, newString: String, valueNotBlocked: String) = {
     dfs.select("id").collect().foreach(println)
     println("-------------&&&&&&&&&&&&&&&&&-------------" + dfs.select("id").collect().mkString)
-    assert(dfs.select("id").collect().length == 3,"DF-id testing")
-    
-println("----------------------------------------------23424234234------------>>>>>>>>>>>>>>")
-    assert(!dfs.select("id").collect().mkString.matches(stringToBeBlocked),"DF- id found no blocking happeneing")
-   
-println("------------323W---------------------------------------------->>>>>>>>>>>>>>")
-assert(dfs.select("id").collect().mkString.contains(valueNotBlocked),"DF- unblocked value not found")
+    assert(dfs.select("id").collect().length == 3, "DF-id testing")
+
+    println("----------------------------------------------23424234234------------>>>>>>>>>>>>>>")
+    assert(!dfs.select("id").collect().mkString.matches(stringToBeBlocked), "DF- id found no blocking happeneing")
+
+    println("------------323W---------------------------------------------->>>>>>>>>>>>>>")
+    assert(dfs.select("id").collect().mkString.contains(valueNotBlocked), "DF- unblocked value not found")
     dfs.filter(!_.mkString.contains(stringToBeBlocked));
-println("--------------------------------324-------------------------->>>>>>>>>>>>>>")
-    assert(dfs.select("age").collect().length == 3,"DF- count mismatch")
-    assert(dfs.count() == 3,"DF- count2 mismatch")
-println("----------------------234234234------------------------------------>>>>>>>>>>>>>>")
-    assert(dfs.groupBy("age").count().count() == 3,"DF-age count mismatch")
+    println("--------------------------------324-------------------------->>>>>>>>>>>>>>")
+    assert(dfs.select("age").collect().length == 3, "DF- count mismatch")
+    assert(dfs.count() == 3, "DF- count2 mismatch")
+    println("----------------------234234234------------------------------------>>>>>>>>>>>>>>")
+    assert(dfs.groupBy("age").count().count() == 3, "DF-age count mismatch")
     println("----------------------234fvs234234------------------------------------>>>>>>>>>>>>>>")
 
     val currentMillis = System.currentTimeMillis;
@@ -124,11 +124,11 @@ println("----------------------234234234------------------------------------>>>>
     println("--------------------32e--234234234------------------------------------>>>>>>>>>>>>>>")
 
     assert(3 == fileSaved.count(), "saved testing: df 3 found")
-println("---------------------------------------------------------->>>2>>>>>>>>>>>"+fileSaved.collect().mkString+"|"+stringToBeBlocked)
-    assert(!fileSaved.collect().mkString.matches(stringToBeBlocked),"DF - Blocked string not present in file")
-    assert(fileSaved.collect().mkString.contains(newString),"NEWString not foundL:("+newString);
+    println("---------------------------------------------------------->>>2>>>>>>>>>>>" + fileSaved.collect().mkString + "|" + stringToBeBlocked)
+    assert(!fileSaved.collect().mkString.matches(stringToBeBlocked), "DF - Blocked string not present in file")
+    assert(fileSaved.collect().mkString.contains(newString), "NEWString not foundL:(" + newString);
     val fs = org.apache.hadoop.fs.FileSystem.get(new java.net.URI(fileName), sc.hadoopConfiguration)
-    assert(fs.delete(new org.apache.hadoop.fs.Path(fileName), true),"DF file not deleted")
+    assert(fs.delete(new org.apache.hadoop.fs.Path(fileName), true), "DF file not deleted")
 
   }
   def df_BlockAll(sc: SparkContext, dfs: org.apache.spark.sql.DataFrame, stringToBeBlocked: String, newString: String) = {
@@ -136,9 +136,9 @@ println("---------------------------------------------------------->>>2>>>>>>>>>
     println("-------------&&&&&&&&&wewew&&&&&&&&-------------" + dfs.select("id").collect().mkString)
     assert(dfs.select("id").collect().length == 3)
     assert(!dfs.select("id").collect().mkString.contains(stringToBeBlocked))
-    assert(!dfs.select("age").collect().mkString.contains("21"),"DF - age found");
-    assert(!dfs.select("age").collect().mkString.contains("22"),"DF - age2 found");
-    assert(!dfs.select("age").collect().mkString.contains("23"),"DF - age3 found");
+    assert(!dfs.select("age").collect().mkString.contains("21"), "DF - age found");
+    assert(!dfs.select("age").collect().mkString.contains("22"), "DF - age2 found");
+    assert(!dfs.select("age").collect().mkString.contains("23"), "DF - age3 found");
     dfs.filter(!_.mkString.contains(stringToBeBlocked));
     assert(dfs.select("age").collect().length == 3)
     val currentMillis = System.currentTimeMillis;
@@ -147,10 +147,10 @@ println("---------------------------------------------------------->>>2>>>>>>>>>
     var fileSaved = sc.textFile(fileName)
     assert(3 == fileSaved.count(), "saved testing")
     assert(!fileSaved.collect().mkString.contains(stringToBeBlocked))
-    assert(!fileSaved.collect().mkString.contains("jane"),"Jane shud be blockedi n all")
-    assert(!fileSaved.collect().mkString.contains("saki"),"saki shud be blockedi n all")
+    assert(!fileSaved.collect().mkString.contains("jane"), "Jane shud be blockedi n all")
+    assert(!fileSaved.collect().mkString.contains("saki"), "saki shud be blockedi n all")
     val fs = org.apache.hadoop.fs.FileSystem.get(new java.net.URI(fileName), sc.hadoopConfiguration)
-    assert(fs.delete(new org.apache.hadoop.fs.Path(fileName), true),"Blockall file not deleted")
+    assert(fs.delete(new org.apache.hadoop.fs.Path(fileName), true), "Blockall file not deleted")
 
   }
 
@@ -159,22 +159,22 @@ println("---------------------------------------------------------->>>2>>>>>>>>>
     val fs = org.apache.hadoop.fs.FileSystem.get(new java.net.URI(fileName), sc.hadoopConfiguration)
 
     println("-------------&&&%$%%$%$%$%$%$%&&&&&&&&-------------" + dfs.select("id").collect().mkString + "|")
-   // assert(dfs.select("id").collect().length == 3,"Total length not 3 in blcknone"+dfs.select("id").collect().length)
-    println("checlomg   "+dfs.select("id").collect().mkString.contains(stringToBeBlocked)+": " +stringToBeBlocked+ " : "+dfs.select("id").collect().mkString.split(stringToBeBlocked).size+"}}}"+dfs.select("id").collect().mkString.matches(stringToBeBlocked));
-   
-    assert((dfs.select("id").collect().mkString.split(stringToBeBlocked).size>0) || (dfs.select("id").collect().mkString.matches(stringToBeBlocked)),"REGEX not applicable")
-    assert(dfs.select("age").collect().mkString.contains("23"),"DF - age not found");
-    assert(dfs.select("age").collect().mkString.contains("22"),"DF - age not found");
-    assert(dfs.select("age").collect().mkString.contains("21"),"DF - age not found");
+    // assert(dfs.select("id").collect().length == 3,"Total length not 3 in blcknone"+dfs.select("id").collect().length)
+    println("checlomg   " + dfs.select("id").collect().mkString.contains(stringToBeBlocked) + ": " + stringToBeBlocked + " : " + dfs.select("id").collect().mkString.split(stringToBeBlocked).size + "}}}" + dfs.select("id").collect().mkString.matches(stringToBeBlocked));
+
+    assert((dfs.select("id").collect().mkString.split(stringToBeBlocked).size > 0) || (dfs.select("id").collect().mkString.matches(stringToBeBlocked)), "REGEX not applicable")
+    assert(dfs.select("age").collect().mkString.contains("23"), "DF - age not found");
+    assert(dfs.select("age").collect().mkString.contains("22"), "DF - age not found");
+    assert(dfs.select("age").collect().mkString.contains("21"), "DF - age not found");
     dfs.filter(!_.mkString.contains(stringToBeBlocked));
-    assert(dfs.select("age").collect().length == 3,"Age not 3 in block none")
-    assert(dfs.count() == 3,"count not 3 in block nonoe")
-    assert(dfs.groupBy("age").count().count() == 3,"Age count.count not 3")
+    assert(dfs.select("age").collect().length == 3, "Age not 3 in block none")
+    assert(dfs.count() == 3, "count not 3 in block nonoe")
+    assert(dfs.groupBy("age").count().count() == 3, "Age count.count not 3")
     dfs.write.format("json").save(fileName)
     val fileSaved = sc.textFile(fileName)
     assert(3 == fileSaved.count(), "saved testing block noen not 3")
-    assert((fileSaved.collect().mkString.split(stringToBeBlocked).size>0|| (fileSaved.collect().mkString.matches(stringToBeBlocked))),"none : string not present")
-    assert(fs.delete(new org.apache.hadoop.fs.Path(fileName), true),"Block none file not deleted")
+    assert((fileSaved.collect().mkString.split(stringToBeBlocked).size > 0 || (fileSaved.collect().mkString.matches(stringToBeBlocked))), "none : string not present")
+    assert(fs.delete(new org.apache.hadoop.fs.Path(fileName), true), "Block none file not deleted")
   }
 
 }

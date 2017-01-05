@@ -12,7 +12,7 @@ import scala.util.control.Breaks.breakable
 object AccessMonitor {
 
   // val logger = Logger(LoggerFactory.getLogger(this.getClass))
-   var policies: HashMap[String, HashSet[Policy]] = new scala.collection.mutable.HashMap
+  var policies: HashMap[String, HashSet[Policy]] = new scala.collection.mutable.HashMap
   /**
    * Register policy mechanism for enforcing new policy
    */
@@ -37,28 +37,27 @@ object AccessMonitor {
         }
       }
     }
-    println("Policies deregistered:"+policies)
+    println("Policies deregistered:" + policies)
   }
   /**
    * Returns policy from map based on authorization
    */
   def getPolicy(path: String, priviledgeRestriction: Option[String]): Option[Policy] =
     {
-       if(AccessMonitor.policies.size==0){
-         for (line <- Source.fromFile("/usr/lib/blueray/policies.csv").getLines()) {
-         
-          val arr=line.split(","); 
-          var regex=arr(0);
-          if(arr(0).startsWith("\""))
-              {
-              regex=arr(0).replaceAll("\"","");
-              }
-          //println("Final: "+arr(0)+" : "+regex);
-           AccessMonitor.enforcePolicy(new Policy(arr(2),Util.encrypt(arr(1)),regex));
+      if (AccessMonitor.policies.size == 0) {
+        for (line <- Source.fromFile("/usr/lib/blueray/policies.csv").getLines()) {
+
+          val arr = line.split(",");
+          var regex = arr(0);
+          if (arr(0).startsWith("\"")) {
+            regex = arr(0).replaceAll("\"", "");
           }
-         
-       }
-       
+          //println("Final: "+arr(0)+" : "+regex);
+          AccessMonitor.enforcePolicy(new Policy(arr(2), Util.encrypt(arr(1)), regex));
+        }
+
+      }
+
       var policyToBeReturned: Option[Policy] = None;
 
       for (hashSet <- policies) {
@@ -66,13 +65,13 @@ object AccessMonitor {
           //println("path.trim:" + path.trim())
           if (hashSet._1.startsWith(path.trim())) {
             if (priviledgeRestriction == None) {
-             // println("policyToBeReturned:" + "New")
+              // println("policyToBeReturned:" + "New")
               return Some(new Policy(path, "", ""))
             }
             for (policy <- hashSet._2) {
               if (policy.priviledgeRestriction.equalsIgnoreCase(priviledgeRestriction.get)) {
                 policyToBeReturned = Some(policy);
-              //  println("policyToBeReturned:" + policyToBeReturned)
+                //  println("policyToBeReturned:" + policyToBeReturned)
                 break;
               }
             }

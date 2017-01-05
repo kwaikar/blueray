@@ -1,4 +1,4 @@
-	package edu.utd.security.blueray
+package edu.utd.security.blueray
 
 import scala.annotation.elidable
 import scala.annotation.elidable.ASSERTION
@@ -43,25 +43,24 @@ class AccessAuthorizerTest {
         replaceMent.append("-")
       }
     }
-    
+
     println("CLASS==" + sb.toString().trim() + ":" + regex.findAllIn(sb).length + " : " + regex.replaceAllIn(sb, replaceMent.toString()))
     val valueToBlock = "Lii";
     val valueNotBlocked = "saki U.";
     val newValue = "------";
-    val filePath="hdfs://localhost/user/user_small.csv";
-    
-    
+    val filePath = "hdfs://localhost/user/user_small.csv";
+
     val valueToBlock1 = """(\d{3}-\d{3}-\d{4})""";
-	println("===>"+valueToBlock1)
-    println("-----------@#---------"+System.getProperty("user.name", ""))
-   // sc.setLogLevel("DEBUG");
-     // var policy = new edu.utd.security.blueray.Policy(filePath, edu.utd.security.blueray.Util.encrypt("ADMIN"), valueToBlock);
-   // edu.utd.security.blueray.AccessMonitor.enforcePolicy(policy);
+    println("===>" + valueToBlock1)
+    println("-----------@#---------" + System.getProperty("user.name", ""))
+    // sc.setLogLevel("DEBUG");
+    // var policy = new edu.utd.security.blueray.Policy(filePath, edu.utd.security.blueray.Util.encrypt("ADMIN"), valueToBlock);
+    // edu.utd.security.blueray.AccessMonitor.enforcePolicy(policy);
 
     /*var inputFile = sc.textFile(filePath)
     //sc.setLocalProperty(("PRIVILEDGE"), edu.utd.security.blueray.Util.encrypt("ADMIN"));
      println(inputFile.collect().size + " =======> " + inputFile.collect().mkString);*/
-     
+
   }
 
   //@Test
@@ -70,11 +69,11 @@ class AccessAuthorizerTest {
     val valueNotBlocked = "saki U.";
     val newValue = "------";
     testSpark("hdfs://localhost/user/user_small.csv", valueToBlock, newValue, valueNotBlocked);
-   // new SQLTest().testSparkSQL(sc, "hdfs://localhost/user/user.json", valueToBlock, newValue, valueNotBlocked);
+    // new SQLTest().testSparkSQL(sc, "hdfs://localhost/user/user.json", valueToBlock, newValue, valueNotBlocked);
     //new StreamingTest().testSparkStreaming(sc,"hdfs://localhost/user/user_small.csv",valueToBlock, newValue,valueNotBlocked);
   }
 
- // @Test
+  // @Test
   def executePhoneNumberBlockTestCase() {
     val valueToBlock = "460-027-0120";
     val valueNotBlocked = "460-028-0120";
@@ -89,21 +88,21 @@ class AccessAuthorizerTest {
     val valueToBlock = """(\d{3}-\d{3}-\d{4})""";
     val valueNotBlocked = "460-0a8-0120";
     val newValue = "------";
-    testSpark("hdfs://localhost/user/user_all_phones.csv",valueToBlock, newValue,valueNotBlocked);
+    testSpark("hdfs://localhost/user/user_all_phones.csv", valueToBlock, newValue, valueNotBlocked);
     new SQLTest().testSparkSQL(sc, "hdfs://localhost/user/user_all_phones.json", valueToBlock, newValue, valueNotBlocked);
-  //  new StreamingTest().testSparkStreaming(sc, "hdfs://localhost/user/user_phone.csv", valueToBlock, newValue, valueNotBlocked);
+    //  new StreamingTest().testSparkStreaming(sc, "hdfs://localhost/user/user_phone.csv", valueToBlock, newValue, valueNotBlocked);
   }
 
   private def testSpark(filePath: String, valueToBlock: String, newValue: String, valueNotBlocked: String) = {
-      var policy = new edu.utd.security.blueray.Policy(filePath, Util.encrypt("ADMIN"), valueToBlock);
+    var policy = new edu.utd.security.blueray.Policy(filePath, Util.encrypt("ADMIN"), valueToBlock);
     edu.utd.security.blueray.AccessMonitor.enforcePolicy(policy);
 
     var inputFile = sc.textFile(filePath)
-    sc.setLocalProperty(("USER"), ("ADMIN"));
+    sc.setLocalProperty(("USER"), ("kanchan"));
     GenericTests.rdd_BlockLii(sc, inputFile, true, valueToBlock, newValue, valueNotBlocked);
-    sc.setLocalProperty(("USER"),("SomeRANDOMSTRIng"));
+    sc.setLocalProperty(("USER"), ("SomeRANDOMSTRIng"));
     GenericTests.rdd_BlockAll(sc, inputFile, true, valueToBlock, newValue)
-    sc.setLocalProperty(("USER"),("ADMIN"));
+    sc.setLocalProperty(("USER"), ("ADMIN"));
     AccessMonitor.deRegisterPolicy(policy);
     GenericTests.rdd_BlockNone(sc, inputFile, true, valueToBlock, newValue);
   }
