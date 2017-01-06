@@ -5,6 +5,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import scala.collection.mutable.HashSet
 import org.apache.spark.broadcast.Broadcast
+import scala.collection.mutable.ListBuffer
 
 class Mondrian(filePath: String) extends Serializable {
 
@@ -39,7 +40,7 @@ class Mondrian(filePath: String) extends Serializable {
     linesRDD.cache();
     val numColumns = linesRDD.take(1)(0)._2.length;
     sc.broadcast(numColumns);
-    var blockedIndices: Set[Int] = Set();
+    var blockedIndices: Set[Int] = Set(1,2,3,5,6,7,8,9,14,13);
     for (i <- 0 to numColumns - 1) {
       blockedIndices += (numColumns + i)
     }
@@ -52,6 +53,9 @@ class Mondrian(filePath: String) extends Serializable {
     if (count < k) {
       println("Invalid cut : Cluster is already smaller than value of K")
     } else if (count == k) {
+      println("-------------->")
+     
+      linesRDD.take(1)(0)._2.foreach({case(x,y)=>println(x+"---"+y)});
       println("Cannot perform cut. Cluster is exactly of size of K");
     } else {
       val dimAndMedian: Dimensions = selectDimension(linesRDD, blockedIndices);
@@ -89,17 +93,46 @@ class Mondrian(filePath: String) extends Serializable {
                 index = i;
               }
             }
-            var newArray: Array[(String, Int)] = new Array(0);
-            newArray ++= linesArray;
-            if (arrayLegth == 0) {
-              newArray :+ new Tuple2((dimAndMedian.min() + "_" + dimAndMedian.median()), (numColumns + dimAndMedian.dimension()));
+            var newArray: ListBuffer[(String, Int)] = ListBuffer();
+            newArray++= linesArray;
+            if (arrayLegth == 1) {
+              newArray +=new Tuple2((dimAndMedian.min() + "_" + dimAndMedian.median()), (numColumns + dimAndMedian.dimension()));
             }
-            newArray.update(index, new Tuple2((dimAndMedian.min() + "_" + dimAndMedian.median()), (numColumns + dimAndMedian.dimension())))
-            newArray;
+            else{newArray(index)= new Tuple2((dimAndMedian.min() + "_" + dimAndMedian.median()), (numColumns + dimAndMedian.dimension()));}
+            newArray.toArray;
+          })
+        });
+        
+           val rightRDDWithRange = rightRDD.map({
+          case (value, linesArray) => (value, {
+            var index = 0;
+            var arrayLegth = 1;
+            for (i <- 0 to linesArray.length - 1) {
+              if (linesArray(i)._2 == (numColumns + dimAndMedian.dimension())) {
+                arrayLegth = 0;
+                index = i;
+              }
+            }
+            var newArray: ListBuffer[(String, Int)] = new ListBuffer();
+            newArray ++= linesArray;
+            if (arrayLegth == 1) {
+              newArray += new Tuple2((dimAndMedian.median() + "_" + dimAndMedian.max()), (numColumns + dimAndMedian.dimension()));
+            }
+            else{
+            newArray.update(index, new Tuple2((dimAndMedian.median() + "_" + dimAndMedian.max()), (numColumns + dimAndMedian.dimension())));
+            }
+            newArray.toArray
           })
         });
         kanonymize(leftRDDWithRange, blockedIndices1, k);
-        kanonymize(rightRDD, blockedIndices2, k);
+        kanonymize(rightRDDWithRange, blockedIndices2, k);
+      }
+      else
+      {
+        
+      println("-------------->")
+     
+      linesRDD.take(1)(0)._2.foreach({case(x,y)=>println(x+"---"+y)});
       }
     }
   }
@@ -151,11 +184,11 @@ class Mondrian(filePath: String) extends Serializable {
     /**
      * Group values by index, make it a distinct list, cache it on executors.
      */
-    val indexValueGrouped = filteredColumns.groupByKey().map({ case (index, list) => (index, list.toList.distinct) }).cache();
+    val indexValueGrouped = filteredColumns.groupByKey().map({ case (index, list) => (index, list.toList) }).cache();
     /**
      * get size of the group for each index.
      */
-    val indexAndCount = indexValueGrouped.map({ case (index, list) => (index, list.size) })
+    val indexAndCount = indexValueGrouped.map({ case (index, list) => (index, list.distinct.size) })
 
     /**
      * sort by second column, (ASC=false), .
@@ -172,7 +205,7 @@ class Mondrian(filePath: String) extends Serializable {
     /**
      * Find the exact list for selected dimension, sort list of values, extract middle element
      */
-    val sortedListOfValues = indexValueGrouped.filter(_._1 == dimToBeReturned).flatMap({ case (x, y) => (y) }).sortBy(x => x.trim()).zipWithIndex();
+    val sortedListOfValues = indexValueGrouped.filter(_._1 == dimToBeReturned).flatMap({ case (x, y) => (y) }).sortBy(x => x.trim().toDouble).zipWithIndex();
     /**
      * Create reverseIndex so that lookup using index becomes possible as we are interested in the "median" value.
      */
