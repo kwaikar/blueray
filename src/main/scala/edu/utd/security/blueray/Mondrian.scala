@@ -6,6 +6,7 @@ import org.apache.spark.rdd.RDD
 import scala.collection.mutable.HashSet
 import org.apache.spark.broadcast.Broadcast
 import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.HashMap
 
 class Mondrian(filePath: String) extends Serializable {
 
@@ -20,6 +21,7 @@ class Mondrian(filePath: String) extends Serializable {
   }
 
   def kanonymize(k: Int) {
+
     val file = sc.textFile("hdfs://localhost/user/adult.data.txt")
     /**
      * Split by new line, filter lines containing missing data.
@@ -40,25 +42,37 @@ class Mondrian(filePath: String) extends Serializable {
     linesRDD.cache();
     val numColumns = linesRDD.take(1)(0)._2.length;
     sc.broadcast(numColumns);
-    var blockedIndices: Set[Int] = Set(1,2,3,5,6,7,8,9,14,13);
+    var blockedIndices: Set[Int] = Set(1, 2, 3, 5, 6, 7, 8, 9, 14, 13);
     for (i <- 0 to numColumns - 1) {
       blockedIndices += (numColumns + i)
     }
-    kanonymize(linesRDD, blockedIndices, k)
+    val metadata:Metadata=readMetadata(filePath);
+    val k=4;
+    kanonymize(linesRDD, blockedIndices,metadata, k)
   }
-
-  def kanonymize(linesRDD: RDD[(Long, Array[(String, Int)])], blockedIndices: Set[Int], k: Int) {
+def readMetadata(filePath:String):Metadata=
+{
+  var columns:Map[Int, Column] =Map[Int,Column]();
+  
+  
+  var metadata :Metadata=  new Metadata(columns);
+  return metadata
+}
+  /**
+   * This function finds dimension, performs cut based on the median value and
+   */
+  def kanonymize(linesRDD: RDD[(Long, Array[(String, Int)])], blockedIndices: Set[Int], metadata:Metadata, k: Int) {
     val count = linesRDD.count();
     println("First call" + count);
     if (count < k) {
       println("Invalid cut : Cluster is already smaller than value of K")
     } else if (count == k) {
       println("-------------->")
-     
-      linesRDD.take(1)(0)._2.foreach({case(x,y)=>println(x+"---"+y)});
+
+      linesRDD.take(1)(0)._2.foreach({ case (x, y) => println(x + "---" + y) });
       println("Cannot perform cut. Cluster is exactly of size of K");
     } else {
-      val dimAndMedian: Dimensions = selectDimension(linesRDD, blockedIndices);
+      val dimAndMedian: Dimensions = selectDimension(linesRDD, blockedIndices,metadata);
       sc.broadcast(dimAndMedian.dimension());
       sc.broadcast(dimAndMedian.median());
       sc.broadcast(dimAndMedian.min());
@@ -94,16 +108,15 @@ class Mondrian(filePath: String) extends Serializable {
               }
             }
             var newArray: ListBuffer[(String, Int)] = ListBuffer();
-            newArray++= linesArray;
+            newArray ++= linesArray;
             if (arrayLegth == 1) {
-              newArray +=new Tuple2((dimAndMedian.min() + "_" + dimAndMedian.median()), (numColumns + dimAndMedian.dimension()));
-            }
-            else{newArray(index)= new Tuple2((dimAndMedian.min() + "_" + dimAndMedian.median()), (numColumns + dimAndMedian.dimension()));}
+              newArray += new Tuple2((dimAndMedian.min() + "_" + dimAndMedian.median()), (numColumns + dimAndMedian.dimension()));
+            } else { newArray(index) = new Tuple2((dimAndMedian.min() + "_" + dimAndMedian.median()), (numColumns + dimAndMedian.dimension())); }
             newArray.toArray;
           })
         });
-        
-           val rightRDDWithRange = rightRDD.map({
+
+        val rightRDDWithRange = rightRDD.map({
           case (value, linesArray) => (value, {
             var index = 0;
             var arrayLegth = 1;
@@ -117,30 +130,101 @@ class Mondrian(filePath: String) extends Serializable {
             newArray ++= linesArray;
             if (arrayLegth == 1) {
               newArray += new Tuple2((dimAndMedian.median() + "_" + dimAndMedian.max()), (numColumns + dimAndMedian.dimension()));
-            }
-            else{
-            newArray.update(index, new Tuple2((dimAndMedian.median() + "_" + dimAndMedian.max()), (numColumns + dimAndMedian.dimension())));
+            } else {
+              newArray.update(index, new Tuple2((dimAndMedian.median() + "_" + dimAndMedian.max()), (numColumns + dimAndMedian.dimension())));
             }
             newArray.toArray
           })
         });
-        kanonymize(leftRDDWithRange, blockedIndices1, k);
-        kanonymize(rightRDDWithRange, blockedIndices2, k);
-      }
-      else
-      {
-        
-      println("-------------->")
-     
-      linesRDD.take(1)(0)._2.foreach({case(x,y)=>println(x+"---"+y)});
+        kanonymize(leftRDDWithRange, blockedIndices1, metadata,k);
+        kanonymize(rightRDDWithRange, blockedIndices2,metadata, k);
+      } else {
+        println("-------------->")
+        linesRDD.take(1)(0)._2.foreach({ case (x, y) => println(x + "---" + y) });
       }
     }
   }
 
+  class Category(value: String) {
+    def value(): String =
+      {
+        return value;
+      }
+
+    var children: List[Category] = List();
+    var childrenString: List[String] = List();
+    var parent: Category;
+    def setChildren(childrenCategory: List[Category]) {
+      childrenCategory.foreach { x => this.children :+ x; this.childrenString :+ x.value() };
+    }
+    def setParent(parent: Category) {
+      this.parent = parent;
+    }
+    def getParent(): Category =
+      {
+        return parent;
+      }
+  }
+
+  class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean, rootCategory: Category) {
+    def getName(): String = {
+      return name;
+    }
+    def getIndex(): Int = {
+      return index;
+    }
+    def getColType(): Char = {
+      return colType;
+    }
+    def getIsQuasiIdentifier(): Boolean = {
+      return isQuasiIdentifier;
+    }
+    def getRootCategory(): Category = {
+      return rootCategory;
+    }
+
+    /**
+     * Given list of string values, this method finds the bottom most category that contains all elements containing given set.
+     */
+    def findCategory(columnValues: List[String]): Category = {
+      var category = rootCategory;
+      var childFound = false;
+
+      while (category != null) {
+
+        if (category.children != null && category.children.length > 0) {
+          category.children.foreach { x =>
+            {
+              if (x.childrenString.intersect(columnValues).length == columnValues.length) {
+                category = x;
+              }
+            }
+
+          };
+        } else {
+          return category;
+        }
+      }
+      return rootCategory;
+    }
+
+  }
+  class Metadata(columnMetadata: Map[Int, Column]) {
+
+    def getMetadata(columnId: Int):Option[Column]= {
+      return columnMetadata.get(columnId);
+    }
+  }
+
+  def findTopMostCategory(values: List[String]): Boolean =
+    {
+
+    }
+
   /**
    * Inner class used for sharing output of dimension with the calling method.
    */
-  class Dimensions(dimension: Int, min: String, median: String, max: String) extends Serializable {
+  class Dimensions(dimension: Int, min: Double, median: Double, max: Double, leftSet:Category,rightSet:Category) extends Serializable {
     def dimension(): Int =
       {
         dimension
@@ -161,7 +245,7 @@ class Mondrian(filePath: String) extends Serializable {
   /**
    * Accept RDD containing row numbers and column values along with their index.
    */
-  def selectDimension(linesRDD: RDD[(Long, Array[(String, Int)])], blockedIndices: Set[Int]): Dimensions = {
+  def selectDimension(linesRDD: RDD[(Long, Array[(String, Int)])], blockedIndices: Set[Int],metadata: Metadata): Dimensions = {
 
     sc.broadcast(blockedIndices);
     /**
@@ -205,19 +289,28 @@ class Mondrian(filePath: String) extends Serializable {
     /**
      * Find the exact list for selected dimension, sort list of values, extract middle element
      */
+    
+    if(metadata.getMetadata(dimToBeReturned).get.getColType()=='s')
+    {
+      
+    }
+    else
+    {
+      
     val sortedListOfValues = indexValueGrouped.filter(_._1 == dimToBeReturned).flatMap({ case (x, y) => (y) }).sortBy(x => x.trim().toDouble).zipWithIndex();
     /**
      * Create reverseIndex so that lookup using index becomes possible as we are interested in the "median" value.
      */
     val reverseIndex = sortedListOfValues.map({ case (x, y) => (y, x) });
 
-    val min = reverseIndex.lookup(0)(0).trim();
-    val median = reverseIndex.lookup((sortedListOfValues.count() / 2))(0).trim();
-    val max = reverseIndex.lookup(sortedListOfValues.count() - 1)(0).trim();
+    val min = reverseIndex.lookup(0)(0).trim().toDouble;
+    val median = reverseIndex.lookup((sortedListOfValues.count() / 2))(0).trim().toDouble;
+    val max = reverseIndex.lookup(sortedListOfValues.count() - 1)(0).trim().toDouble;
 
     /**
      * return the tuple.
      */
-    return new Dimensions(dimToBeReturned, min, median, max);
+    return new Dimensions(dimToBeReturned, min, median, max,null,null);
+  }
   }
 }
