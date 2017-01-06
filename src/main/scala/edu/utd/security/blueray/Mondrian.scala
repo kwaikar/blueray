@@ -59,18 +59,15 @@ class Mondrian(filePath: String) extends Serializable {
       sc.broadcast(dimAndMedian.median());
       sc.broadcast(dimAndMedian.min());
       sc.broadcast(dimAndMedian.max());
-      println( " =>" + dimAndMedian.dimension() + " (" + dimAndMedian.min() + "-" + dimAndMedian.median() + "-" + dimAndMedian.max());
+      println(" =>" + dimAndMedian.dimension() + " (" + dimAndMedian.min() + "-" + dimAndMedian.median() + "-" + dimAndMedian.max());
 
       val sortedRDD = linesRDD.sortBy({ case (x, y) => y(dimAndMedian.dimension())._1 }, true);
-      println("--1"+sortedRDD.take(1))
       val leftRDD = linesRDD.filter({ case (x, y) => y(dimAndMedian.dimension())._1.trim().toDouble <= dimAndMedian.median().toDouble });
-      println("--2"+leftRDD.take(1))
       val rightRDD = linesRDD.filter({ case (x, y) => y(dimAndMedian.dimension())._1.trim().toDouble > dimAndMedian.median().toDouble });
-      println("--3"+rightRDD.take(1))
       val leftSize = leftRDD.count();
       val rightSize = rightRDD.count();
       blockedIndices.+(dimAndMedian.dimension());
-   println(leftSize+"--"+rightSize+" "+blockedIndices)
+      println(leftSize + "--" + rightSize + " " + blockedIndices)
       var blockedIndices1: Set[Int] = Set();
       blockedIndices1 ++= blockedIndices;
       var blockedIndices2: Set[Int] = Set();
@@ -92,8 +89,11 @@ class Mondrian(filePath: String) extends Serializable {
                 index = i;
               }
             }
-            var newArray: Array[(String, Int)] = new Array(arrayLegth);
+            var newArray: Array[(String, Int)] = new Array(0);
             newArray ++= linesArray;
+            if (arrayLegth == 0) {
+              newArray :+ new Tuple2((dimAndMedian.min() + "_" + dimAndMedian.median()), (numColumns + dimAndMedian.dimension()));
+            }
             newArray.update(index, new Tuple2((dimAndMedian.min() + "_" + dimAndMedian.median()), (numColumns + dimAndMedian.dimension())))
             newArray;
           })
@@ -142,6 +142,7 @@ class Mondrian(filePath: String) extends Serializable {
     val indexValuePairs = valueIndexPairs.map({
       case (value, index) => (index, value.trim())
     });
+    println(indexValuePairs.take(1))
 
     /**
      * Filter all columns that are blocked in order to prevent unnecessary shuffling.
@@ -167,7 +168,7 @@ class Mondrian(filePath: String) extends Serializable {
      * Take first entry, first value.
      */
     val dimToBeReturned: Int = sortedIndexAndCount.first()._1;
-    println("Dim : "+dimToBeReturned)
+    println("Dim : " + dimToBeReturned)
     /**
      * Find the exact list for selected dimension, sort list of values, extract middle element
      */
