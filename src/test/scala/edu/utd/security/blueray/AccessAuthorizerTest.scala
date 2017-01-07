@@ -30,7 +30,7 @@ class AccessAuthorizerTest {
     sc = null;
   }
 
-  @Test
+ // @Test
   def testUtil() = {
     assert(Util.decrypt(Util.encrypt("Hello")) == "Hello");
     val sb = "00460-027-0120";
@@ -62,6 +62,7 @@ class AccessAuthorizerTest {
      println(inputFile.collect().size + " =======> " + inputFile.collect().mkString);*/
 
   }
+  
 
   //@Test
   def executeSimpleBlockTestCase() {

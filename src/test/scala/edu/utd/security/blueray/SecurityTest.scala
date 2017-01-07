@@ -20,8 +20,5 @@ class SecurityTest {
       val decryptedText = Security.decrypt(encryptedText)
       println(decryptedText)
       assert(decryptedText.equalsIgnoreCase(input))
-
-      //  Util.storeStringAsFile("MEEEE","hdfs://localhost/user/222.csv")
-      //  assert(Util.getFileAsString("hdfs://localhost/user/222.csv")=="MEEEE")
     }
 }
