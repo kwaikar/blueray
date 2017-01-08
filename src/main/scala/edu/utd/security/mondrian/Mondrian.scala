@@ -30,7 +30,7 @@ object Mondrian {
   var rdds: RDD[(Long, Array[(String, Int)])] = null;
   def kanonymize(k: Int) {
 
-    val file = sc.textFile("hdfs://localhost/user/adult.data.txt")
+    val file = sc.textFile("hdfs://localhost/user/adult.data2.txt")
     /**
      * Split by new line, filter lines containing missing data.
      */
@@ -51,7 +51,7 @@ object Mondrian {
     val metadata: Metadata = readMetadata("/home/kanchan/metadata.xml");
     numColumns = metadata.numColumns();
 
-    var blockedIndices: Set[Int] = Set( 0,11,12,10,2, 3,  6, 7, 8, 9, 14, 13);;
+    var blockedIndices: Set[Int] = Set();;
     for (i <- 0 to numColumns - 1) {
       blockedIndices += (numColumns + i)
     }
@@ -66,8 +66,7 @@ object Mondrian {
     sc.broadcast(numColumns);
     val k = 4;
     kanonymize(linesRDD, blockedIndices, metadata, k)
-  writeOutputToFile(rdds,"/home/kanchan/op.txt");
-
+    writeOutputToFile(rdds,"/home/kanchan/op.txt");
   }
   def writeOutputToFile(rdds:RDD[(Long, Array[(String, Int)])] , filePath:String )
   {
@@ -79,11 +78,11 @@ object Mondrian {
         data.foreach(columnIndexValuePair => {
           map += ((columnIndexValuePair._2, columnIndexValuePair._1));
         })
-        for (i <- 0 to data.length - 1) {
+        for (i <- 0 to numColumns- 1) {
           if (map.get((numColumns + i)) == None) {
-            sb.append(map.get(i))
+            sb.append(map.get(i).get)
           } else {
-            sb.append(map.get((numColumns + i)));
+            sb.append(map.get((numColumns + i)).get);
           }
           if (i != data.length - 1) {
             sb.append(",");
@@ -92,7 +91,7 @@ object Mondrian {
         sb.toString();
       }
     });
-    rddString.saveAsTextFile(filePath)
+    rddString.coalesce(1,true).saveAsTextFile(filePath)
   }
   def readMetadata(filePath: String): Metadata =
     {
@@ -194,8 +193,8 @@ object Mondrian {
            */
           println("Making the cut on " + dimAndMedian.dimension());
 
-          val leftRDDWithRange = getNumericRDDWithRange(leftRDD, dimAndMedian.dimension(), dimAndMedian.min() + "_" + dimAndMedian.median());
-          val rightRDDWithRange = getNumericRDDWithRange(rightRDD, dimAndMedian.dimension(), dimAndMedian.median() + "_" + dimAndMedian.max());
+          val leftRDDWithRange = getNumericRDDWithRange(leftRDD, dimAndMedian.dimension(), dimAndMedian.min() + "-" + dimAndMedian.median());
+          val rightRDDWithRange = getNumericRDDWithRange(rightRDD, dimAndMedian.dimension(), dimAndMedian.median() + "-" + dimAndMedian.max());
           kanonymize(leftRDDWithRange, blockedIndices1, metadata, k);
           kanonymize(rightRDDWithRange, blockedIndices2, metadata, k);
         } else {
