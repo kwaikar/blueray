@@ -30,7 +30,7 @@ object Mondrian {
   var rdds: RDD[(Long, Array[(String, Int)])] = null;
   def kanonymize(k: Int) {
 
-    val file = sc.textFile("hdfs://localhost/user/adult.data2.txt")
+    val file = sc.textFile("hdfs://localhost/user/adult.data.txt")
     /**
      * Split by new line, filter lines containing missing data.
      */
