@@ -24,15 +24,15 @@ object Mondrian {
 
   def main(args: Array[String]): Unit = {
     sc.setLogLevel("ERROR");
-    kanonymize(4);
+    kanonymize(args(0),args(1),args(2),4);
   }
   var numColumns = 0;
   var metadata = new Metadata(Map());
   var rdds: List[RDD[(Long, Array[(String, Int)])]] = List();
-  var summaryStatistics: List[RDD[(Long, Map[Int, String])]] = List();
-  def kanonymize(k: Int) {
+  var summaryStatistics: List[RDD[(Long, scala.collection.Map[Int, String])]] = List();
+  def kanonymize(hdfsDataPath:String ,metadataFilePath :String, outputFilePath:String, k: Int) {
 
-    val file = sc.textFile("hdfs://localhost/user/adult.data.txt")
+    val file = sc.textFile(hdfsDataPath)
     /**
      * Split by new line, filter lines containing missing data.
      */
@@ -50,12 +50,12 @@ object Mondrian {
      * First k-anonymity call.
      */
     linesRDD.cache();
-    metadata = readMetadata("/home/kanchan/metadata.xml");
+    metadata = readMetadata(metadataFilePath);
 
     sc.broadcast(metadata);
     numColumns = metadata.numColumns();
 
-    var blockedIndices: Set[Int] = Set(); ;
+    var blockedIndices: scala.collection.mutable.Set[Int] = scala.collection.mutable.Set(); ;
     for (i <- 0 to numColumns - 1) {
       blockedIndices += (numColumns + i)
     }
@@ -68,29 +68,54 @@ object Mondrian {
     }
     val k = 4;
     kanonymize(linesRDD, blockedIndices, metadata, k)
-    
-    println("Cavg found: "+getNormalizedAverageEquiValenceClassSizeMetric(linesRDD, k));
-  writeOutputToFile(rdds, "/home/kanchan/op.txt");
-    
-    }
+
+    println("Cavg found: " + getNormalizedAverageEquiValenceClassSizeMetric(linesRDD, k));
+    writeOutputToFile(rdds, outputFilePath);
+
+  }
+  /**
+   * This method unites summary statistic and equivalence class and outputs the csv file on given path.
+   */
   def writeOutputToFile(rdds: List[RDD[(Long, Array[(String, Int)])]], filePath: String) {
+    
+    /**
+     * Merge individual RDDs
+     */
     val rddsMerged = sc.union(rdds).sortBy(_._1);
-    println("Total map size:"+sc.union(summaryStatistics).collect().length)
+    /**
+     * Unite rdds with summaryStatistics
+     */
+    println("Total map size:" + sc.union(summaryStatistics).collect().length)
     val rddString = sc.union(summaryStatistics).join(rddsMerged).map({
-      case (rowIndex, (summaryMap,data)) => {
+      case (rowIndex, (summaryMap, data)) => {
         var sb: StringBuilder = new StringBuilder();
-        var map: Map[Int, String] = Map[Int, String]();
+        var map: scala.collection.mutable.Map[Int, String] = scala.collection.mutable.Map[Int, String]();
+        /**
+         * Accumulate column values in a map for easy retrieval.
+         */
         data.foreach(columnIndexValuePair => {
           map += ((columnIndexValuePair._2, columnIndexValuePair._1));
         })
+        /**
+         * Append column values to sb.
+         */
         for (i <- 0 to metadata.numColumns() - 1) {
           if (map.get((metadata.numColumns() + i)) == None) {
             if (metadata.getMetadata(i).get.getIsQuasiIdentifier()) {
+              /**
+               * Summary statistic for the quasi-identifier without any cut on current column.
+               */
               sb.append(summaryMap.get(i).get);
             } else {
+              /**
+               * Default output plain value since it is non-quasi ID field.
+               */
               sb.append(map.get(i).get)
             }
           } else {
+            /**
+             * Paritioned value
+             */
             sb.append(map.get((metadata.numColumns() + i)).get);
           }
           if (i != data.length - 1) {
@@ -100,24 +125,40 @@ object Mondrian {
         sb.toString();
       }
     });
+    /**
+     * Use coalese to prevent output being written to multiple partition files.
+     */
     rddString.coalesce(1, true).saveAsTextFile(filePath)
   }
   /**
    * Cavg = (Total_recods/total_equivalence_classes)/k
    */
-  def getNormalizedAverageEquiValenceClassSizeMetric(linesRDD: RDD[(Long, Array[(String, Int)])],k:Int):Double={
-  
-  val metric :Double= (linesRDD.count/summaryStatistics.length)/k;
-  return metric;
+  def getNormalizedAverageEquiValenceClassSizeMetric(linesRDD: RDD[(Long, Array[(String, Int)])], k: Int): Double = {
+
+    return (linesRDD.count / summaryStatistics.length) / k;
   }
+  
+  /**
+   * Cdm = Sum(|E|*|E|)
+   */
+  def getDiscernabilityMetric(linesRDD: RDD[(Long, Array[(String, Int)])], k: Int): Double = {
+    return summaryStatistics.map(x => Math.pow(x.count(), 2)).reduce(_ + _);
+  }
+
+  /**
+   * This method reads metadata object from an xml file.
+   */
   def readMetadata(filePath: String): Metadata =
     {
       var columns: Map[Int, Column] = Map[Int, Column]();
-      val xml = XML.loadFile("/home/kanchan/metadata.xml");
+      val xml = XML.loadFile(filePath);
       val iterator = xml.\\("columns").\("column").iterator;
       while (iterator.hasNext) {
         val node = iterator.next;
         if (node.\("type").text.charAt(0) == 's') {
+          /**
+           * For String column types.
+           */
           if (node.\("hierarchy").text.length() > 0) {
             val column = new Column(node.\("name").text, node.\("index").text.toInt, node.\("type").text.charAt(0), node.\("isQuasiIdentifier").text.toBoolean, getHierarchy(node.\("hierarchy"), "*"));
             columns += ((column.getIndex(), column));
@@ -126,6 +167,9 @@ object Mondrian {
             columns += ((column.getIndex(), column));
           }
         } else {
+          /**
+           * Numeric columns.
+           */
           val column = new Column(node.\("name").text, node.\("index").text.toInt, node.\("type").text.charAt(0), node.\("isQuasiIdentifier").text.toBoolean, null);
           columns += ((column.getIndex(), column));
         }
@@ -133,6 +177,9 @@ object Mondrian {
       return new Metadata(columns);
     }
 
+  /**
+   * This method accepts a categorical node sequence and parses entire generalization hierarchy and returns the root. 
+   */
   def getHierarchy(node: NodeSeq, name: String): Category = {
 
     var category = new Category(name);
@@ -146,11 +193,14 @@ object Mondrian {
   /**
    * This function finds dimension, performs cut based on the median value and
    */
-  def kanonymize(linesRDD: RDD[(Long, Array[(String, Int)])], blockedIndices: Set[Int], metadata: Metadata, k: Int) {
+  def kanonymize(linesRDD: RDD[(Long, Array[(String, Int)])], blockedIndices: scala.collection.mutable.Set[Int], metadata: Metadata, k: Int) {
     val count = linesRDD.count();
     println("First call" + count);
     if (count < k) {
       println("Invalid cut : Cluster is already smaller than value of K")
+      /**
+       * This condition should never happen., if it happens, exit.
+       */
       System.exit(0);
     } else if (count == k) {
       assignSummaryStatisticAndAddToList(linesRDD);
@@ -160,10 +210,8 @@ object Mondrian {
       sc.broadcast(dimAndMedian);
       println(" =>" + dimAndMedian.dimension() + " (" + dimAndMedian.min() + "-" + dimAndMedian.median() + "-" + dimAndMedian.max());
       blockedIndices.+(dimAndMedian.dimension());
-      var blockedIndices1: Set[Int] = Set();
-      blockedIndices1 ++= blockedIndices;
-      var blockedIndices2: Set[Int] = Set();
-      blockedIndices2 ++= blockedIndices;
+      var blockedIndices1: scala.collection.mutable.Set[Int] = blockedIndices.clone();
+      var blockedIndices2: scala.collection.mutable.Set[Int] = blockedIndices.clone();
 
       val sortedRDD = linesRDD.sortBy({ case (x, y) => y(dimAndMedian.dimension())._1 }, true);
 
@@ -215,6 +263,9 @@ object Mondrian {
     }
 
   }
+  /**
+   * This method computes Range statistic for dimensions on which cut has not performed yet.
+   */
   def assignSummaryStatisticAndAddToList(linesRDD: RDD[(Long, Array[(String, Int)])]) {
 
     rdds = rdds :+ linesRDD;
@@ -223,28 +274,19 @@ object Mondrian {
     });
     val indexValueGrouped = indexValuePairs.groupByKey().map({ case (index, list) => (index, list.toList.distinct) }).filter(_._1 < metadata.numColumns()).map({
       case (x, y) =>
-        if (metadata.getMetadata(x).get.getColType() == 's') {
-          (x, y.mkString(","));
+        val column = metadata.getMetadata(x).get;
+        if (column.getColType() == 's') {
+          (x,  column.findCategory(y.toArray).value());
         } else {
           val listOfNumbers = y.map(_.toDouble);
           (x, listOfNumbers.min + "-" + listOfNumbers.max);
         }
     });
 
-    var map: Map[Int, String] = Map[Int, String]();
-    indexValueGrouped.collect().foreach({
-      case (x, y) =>
-        val column = metadata.getMetadata(x).get;
+    var map:  scala.collection.Map[Int, String] = indexValueGrouped.collectAsMap();
+    
 
-        if (column.getColType() == 's') {
-          map += ((x, column.findCategory(y.split(",")).value()))
-        } else { map += ((x, y)) }
-    });
-    println("map" + map);
-    println("-------------------");
-
-    summaryStatistics = summaryStatistics :+ linesRDD.keys.map { x => (x, map) }; ;
-    printRDD(linesRDD)
+    summaryStatistics = summaryStatistics:+linesRDD.keys.map { x => (x, map) }; ;
   }
 
   def getNumericRDDWithRange(rightRDD: RDD[(Long, Array[(String, Int)])], dimension: Int, newValue: String): RDD[(Long, Array[(String, Int)])] =
@@ -270,85 +312,6 @@ object Mondrian {
       return rightRDDWithRange;
     }
 
-  def printRDD(linesRDD: org.apache.spark.rdd.RDD[(Long, Array[(String, Int)])]) = {
-    linesRDD.take(1).foreach(println);
-  }
-
-  /**
-   * Class responsible for holding hierarchy for categorical values.
-   */
-  class Category(value: String) extends Serializable {
-    def value(): String =
-      {
-        return value;
-      }
-    var children: List[Category] = List();
-    var childrenString: List[String] = List(value);
-    def addChildren(childrenCategory: Category) {
-      this.children = this.children :+ childrenCategory;
-      this.childrenString = this.childrenString :+ childrenCategory.value();
-      this.childrenString ++= childrenCategory.childrenString;
-    }
-    override def toString: String = {
-      return value + "(" + value + "=" + childrenString.mkString + ")=>" + "[" + children.foreach { x => x.toString() } + "]";
-    }
-  }
-
-  /**
-   * Class responsible for holding details of column object.
-   */
-  class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean, rootCategory: Category) extends Serializable {
-    def getName(): String = {
-      return name;
-    }
-    def getIndex(): Int = {
-      return index;
-    }
-    def getColType(): Char = {
-      return colType;
-    }
-    def getIsQuasiIdentifier(): Boolean = {
-      return isQuasiIdentifier;
-    }
-    def getRootCategory(): Category = {
-      return rootCategory;
-    }
-    override def toString: String = {
-      if (rootCategory == null)
-        return index + ":" + name + "=" + colType + "_" + isQuasiIdentifier + "[" + "]";
-      else
-        return index + ":" + name + "=" + colType + "_" + isQuasiIdentifier + "[" + rootCategory.toString + "]";
-    }
-    /**
-     * Given list of string values, this method finds the bottom most category that contains all elements containing given set.
-     */
-    def findCategory(columnValues: Array[String]): Category = {
-
-      var category = rootCategory;
-      var childFound = true;
-
-      while (childFound) {
-
-        if (category.children != null && category.children.size > 0) {
-          childFound = false;
-          val childrens = category.children.toArray
-          for (i <- 0 to childrens.size - 1) {
-            if (childrens(i).childrenString.intersect(columnValues).length == columnValues.length) {
-              category = childrens(i);
-              childFound = true;
-            }
-          }
-          if (!childFound) {
-            return category;
-          }
-
-        } else {
-          return category;
-        }
-      }
-      return rootCategory;
-    }
-  }
   /**
    * Class responsible for holding metadata of columns.
    */
@@ -366,40 +329,9 @@ object Mondrian {
   }
 
   /**
-   * class used for sharing output of dimension with the calling method.
-   */
-  class Dimensions(dimensionValue: Int, minValue: Double, medianValue: Double, maxValue: Double, leftArray: Array[String], rightArray: Array[String]) extends Serializable {
-    def dimension(): Int =
-      {
-        dimensionValue
-      }
-    def min(): Double =
-      {
-        minValue
-      }
-    def median(): Double =
-      {
-        this.medianValue
-      }
-    def max(): Double =
-      {
-        maxValue
-      }
-
-    def leftSet(): Array[String] =
-      {
-        leftArray
-      }
-
-    def rightSet(): Array[String] =
-      {
-        rightArray
-      }
-  }
-  /**
    * Accept RDD containing row numbers and column values along with their index.
    */
-  def selectDimension(linesRDD: RDD[(Long, Array[(String, Int)])], blockedIndices: Set[Int], metadata: Metadata, k: Int): Dimensions = {
+  def selectDimension(linesRDD: RDD[(Long, Array[(String, Int)])], blockedIndices: scala.collection.mutable.Set[Int], metadata: Metadata, k: Int): Dimensions = {
 
     sc.broadcast(blockedIndices);
     /**
