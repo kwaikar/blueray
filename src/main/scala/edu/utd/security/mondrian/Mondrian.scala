@@ -29,10 +29,10 @@ object Mondrian {
   var numColumns = 0;
   var metadata = new Metadata(Map());
   var rdds: List[RDD[(Long, Array[(String, Int)])]] = List();
-  var summaryStatistics : List[] = List();
+  var summaryStatistics: List[RDD[(Long, Map[Int, String])]] = List();
   def kanonymize(k: Int) {
 
-    val file = sc.textFile("hdfs://localhost/user/adult.data2.txt")
+    val file = sc.textFile("hdfs://localhost/user/adult.data.txt")
     /**
      * Split by new line, filter lines containing missing data.
      */
@@ -68,12 +68,16 @@ object Mondrian {
     }
     val k = 4;
     kanonymize(linesRDD, blockedIndices, metadata, k)
-    writeOutputToFile(rdds, "/home/kanchan/op.txt");
-  }
+    
+    println("Cavg found: "+getNormalizedAverageEquiValenceClassSizeMetric(linesRDD, k));
+  writeOutputToFile(rdds, "/home/kanchan/op.txt");
+    
+    }
   def writeOutputToFile(rdds: List[RDD[(Long, Array[(String, Int)])]], filePath: String) {
     val rddsMerged = sc.union(rdds).sortBy(_._1);
-    val rddString = rddsMerged.map({
-      case (rowIndex, data) => {
+    println("Total map size:"+sc.union(summaryStatistics).collect().length)
+    val rddString = sc.union(summaryStatistics).join(rddsMerged).map({
+      case (rowIndex, (summaryMap,data)) => {
         var sb: StringBuilder = new StringBuilder();
         var map: Map[Int, String] = Map[Int, String]();
         data.foreach(columnIndexValuePair => {
@@ -82,7 +86,7 @@ object Mondrian {
         for (i <- 0 to metadata.numColumns() - 1) {
           if (map.get((metadata.numColumns() + i)) == None) {
             if (metadata.getMetadata(i).get.getIsQuasiIdentifier()) {
-              sb.append("*");
+              sb.append(summaryMap.get(i).get);
             } else {
               sb.append(map.get(i).get)
             }
@@ -98,6 +102,14 @@ object Mondrian {
     });
     rddString.coalesce(1, true).saveAsTextFile(filePath)
   }
+  /**
+   * Cavg = (Total_recods/total_equivalence_classes)/k
+   */
+  def getNormalizedAverageEquiValenceClassSizeMetric(linesRDD: RDD[(Long, Array[(String, Int)])],k:Int):Double={
+  
+  val metric :Double= (linesRDD.count/summaryStatistics.length)/k;
+  return metric;
+  }
   def readMetadata(filePath: String): Metadata =
     {
       var columns: Map[Int, Column] = Map[Int, Column]();
@@ -105,13 +117,16 @@ object Mondrian {
       val iterator = xml.\\("columns").\("column").iterator;
       while (iterator.hasNext) {
         val node = iterator.next;
-        if (node.\("hierarchy").text.length() > 0) {
-          val column = new Column(node.\("name").text, node.\("index").text.toInt, node.\("type").text.charAt(0), node.\("isQuasiIdentifier").text.toBoolean, getHierarchy(node.\("hierarchy"), "*"));
-
-          columns += ((column.getIndex(), column));
+        if (node.\("type").text.charAt(0) == 's') {
+          if (node.\("hierarchy").text.length() > 0) {
+            val column = new Column(node.\("name").text, node.\("index").text.toInt, node.\("type").text.charAt(0), node.\("isQuasiIdentifier").text.toBoolean, getHierarchy(node.\("hierarchy"), "*"));
+            columns += ((column.getIndex(), column));
+          } else {
+            val column = new Column(node.\("name").text, node.\("index").text.toInt, node.\("type").text.charAt(0), node.\("isQuasiIdentifier").text.toBoolean, new Category("*"));
+            columns += ((column.getIndex(), column));
+          }
         } else {
           val column = new Column(node.\("name").text, node.\("index").text.toInt, node.\("type").text.charAt(0), node.\("isQuasiIdentifier").text.toBoolean, null);
-
           columns += ((column.getIndex(), column));
         }
       }
@@ -202,6 +217,7 @@ object Mondrian {
   }
   def assignSummaryStatisticAndAddToList(linesRDD: RDD[(Long, Array[(String, Int)])]) {
 
+    rdds = rdds :+ linesRDD;
     val indexValuePairs = linesRDD.flatMap({ case (index1, list) => (list) }).map({
       case (value, index) => (index, value.trim())
     });
@@ -214,46 +230,21 @@ object Mondrian {
           (x, listOfNumbers.min + "-" + listOfNumbers.max);
         }
     });
-    println("-------------------");
 
     var map: Map[Int, String] = Map[Int, String]();
-    indexValueGrouped.collect().foreach({ case (x, y) => map += ((x, y)) });
+    indexValueGrouped.collect().foreach({
+      case (x, y) =>
+        val column = metadata.getMetadata(x).get;
+
+        if (column.getColType() == 's') {
+          map += ((x, column.findCategory(y.split(",")).value()))
+        } else { map += ((x, y)) }
+    });
     println("map" + map);
     println("-------------------");
-    var category = ("");
-    var updatedRDD = linesRDD;
-    for (index <- 0 to metadata.numColumns - 1) {
-      val column = metadata.getMetadata(index).get;
-      if (column.getIsQuasiIdentifier()) {
-        if (column.getColType() == 's') {
-          if (column.getRootCategory() == null) {
-            category = "*";
-          } else {
-            category = column.findCategory(map.get(column.getIndex()).get.split(",")).value();
-          }
-        } else {
-          category = map.get(column.getIndex()).get;
-        }
- 
-        println(category + " " + index);
-        updatedRDD = updatedRDD.map({
-          case (x, y) =>
-          println(y.mkString(",")+":"+index+" : "+category);
-            var newArray: ListBuffer[(String, Int)] = new ListBuffer();
-            val marker = y.filter(_._2 == index).take(1)(0)._2;
-            newArray ++= y.slice(0, marker );
-            newArray += ((category, index))
-            newArray ++= y.slice(marker + 1, y.length - 1);
-            (x, newArray.toArray)
-        });
 
-        println(category + " " + index);
-        updatedRDD.collect().foreach({ case (x, y) => println(x + " : " + y.mkString(",")) });
-      }
-    }
-
-    rdds = rdds :+ updatedRDD;
-    printRDD(updatedRDD)
+    summaryStatistics = summaryStatistics :+ linesRDD.keys.map { x => (x, map) }; ;
+    printRDD(linesRDD)
   }
 
   def getNumericRDDWithRange(rightRDD: RDD[(Long, Array[(String, Int)])], dimension: Int, newValue: String): RDD[(Long, Array[(String, Int)])] =
