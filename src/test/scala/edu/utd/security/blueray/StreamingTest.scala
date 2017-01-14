@@ -18,6 +18,14 @@ import org.junit.Before
 import org.junit.Test
 
 class StreamingTest {
+  
+/*    @Test
+  def executeAllPhoneNumberBlockTestCase() {
+    val valueToBlock = """(\d{3}-\d{3}-\d{4})""";
+    val valueNotBlocked = "460-0a8-0120";
+    val newValue = "------";
+    testSparkStreaming(Util.getSC(), "hdfs://localhost/user/user_phone.csv", valueToBlock, newValue, valueNotBlocked);
+  }*/
   def defaultFilter(path: Path): Boolean = !path.getName().startsWith(".")
 
   def testSparkStreaming(sc: SparkContext, filePath: String, valueToBeBlocked: String, newValue: String, valueNotBlocked: String) = {
@@ -43,15 +51,15 @@ class StreamingTest {
     lines.foreachRDD(rdd =>
       {
         if (rdd.collect().length != 0) {
-          sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
+          sc.setLocalProperty(("USER"), ("ADMIN"));
           GenericTests.rdd_BlockLii(sc, rdd, true, valueToBeBlocked, newValue, valueNotBlocked);
-          sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("SomeRANDOMSTRIng"));
+          sc.setLocalProperty(("USER"), ("SomeRANDOMSTRIng"));
           GenericTests.rdd_BlockAll(sc, rdd, true, valueToBeBlocked, newValue)
-          sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
+          sc.setLocalProperty(("USER"), ("ADMIN"));
           AccessMonitor.deRegisterPolicy(policy);
           GenericTests.rdd_BlockNone(sc, rdd, true, valueToBeBlocked, newValue);
-
-          ssc.stop();
+          Thread.sleep(6000);
+          ssc.stop(false);
         }
 
       })

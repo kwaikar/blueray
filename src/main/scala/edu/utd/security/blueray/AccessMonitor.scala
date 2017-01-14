@@ -20,7 +20,7 @@ object AccessMonitor {
     policy.priviledgeRestriction = Util.decrypt(policy.priviledgeRestriction)
     var policiesSet: HashSet[Policy] = if (policies.get(policy.resourcePath) != None) (policies.get(policy.resourcePath).get) else (new HashSet[Policy]);
     policiesSet.add(policy)
-
+    println("Added policy:"+policy);
     policies.put(policy.resourcePath, policiesSet)
   }
   def deRegisterPolicy(policy: Policy) {
@@ -45,14 +45,14 @@ object AccessMonitor {
   def getPolicy(path: String, priviledgeRestriction: Option[String]): Option[Policy] =
     {
       if (AccessMonitor.policies.size == 0) {
-        for (line <- Source.fromFile("/usr/lib/blueray/policies.csv").getLines()) {
+        for (line <- Source.fromFile(Util.getSC().getConf.get("POLICY_FILE_PATH")).getLines()) {
 
           val arr = line.split(",");
           var regex = arr(0);
           if (arr(0).startsWith("\"")) {
             regex = arr(0).replaceAll("\"", "");
           }
-          //println("Final: "+arr(0)+" : "+regex);
+          println("Final: "+arr(0)+" : "+regex);
           AccessMonitor.enforcePolicy(new Policy(arr(2), Util.encrypt(arr(1)), regex));
         }
 

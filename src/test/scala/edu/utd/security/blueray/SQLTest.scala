@@ -18,13 +18,13 @@ class SQLTest {
   def testSparkSQL(sc: SparkContext, filePath: String, valueToBlock: String, newValue: String, valueNotBlocked: String) =
     {
       val sqlContext = new SQLContext(sc)
-      sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
+      sc.setLocalProperty(("USER"),("ADMIN"));
       var policy = new edu.utd.security.blueray.Policy(filePath, Util.encrypt("ADMIN"), valueToBlock);
       val dfs = sqlContext.read.json(filePath)
       GenericTests.df_BlockNone(sc, dfs, valueToBlock, newValue)
       AccessMonitor.enforcePolicy(policy);
       GenericTests.df_BlockID(sc, dfs, valueToBlock, newValue, valueNotBlocked)
-      sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMON"));
+      sc.setLocalProperty(("USER"),("ADMON"));
       GenericTests.df_BlockAll(sc, dfs, valueToBlock, newValue)
       AccessMonitor.deRegisterPolicy(policy);
       GenericTests.df_BlockNone(sc, dfs, valueToBlock, newValue)
@@ -34,14 +34,14 @@ class SQLTest {
   private def testSparkSQLToRDDVersion(sc: SparkContext, filePath: String, valueToBlock: String, newValue: String, valueNotBlocked: String) =
     {
       val sqlContext = new SQLContext(sc)
-      sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
+      sc.setLocalProperty(("USER"),("ADMIN"));
       var policy = new edu.utd.security.blueray.Policy(filePath, Util.encrypt("ADMIN"), valueToBlock);
       AccessMonitor.enforcePolicy(policy);
       val dfs = sqlContext.read.json(filePath)
       GenericTests.rdd_BlockLii(sc, dfs.rdd, false, valueToBlock, newValue, valueNotBlocked);
-      sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("SomeRANDOMSTRIng"));
+      sc.setLocalProperty(("USER"),("SomeRANDOMSTRIng"));
       GenericTests.rdd_BlockAll(sc, dfs.rdd, false, valueToBlock, newValue)
-      sc.setLocalProperty(("PRIVILEDGE"), Util.encrypt("ADMIN"));
+      sc.setLocalProperty(("USER"),("ADMIN"));
       AccessMonitor.deRegisterPolicy(policy);
       GenericTests.rdd_BlockNone(sc, dfs.rdd, false, valueToBlock, newValue);
     }

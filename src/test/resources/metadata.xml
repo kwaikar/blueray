@@ -123,17 +123,16 @@
 					</children>
 					<children>
 						<value>
-							Senior-Secondary
-						</value>
-						<children>
-							<value>11th</value>
-						</children>
-						<children>
-							<value>12th</value>
-						</children>
-						<children>
-							<value>HS-grad</value>
-						</children>
+							Senior-Secondary</value>
+							<children>
+								<value>11th</value>
+							</children>
+							<children>
+								<value>12th</value>
+							</children>
+							<children>
+								<value>HS-grad</value>
+							</children>
 					</children>
 				</children>
 			</children>
@@ -316,20 +315,19 @@
 			</children>
 			<children>
 				<value>
-					Colored
-				</value>
-				<children>
-					<value>Asian-Pac-Islander</value>
-				</children>
-				<children>
-					<value>Amer-Indian-Eskimo</value>
-				</children>
-				<children>
-					<value>Other</value>
-				</children>
-				<children>
-					<value>Black</value>
-				</children>
+					Colored</value>
+					<children>
+						<value>Asian-Pac-Islander</value>
+					</children>
+					<children>
+						<value>Amer-Indian-Eskimo</value>
+					</children>
+					<children>
+						<value>Other</value>
+					</children>
+					<children>
+						<value>Black</value>
+					</children>
 			</children>
 		</hierarchy>
 	</column>
@@ -459,81 +457,79 @@
 			</children>
 			<children>
 				<value>
-					Europe
-				</value>
-				<children>
-					<value>Western-Europe</value>
+					Europe</value>
 					<children>
-						<value>France</value>
+						<value>Western-Europe</value>
+						<children>
+							<value>France</value>
+						</children>
+						<children>
+							<value>England</value>
+						</children>
+						<children>
+							<value>Ireland</value>
+						</children>
+						<children>
+							<value>Scotland</value>
+						</children>
+						<children>
+							<value>Holand-Netherlands</value>
+						</children>
 					</children>
 					<children>
-						<value>England</value>
+						<value>Southern-Europe</value>
+						<children>
+							<value>Italy</value>
+						</children>
+						<children>
+							<value>Greece</value>
+						</children>
 					</children>
 					<children>
-						<value>Ireland</value>
+						<value>Southwestern-Europe</value>
+						<children>
+							<value>Portugal</value>
+						</children>
 					</children>
 					<children>
-						<value>Scotland</value>
+						<value>Southeastern-Europe</value>
+						<children>
+							<value>Yugoslavia</value>
+						</children>
 					</children>
 					<children>
-						<value>Holand-Netherlands</value>
+						<value>Central-Europe</value>
+						<children>
+							<value>Hungary</value>
+						</children>
+						<children>
+							<value>Germany</value>
+						</children>
+						<children>
+							<value>Poland</value>
+						</children>
 					</children>
-				</children>
-				<children>
-					<value>Southern-Europe</value>
-					<children>
-						<value>Italy</value>
-					</children>
-					<children>
-						<value>Greece</value>
-					</children>
-				</children>
-				<children>
-					<value>Southwestern-Europe</value>
-					<children>
-						<value>Portugal</value>
-					</children>
-				</children>
-				<children>
-					<value>Southeastern-Europe</value>
-					<children>
-						<value>Yugoslavia</value>
-					</children>
-				</children>
-				<children>
-					<value>Central-Europe</value>
-					<children>
-						<value>Hungary</value>
-					</children>
-					<children>
-						<value>Germany</value>
-					</children>
-					<children>
-						<value>Poland</value>
-					</children>
-				</children>
 			</children>
 			<children>
 				<value>Asia</value>
 				<children>
 					<value>
-						Southeastern-Asia
-					</value>
-					<children>
-						<value>Philippines</value>
-					</children>
-					<children>
-						<value>Thailand</value>
-					</children>
-					<children>
-						<value>Cambodia</value>
-					</children>
-					<children>
-						<value>Vietnam</value>
-					</children>
-					<children>
-						<value>Laos</value>
-					</children>
+						Southeastern-Asia</value>
+						<children>
+							<value>Philippines</value>
+						</children>
+						<children>
+							<value>Thailand</value>
+						</children>
+						<children>
+							<value>Cambodia</value>
+						</children>
+						<children>
+							<value>Vietnam</value>
+						</children>
+						<children>
+							<value>Laos</value>
+						</children>
 				</children>
 				<children>
 					<value>Southern-Asia</value>

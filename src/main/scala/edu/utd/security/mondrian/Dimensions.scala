@@ -30,4 +30,9 @@ package edu.utd.security.mondrian
       {
         rightArray
       }
+    
+    def tostring():String=
+    {
+      dimensionValue+ " ("+min+"|"+median+"|"+max+"): ";
+    }
   }

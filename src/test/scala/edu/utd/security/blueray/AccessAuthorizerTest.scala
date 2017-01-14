@@ -21,7 +21,9 @@ class AccessAuthorizerTest {
   @Before
   def setUp() {
     val conf = new SparkConf().setAppName("Simple Application").setMaster("local[2]");
+    conf.set("POLICY_FILE_PATH","/usr/lib/blueray/empty_policies.csv");
     sc = new SparkContext(conf)
+    
   }
   @After
   def destroy() {
@@ -64,14 +66,14 @@ class AccessAuthorizerTest {
   }
   
 
-  //@Test
+//  @Test
   def executeSimpleBlockTestCase() {
     val valueToBlock = "Lii";
     val valueNotBlocked = "saki U.";
     val newValue = "------";
     testSpark("hdfs://localhost/user/user_small.csv", valueToBlock, newValue, valueNotBlocked);
-    // new SQLTest().testSparkSQL(sc, "hdfs://localhost/user/user.json", valueToBlock, newValue, valueNotBlocked);
-    //new StreamingTest().testSparkStreaming(sc,"hdfs://localhost/user/user_small.csv",valueToBlock, newValue,valueNotBlocked);
+     new SQLTest().testSparkSQL(sc, "hdfs://localhost/user/user.json", valueToBlock, newValue, valueNotBlocked);
+  //  new StreamingTest().testSparkStreaming(sc,"hdfs://localhost/user/user_small.csv",valueToBlock, newValue,valueNotBlocked);
   }
 
   // @Test
@@ -81,17 +83,17 @@ class AccessAuthorizerTest {
     val newValue = "------";
     testSpark("hdfs://localhost/user/user_phone.csv", valueToBlock, newValue, valueNotBlocked);
     new SQLTest().testSparkSQL(sc, "hdfs://localhost/user/user_phone.json", valueToBlock, newValue, valueNotBlocked);
-    //  new StreamingTest().testSparkStreaming(sc,"hdfs://localhost/user/user_phone.csv",valueToBlock, newValue,valueNotBlocked);
+     // new StreamingTest().testSparkStreaming(sc,"hdfs://localhost/user/user_phone.csv",valueToBlock, newValue,valueNotBlocked);
   }
 
-  //  @Test
+ // @Test
   def executeAllPhoneNumberBlockTestCase() {
     val valueToBlock = """(\d{3}-\d{3}-\d{4})""";
     val valueNotBlocked = "460-0a8-0120";
     val newValue = "------";
     testSpark("hdfs://localhost/user/user_all_phones.csv", valueToBlock, newValue, valueNotBlocked);
     new SQLTest().testSparkSQL(sc, "hdfs://localhost/user/user_all_phones.json", valueToBlock, newValue, valueNotBlocked);
-    //  new StreamingTest().testSparkStreaming(sc, "hdfs://localhost/user/user_phone.csv", valueToBlock, newValue, valueNotBlocked);
+      new StreamingTest().testSparkStreaming(sc, "hdfs://localhost/user/user_all_phones.csv", valueToBlock, newValue, valueNotBlocked);
   }
 
   private def testSpark(filePath: String, valueToBlock: String, newValue: String, valueNotBlocked: String) = {
@@ -99,7 +101,7 @@ class AccessAuthorizerTest {
     edu.utd.security.blueray.AccessMonitor.enforcePolicy(policy);
 
     var inputFile = sc.textFile(filePath)
-    sc.setLocalProperty(("USER"), ("kanchan"));
+    sc.setLocalProperty(("USER"), ("ADMIN"));
     GenericTests.rdd_BlockLii(sc, inputFile, true, valueToBlock, newValue, valueNotBlocked);
     sc.setLocalProperty(("USER"), ("SomeRANDOMSTRIng"));
     GenericTests.rdd_BlockAll(sc, inputFile, true, valueToBlock, newValue)

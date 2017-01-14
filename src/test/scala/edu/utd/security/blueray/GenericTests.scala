@@ -12,7 +12,7 @@ object GenericTests {
     val currentMillis = System.currentTimeMillis;
     println(inputFile.collect().size + " =======> " + inputFile.collect().mkString, "1")
     assert(!inputFile.collect().mkString.contains(stringToBeBlocked), "2")
-    assert(inputFile.collect().mkString.contains(valueNotBlocked), "3")
+    assert(inputFile.collect().mkString.toLowerCase().contains(valueNotBlocked.toLowerCase()), "3")
     println("#$%#$%" + inputFile.collect().mkString)
     assert(inputFile.collect().mkString.contains(newString), "4")
     assert(3 == inputFile.count(), "Count method testing")
@@ -21,7 +21,7 @@ object GenericTests {
     if (mapReduceOpsTesting) {
       val inputFileMapped = inputFile.asInstanceOf[RDD[String]]
       assert(!inputFileMapped.map(x => (x(1), 1)).reduceByKey(_ + _).collect().toString().contains(stringToBeBlocked), "reduceByKey ")
-      assert(!inputFileMapped.map(x => (x(1), 1)).reduceByKey(_ + _).collect().toString().contains(valueNotBlocked), "reduceByKey ")
+      assert(!inputFileMapped.map(x => (x(1), 1)).reduceByKey(_ + _).collect().toString().toLowerCase().contains(valueNotBlocked.toLowerCase()), "reduceByKey ")
       assert(3 == inputFileMapped.map(x => (1)).collect().reduceLeft({ (x, y) => x + y }), "reduceLeft ")
       assert(3 == inputFileMapped.map(x => (1)).collect().reduce({ (x, y) => x + y }), "reduce ")
     }
@@ -108,7 +108,7 @@ object GenericTests {
     assert(!dfs.select("id").collect().mkString.matches(stringToBeBlocked), "DF- id found no blocking happeneing")
 
     println("------------323W---------------------------------------------->>>>>>>>>>>>>>")
-    assert(dfs.select("id").collect().mkString.contains(valueNotBlocked), "DF- unblocked value not found")
+    assert(dfs.select("id").collect().mkString.toLowerCase().contains(valueNotBlocked.toLowerCase()), "DF- unblocked value not found")
     dfs.filter(!_.mkString.contains(stringToBeBlocked));
     println("--------------------------------324-------------------------->>>>>>>>>>>>>>")
     assert(dfs.select("age").collect().length == 3, "DF- count mismatch")

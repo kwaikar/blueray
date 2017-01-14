@@ -9,7 +9,7 @@ import org.junit.Before
 import org.junit.Test
 
 class MondrianTest {
-   var sc: SparkContext = _;
+  var sc: SparkContext = _;
 
   @Before
   def setUp() {
@@ -25,8 +25,19 @@ class MondrianTest {
 
   @Test
   def testMondrian() = {
-      Mondrian.kanonymize(4);
-    
+     sc.setLogLevel("ERROR");
+    Mondrian.kanonymize("hdfs://localhost/user/adult.data2.txt", getClass.getResource("/metadata.xml").getPath, "/home/kanchan/op.txt", 3);
+
+    val testCaseInputFile = scala.io.Source.fromURL(getClass.getResource("/mondrian_test_result.txt"))
+    val expectedString = try testCaseInputFile.mkString finally testCaseInputFile.close()
+
+    val outputFile = scala.io.Source.fromFile("/home/kanchan/op.txt/part-00000")
+    val outputString = try outputFile.mkString finally outputFile.close()
+    println("|"+expectedString.trim()+"|")
+    println("=|"+outputString.trim()+"|=")
+    assert(Mondrian.getDiscernabilityMetric().equals(434.0));
+    assert(expectedString.trim().equals(outputString.trim()))
+
   }
-  
+
 }
