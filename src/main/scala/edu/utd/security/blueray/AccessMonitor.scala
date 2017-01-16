@@ -2,7 +2,6 @@ package edu.utd.security.blueray
 
 import scala.collection.mutable.HashMap
 import scala.collection.mutable.HashSet
-import scala.io.Source
 import scala.util.control.Breaks.break
 import scala.util.control.Breaks.breakable
 
@@ -13,21 +12,27 @@ object AccessMonitor {
 
   // val logger = Logger(LoggerFactory.getLogger(this.getClass))
   var policies: HashMap[String, HashSet[Policy]] = new scala.collection.mutable.HashMap
+  var policiesLoaded = false;
+  loadDefaultPolicy();
+  def loadDefaultPolicy()
+  {
+    enforcePolicy(new Policy(sys.env("BLUERAY_POLICIES_PATH"),Util.encrypt( Util.getSC().sparkUser), "zxasdsxccsdcsd"));
+  }
   /**
    * Register policy mechanism for enforcing new policy
    */
   def enforcePolicy(policy: Policy) {
-    policy.priviledgeRestriction = Util.decrypt(policy.priviledgeRestriction)
+    policy.priviledge = Util.decrypt(policy.priviledge)
     var policiesSet: HashSet[Policy] = if (policies.get(policy.resourcePath) != None) (policies.get(policy.resourcePath).get) else (new HashSet[Policy]);
     policiesSet.add(policy)
-    println("Added policy:"+policy);
+    println("Added policy:" + policy);
     policies.put(policy.resourcePath, policiesSet)
   }
   def deRegisterPolicy(policy: Policy) {
     var policiesSet: Option[HashSet[Policy]] = policies.get(policy.resourcePath)
     if (policiesSet != None) {
       for (entry <- policiesSet.get) {
-        if (entry.filterExpression.equalsIgnoreCase(policy.filterExpression) && entry.resourcePath.equalsIgnoreCase(policy.resourcePath) && entry.filterExpression.equalsIgnoreCase(policy.filterExpression)) {
+        if (entry.regex.equalsIgnoreCase(policy.regex) && entry.resourcePath.equalsIgnoreCase(policy.resourcePath) && entry.regex.equalsIgnoreCase(policy.regex)) {
           policiesSet.get.remove(entry)
           if (policiesSet.get.size > 0) {
             policies.put(policy.resourcePath, policiesSet.get);
@@ -39,47 +44,55 @@ object AccessMonitor {
     }
     println("Policies deregistered:" + policies)
   }
+  def loadPolicies() {
+    if (!policiesLoaded) {
+      println("Reading policies from path : " + sys.env("BLUERAY_POLICIES_PATH"))
+      val lines = Util.getSC().textFile(sys.env("BLUERAY_POLICIES_PATH")).collect().toArray;
+      lines.foreach(println);
+      for (line <- lines) {
+
+        val arr = line.split(",");
+        var regex = arr(0);
+        if (arr(0).startsWith("\"")) {
+          regex = arr(0).replaceAll("\"", "");
+        }
+        println("Final: " + arr(0) + " : " + regex);
+        enforcePolicy(new Policy(arr(2), Util.encrypt(arr(1)), regex));
+      }
+      println("Policies read");
+      policiesLoaded = true;
+    }
+  }
   /**
    * Returns policy from map based on authorization
    */
   def getPolicy(path: String, priviledgeRestriction: Option[String]): Option[Policy] =
     {
-      if (AccessMonitor.policies.size == 0) {
-        for (line <- Source.fromFile(Util.getSC().getConf.get("POLICY_FILE_PATH")).getLines()) {
+      println("going through======================"+path);
+      loadPolicies();
+        var policyToBeReturned: Option[Policy] = None;
 
-          val arr = line.split(",");
-          var regex = arr(0);
-          if (arr(0).startsWith("\"")) {
-            regex = arr(0).replaceAll("\"", "");
-          }
-          println("Final: "+arr(0)+" : "+regex);
-          AccessMonitor.enforcePolicy(new Policy(arr(2), Util.encrypt(arr(1)), regex));
-        }
-
-      }
-
-      var policyToBeReturned: Option[Policy] = None;
-
-      for (hashSet <- policies) {
-        breakable {
-          //println("path.trim:" + path.trim())
-          if (hashSet._1.startsWith(path.trim())) {
-            if (priviledgeRestriction == None) {
-              // println("policyToBeReturned:" + "New")
+        for (hashSet <- policies) {
+          breakable {
+            //println("path.trim:" + path.trim())
+            if (hashSet._1.startsWith(path.trim())) {
+              if (priviledgeRestriction == None) {
+                // println("policyToBeReturned:" + "New")
+                return Some(new Policy(path, "", ""))
+              }
+              for (policy <- hashSet._2) {
+                if (policy.priviledge.equalsIgnoreCase(priviledgeRestriction.get)) {
+                  policyToBeReturned = Some(policy);
+                  //  println("policyToBeReturned:" + policyToBeReturned)
+                  break;
+                }
+              }
+              //println("returning some")
               return Some(new Policy(path, "", ""))
             }
-            for (policy <- hashSet._2) {
-              if (policy.priviledgeRestriction.equalsIgnoreCase(priviledgeRestriction.get)) {
-                policyToBeReturned = Some(policy);
-                //  println("policyToBeReturned:" + policyToBeReturned)
-                break;
-              }
-            }
-            //println("returning some")
-            return Some(new Policy(path, "", ""))
           }
         }
-      }
-      return policyToBeReturned
+        println("Returning policy" + policyToBeReturned)
+        return policyToBeReturned
     }
 }

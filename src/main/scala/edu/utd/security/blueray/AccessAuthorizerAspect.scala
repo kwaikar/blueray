@@ -21,7 +21,7 @@ class AccessAuthorizerAspect {
  // @Around(value = "execution(* org.apache.spark.rdd.MapPartitionsRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
   def aroundAdvice_spark(jp: ProceedingJoinPoint, theSplit: Partition, context: TaskContext): AnyRef = {
 
-  //  println("----------------------- Going through the Aspect ---------------------------------");
+    println("----------------------- Going through the Aspect ---------------------------------");
   
     val iterator = (jp.proceed(jp.getArgs()));
     
@@ -31,7 +31,7 @@ class AccessAuthorizerAspect {
 
     if (policy != None) 
     {
-      val authorizedIterator = new AuthorizedInterruptibleIterator(context, iterator.asInstanceOf[Iterator[_]], policy.get.filterExpression);
+      val authorizedIterator = new AuthorizedInterruptibleIterator(context, iterator.asInstanceOf[Iterator[_]], policy.get.regex);
       return authorizedIterator
     }
     return iterator

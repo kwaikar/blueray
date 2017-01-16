@@ -17,6 +17,7 @@ object Util {
 
   def getSC(): SparkContext = {
     if (sc == null) {
+      println("Created new context");
       sc = new SparkContext(conf)
     }
     sc;
@@ -30,7 +31,7 @@ object Util {
 
   def storeStringAsFile(fileString: String, path: String) = {
     var sc = getSC();
-    val fs = org.apache.hadoop.fs.FileSystem.get(new java.net.URI("hdfs://localhost/sream/user_small.csv"), sc.hadoopConfiguration)
+    val fs = org.apache.hadoop.fs.FileSystem.get(new java.net.URI(path), sc.hadoopConfiguration)
     val os = fs.create(new Path(path))
     os.write(fileString.getBytes)
 

@@ -21,9 +21,8 @@ class AccessAuthorizerTest {
   @Before
   def setUp() {
     val conf = new SparkConf().setAppName("Simple Application").setMaster("local[2]");
-    conf.set("POLICY_FILE_PATH","/usr/lib/blueray/empty_policies.csv");
     sc = new SparkContext(conf)
-    
+   // sc.setLocalProperty("POLICY_FILE_PATH","hdfs://localhost/blueray/empty_policies.csv");
   }
   @After
   def destroy() {

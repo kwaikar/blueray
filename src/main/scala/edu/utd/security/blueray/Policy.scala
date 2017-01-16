@@ -5,10 +5,10 @@ package edu.utd.security.blueray
  */
 class Policy(resource: String, restriction: String, expr: String) {
   var resourcePath: String = resource;
-  var filterExpression = expr;
-  var priviledgeRestriction = restriction;
+  var priviledge = restriction;
+  var regex = expr;
 
   override def toString(): String = {
-    resourcePath + " : " + filterExpression + " - " + priviledgeRestriction
+    resourcePath + " : " + regex + " - " + priviledge
   }
 }

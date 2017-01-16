@@ -14,6 +14,7 @@ class MondrianTest {
   @Before
   def setUp() {
     val conf = new SparkConf().setAppName("Simple Application").setMaster("local[2]");
+    conf.set("POLICY_FILE_PATH","hdfs://localhost/blueray/empty_policies.csv");
     sc = new SparkContext(conf)
   }
   @After
