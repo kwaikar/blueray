@@ -1,4 +1,4 @@
-package edu.utd.security.Util
+package edu.utd.security.mondrian
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.SparkContext

@@ -1,8 +1,4 @@
-package edu.utd.security.common
-
-import edu.utd.security.mondrian.Category
-
-import edu.utd.security.common.Category
+package edu.utd.security.common 
 
 /**
  * Class responsible for holding details of column object.

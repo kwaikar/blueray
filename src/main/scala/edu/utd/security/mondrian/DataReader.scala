@@ -1,9 +1,12 @@
-package edu.utd.security.common
+package edu.utd.security.mondrian
 
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import scala.xml.NodeSeq
 import scala.xml.XML
+import edu.utd.security.common.Category
+import edu.utd.security.common.Column
+import edu.utd.security.common.Metadata
 
 /**
  * This class is responsible for reading
