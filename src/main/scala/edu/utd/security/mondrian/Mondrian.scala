@@ -180,9 +180,8 @@ object Mondrian {
      * Get the dimension for the cut.
      */
     val dimAndMedian: Dimensions = selectDimension(linesRDD, blockedIndices, k);
-    println("Dimension found: " + dimAndMedian.dimension());
+    println("Dimension found for: "+linesRDD.count()+" : " + dimAndMedian.dimension()+" : ");
     if (dimAndMedian.dimension() >= 0) {
-      sc.broadcast(dimAndMedian);
       var blockedIndices1: scala.collection.mutable.Set[Int] = blockedIndices.+(dimAndMedian.dimension()).clone();
       var blockedIndices2: scala.collection.mutable.Set[Int] = blockedIndices.+(dimAndMedian.dimension()).clone();
 
@@ -203,7 +202,7 @@ object Mondrian {
       val rightSize = rightRDD.count();
       if (leftSize >= k && rightSize >= k) {
 
-        println("Making the cut on dimension[" + metadata.value.getMetadata(dimAndMedian.dimension()).get.getName() + "](" + leftSize + ") ||| [ " + leftPartitionedRange + "] : [" + rightPartitionedRange + "](" + rightSize + ")");
+        println("Making the cut on dimension[" + metadata.value.getMetadata(dimAndMedian.dimension()).get.getName() + "](" + leftSize + ") [ " + leftPartitionedRange + "] :::: [" + rightPartitionedRange + "](" + rightSize + ")");
 
         val leftRDDWithRange = partitionRDD(leftRDD, dimAndMedian.dimension(), leftPartitionedRange);
         val rightRDDWithRange = partitionRDD(rightRDD, dimAndMedian.dimension(), rightPartitionedRange);
@@ -222,6 +221,7 @@ object Mondrian {
           kanonymize(rightRDDWithRange, blockedIndices2, k);
         }
       } else {
+          println("No cut [" + "](" + leftSize + ") : : (" + rightSize + ")");
         assignSummaryStatisticAndAddToList(linesRDD);
       }
     } else {
@@ -232,7 +232,7 @@ object Mondrian {
     }
   }
   /**
-   * This method computes Range statistic for dimensions on which cut has not performed yet.
+   * This method computes Range statistic for dimensions on which cut has not been performed yet.
    */
   def assignSummaryStatisticAndAddToList(linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])]) {
 
@@ -293,8 +293,6 @@ object Mondrian {
       /**
        * Remove row IDs.
        */
-
-      println("BlockedIndices found: " + blockedIndices.mkString(","));
 
       val indexValuePairs = linesRDD.flatMap({ case (index, map) => (map) });
 
