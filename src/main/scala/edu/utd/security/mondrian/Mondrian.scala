@@ -9,6 +9,7 @@ import org.apache.spark.rdd.RDD.rddToPairRDDFunctions
 import edu.utd.security.common.Metadata
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.SparkSession
+import edu.utd.security.blueray.Util
 
 /**
  * This is implementation of paper on Mondrian multi-dimensional paritioning for K-Anonymity
@@ -27,8 +28,13 @@ object Mondrian {
    * 4. value of k
    */
   def main(args: Array[String]): Unit = {
-    sc.setLogLevel("ERROR");
-    kanonymize(args(0), args(1), args(2), args(3).toInt);
+   // sc.setLogLevel("ERROR");
+   // kanonymize(args(0), args(1), args(2), args(3).toInt);
+     val output = Util.getURLAsString("http://10.176.147.70:8084/bluerayWebapp/policy?priviledge=kanchan&filePath=hdfs://localhost/user/user_all_phones.csv")
+   println(output)
+     val policy = Util.extractPolicy(output);
+    println(policy);
+
   }
   /**
    * Program invariants
@@ -46,7 +52,7 @@ object Mondrian {
   var metadataFilePath: String = null;
   var dataReader: DataReader = null;
   var sc: SparkContext = SparkSession
-    .builder.appName("Mondrian").master("spark://cloudmaster3:7077").getOrCreate().sparkContext;
+    .builder.appName("Mondrian").master("local[2]").getOrCreate().sparkContext;
 
   /**
    * Using following singleton to retrieve/broadcast metadata variables.

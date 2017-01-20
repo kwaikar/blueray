@@ -1,7 +1,9 @@
 package edu.utd.security.blueray
 
+import scala.io.Source
 import scala.util.control.Breaks.break
 import scala.util.control.Breaks.breakable
+import scala.util.parsing.json.JSON
 
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkConf
@@ -29,6 +31,38 @@ object Util {
     value
   }
 
+   def getURLAsString(url: String): String = {
+    val html = Source.fromURL(url)
+    html.mkString
+  }
+
+  def extractPolicy(json: String): Option[Policy] = {
+    var policy: Option[Policy] = None;
+    val policyJson = JSON.parseFull(json);
+    if (policyJson != None) {
+      val filePath = policyJson match {
+        case Some(m: Map[String, Any]) => m("filePath") match {
+          case s: String => s
+        }
+      }
+
+      val priviledge = policyJson match {
+        case Some(m: Map[String, Any]) => m("priviledge") match {
+          case s: String => s
+        }
+      }
+
+      val regex = policyJson match {
+        case Some(m: Map[String, Any]) => m("regex") match {
+          case s: String => s
+        }
+      }
+      return Some(new Policy(filePath, priviledge, regex));
+
+    }
+    return policy;
+  }
+
   def storeStringAsFile(fileString: String, path: String) = {
     var sc = getSC();
     val fs = org.apache.hadoop.fs.FileSystem.get(new java.net.URI(path), sc.hadoopConfiguration)
@@ -51,15 +85,22 @@ object Util {
       cipher.init(Cipher.ENCRYPT_MODE, secretKey);
       var encryptedByte: Array[Byte] = cipher.doFinal(plainTextByte);
       return Base64.getEncoder().encodeToString(encryptedByte);*/
-      Security.encrypt(plainText)
-    }
 
+      //Security.encrypt(plainText)
+      plainText
+    }
+  /**
+   * Commenting encryption decryption as it is currently not the requirement.
+   */
   def decrypt(encryptedText: String): String = {
     /*    var cipher = Cipher.getInstance("AES");
     var encryptedTextByte: Array[Byte] = Base64.getDecoder().decode(encryptedText);
     cipher.init(Cipher.DECRYPT_MODE, secretKey);
     return (new String(cipher.doFinal(encryptedTextByte)));*/
-    Security.decrypt(encryptedText)
+
+    //Security.decrypt(encryptedText)
+
+    encryptedText;
   }
 
   def extractAuth(context: org.apache.spark.TaskContext): Option[String] = {

@@ -22,7 +22,8 @@ class AccessAuthorizerTest {
   def setUp() {
     val conf = new SparkConf().setAppName("Simple Application").setMaster("local[2]");
     sc = new SparkContext(conf)
-   // sc.setLocalProperty("POLICY_FILE_PATH","hdfs://localhost/blueray/empty_policies.csv");
+   // sc.setLocalProperty("BLUERAY_POLICIES_PATH","hdfs://localhost/blueray/empty_policies.csv");
+    //("POLICYMANAGER_END_POINT","http://10.176.147.70:8084/bluerayWebapp")
   }
   @After
   def destroy() {
@@ -31,7 +32,7 @@ class AccessAuthorizerTest {
     sc = null;
   }
 
- // @Test
+  @Test
   def testUtil() = {
     assert(Util.decrypt(Util.encrypt("Hello")) == "Hello");
     val sb = "00460-027-0120";
@@ -65,7 +66,7 @@ class AccessAuthorizerTest {
   }
   
 
-//  @Test
+ @Test
   def executeSimpleBlockTestCase() {
     val valueToBlock = "Lii";
     val valueNotBlocked = "saki U.";

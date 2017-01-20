@@ -10,34 +10,45 @@ import scala.util.control.Breaks.breakable
  */
 object AccessMonitor {
 
+  val useRESTAPI = true;
+
   // val logger = Logger(LoggerFactory.getLogger(this.getClass))
   var policies: HashMap[String, HashSet[Policy]] = new scala.collection.mutable.HashMap
   var policiesLoaded = false;
   loadDefaultPolicy();
-  def loadDefaultPolicy()
-  {
-    enforcePolicy(new Policy(sys.env("BLUERAY_POLICIES_PATH"),Util.encrypt( Util.getSC().sparkUser), "zxasdsxccsdcsd"));
+  def loadDefaultPolicy() {
+    if (!useRESTAPI) {
+      enforcePolicy(new Policy(sys.env("BLUERAY_POLICIES_PATH"), Util.encrypt(Util.getSC().sparkUser), "zxasdsxccsdcsd"));
+    }
   }
   /**
    * Register policy mechanism for enforcing new policy
    */
   def enforcePolicy(policy: Policy) {
-    policy.priviledge = Util.decrypt(policy.priviledge)
-    var policiesSet: HashSet[Policy] = if (policies.get(policy.resourcePath) != None) (policies.get(policy.resourcePath).get) else (new HashSet[Policy]);
-    policiesSet.add(policy)
-    println("Added policy:" + policy);
-    policies.put(policy.resourcePath, policiesSet)
+    if (useRESTAPI) {
+      enforcePolicyOnRESTEndPoint(policy.resourcePath, policy.priviledge, policy.regex);
+    } else {
+      policy.priviledge = Util.decrypt(policy.priviledge)
+      var policiesSet: HashSet[Policy] = if (policies.get(policy.resourcePath) != None) (policies.get(policy.resourcePath).get) else (new HashSet[Policy]);
+      policiesSet.add(policy)
+      println("Added policy:" + policy);
+      policies.put(policy.resourcePath, policiesSet)
+    }
   }
   def deRegisterPolicy(policy: Policy) {
-    var policiesSet: Option[HashSet[Policy]] = policies.get(policy.resourcePath)
-    if (policiesSet != None) {
-      for (entry <- policiesSet.get) {
-        if (entry.regex.equalsIgnoreCase(policy.regex) && entry.resourcePath.equalsIgnoreCase(policy.resourcePath) && entry.regex.equalsIgnoreCase(policy.regex)) {
-          policiesSet.get.remove(entry)
-          if (policiesSet.get.size > 0) {
-            policies.put(policy.resourcePath, policiesSet.get);
-          } else {
-            policies.remove(entry.resourcePath)
+    if (useRESTAPI) {
+      deregisterPolicyOnRESTEndPoint(policy.resourcePath, policy.priviledge, policy.regex);
+    } else {
+      var policiesSet: Option[HashSet[Policy]] = policies.get(policy.resourcePath)
+      if (policiesSet != None) {
+        for (entry <- policiesSet.get) {
+          if (entry.regex.equalsIgnoreCase(policy.regex) && entry.resourcePath.equalsIgnoreCase(policy.resourcePath) && entry.regex.equalsIgnoreCase(policy.regex)) {
+            policiesSet.get.remove(entry)
+            if (policiesSet.get.size > 0) {
+              policies.put(policy.resourcePath, policiesSet.get);
+            } else {
+              policies.remove(entry.resourcePath)
+            }
           }
         }
       }
@@ -68,8 +79,12 @@ object AccessMonitor {
    */
   def getPolicy(path: String, priviledgeRestriction: Option[String]): Option[Policy] =
     {
-      println("going through======================"+path);
-      loadPolicies();
+      if (useRESTAPI) {
+        return getPolicyFromEndPoint(path, priviledgeRestriction.get);
+
+      } else {
+        println("going through======================" + path);
+        loadPolicies();
         var policyToBeReturned: Option[Policy] = None;
 
         for (hashSet <- policies) {
@@ -94,5 +109,28 @@ object AccessMonitor {
         }
         println("Returning policy" + policyToBeReturned)
         return policyToBeReturned
+      }
     }
+
+  def getPolicyFromEndPoint(filePath: String, priviledge: String): Option[Policy] = {
+    val output = Util.getURLAsString(sys.env("POLICYMANAGER_END_POINT") + "/policy?priviledge=" + priviledge + "&filePath=" + filePath)
+    println(filePath+ " =>"+output)
+    if (!output.contains("No Policy")) {
+      val policy = Util.extractPolicy(output);
+      println("Returing policy:" + policy)
+      policy
+    } else {
+      return None;
+    }
+  }
+
+  def enforcePolicyOnRESTEndPoint(filePath: String, priviledge: String, regex: String) {
+    val output = Util.getURLAsString(sys.env("POLICYMANAGER_END_POINT") + "/enforcePolicy?priviledge=" + priviledge + "&filePath=" + filePath + "&regex=" + regex)
+    println(output)
+  }
+  def deregisterPolicyOnRESTEndPoint(filePath: String, priviledge: String, regex: String) {
+    val output = Util.getURLAsString(sys.env("POLICYMANAGER_END_POINT") + "/deregisterPolicy?priviledge=" + priviledge + "&filePath=" + filePath + "&regex=" + regex)
+    println(output)
+  }
+
 }

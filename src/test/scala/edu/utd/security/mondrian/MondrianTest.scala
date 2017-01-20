@@ -24,7 +24,7 @@ class MondrianTest {
     sc = null;
   }
 
-  @Test
+ // @Test
   def testMondrian() = {
      sc.setLogLevel("ERROR");
     Mondrian.kanonymize("hdfs://localhost/user/adult.data2.txt", getClass.getResource("/metadata.xml").getPath, "/home/kanchan/op.txt", 3);
