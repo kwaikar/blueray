@@ -1,4 +1,4 @@
-package edu.utd.security.common 
+package edu.utd.security.lbs 
 
 /**
    * Class responsible for holding metadata of columns.

@@ -1,15 +1,14 @@
 package edu.utd.security.mondrian
 
-import org.apache.spark.SparkConf
 import org.apache.spark.SparkContext
+import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.rdd.RDD.rddToOrderedRDDFunctions
 import org.apache.spark.rdd.RDD.rddToPairRDDFunctions
+import org.apache.spark.sql.SparkSession
 
 import edu.utd.security.common.Metadata
-import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.sql.SparkSession
-import edu.utd.security.blueray.Util
+
 
 /**
  * This is implementation of paper on Mondrian multi-dimensional paritioning for K-Anonymity
@@ -30,11 +29,6 @@ object Mondrian {
   def main(args: Array[String]): Unit = {
    // sc.setLogLevel("ERROR");
    // kanonymize(args(0), args(1), args(2), args(3).toInt);
-     val output = Util.getURLAsString("http://10.176.147.70:8084/bluerayWebapp/policy?priviledge=kanchan&filePath=hdfs://localhost/user/user_all_phones.csv")
-   println(output)
-     val policy = Util.extractPolicy(output);
-    println(policy);
-
   }
   /**
    * Program invariants

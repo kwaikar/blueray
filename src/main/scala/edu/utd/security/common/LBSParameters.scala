@@ -1,4 +1,4 @@
-package edu.utd.security.lbs
+package edu.utd.security.common
 
 class LBSParameters (recordCost:Double) extends Serializable{
   

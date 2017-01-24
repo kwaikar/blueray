@@ -1,12 +1,10 @@
-package edu.utd.security.mondrian
+package edu.utd.security.lbs
 
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import scala.xml.NodeSeq
 import scala.xml.XML
-import edu.utd.security.common.Category
-import edu.utd.security.common.Column
-import edu.utd.security.common.Metadata
+
 
 
 /**
@@ -61,17 +59,17 @@ class DataReader(sc: SparkContext) {
            * For String column types.
            */
           if (node.\("hierarchy").text.length() > 0) {
-            val column = new Column(node.\("name").text, node.\("index").text.toInt, node.\("type").text.charAt(0), node.\("isQuasiIdentifier").text.toBoolean, getHierarchy(node.\("hierarchy"), "*"));
+            val column = new Column(node.\("name").text, node.\("index").text.toInt, node.\("type").text.charAt(0), node.\("isQuasiIdentifier").text.toBoolean, getHierarchy(node.\("hierarchy"), "*"),-1,-1);
             columns += ((column.getIndex(), column));
           } else {
-            val column = new Column(node.\("name").text, node.\("index").text.toInt, node.\("type").text.charAt(0), node.\("isQuasiIdentifier").text.toBoolean, new Category("*"));
+            val column = new Column(node.\("name").text, node.\("index").text.toInt, node.\("type").text.charAt(0), node.\("isQuasiIdentifier").text.toBoolean, new Category("*"),-1,-1);
             columns += ((column.getIndex(), column));
           }
         } else {
           /**
            * Numeric columns.
            */
-          val column = new Column(node.\("name").text, node.\("index").text.toInt, node.\("type").text.charAt(0), node.\("isQuasiIdentifier").text.toBoolean, null);
+          val column = new Column(node.\("name").text, node.\("index").text.toInt, node.\("type").text.charAt(0), node.\("isQuasiIdentifier").text.toBoolean,null,node.\("min").text.toDouble,node.\("max").text.toDouble);
           columns += ((column.getIndex(), column));
         }
       }

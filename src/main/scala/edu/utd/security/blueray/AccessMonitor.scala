@@ -4,13 +4,15 @@ import scala.collection.mutable.HashMap
 import scala.collection.mutable.HashSet
 import scala.util.control.Breaks.break
 import scala.util.control.Breaks.breakable
+import java.net.URLEncoder
+import scala.io.Source
 
 /**
  * Singleton object for implementing Access Control in Spark
  */
 object AccessMonitor {
 
-  val useRESTAPI = true;
+  val useRESTAPI = false;
 
   // val logger = Logger(LoggerFactory.getLogger(this.getClass))
   var policies: HashMap[String, HashSet[Policy]] = new scala.collection.mutable.HashMap
@@ -58,8 +60,7 @@ object AccessMonitor {
   def loadPolicies() {
     if (!policiesLoaded) {
       println("Reading policies from path : " + sys.env("BLUERAY_POLICIES_PATH"))
-      val lines = Util.getSC().textFile(sys.env("BLUERAY_POLICIES_PATH")).collect().toArray;
-      lines.foreach(println);
+      val lines = Source.fromFile(sys.env("BLUERAY_POLICIES_PATH")).getLines();
       for (line <- lines) {
 
         val arr = line.split(",");
@@ -113,7 +114,7 @@ object AccessMonitor {
     }
 
   def getPolicyFromEndPoint(filePath: String, priviledge: String): Option[Policy] = {
-    val output = Util.getURLAsString(sys.env("POLICYMANAGER_END_POINT") + "/policy?priviledge=" + priviledge + "&filePath=" + filePath)
+    val output = Util.getURLAsString(sys.env("POLICYMANAGER_END_POINT") + "/policy?priviledge=" + priviledge.trim() + "&filePath=" + filePath.trim())
     println(filePath+ " =>"+output)
     if (!output.contains("No Policy")) {
       val policy = Util.extractPolicy(output);
@@ -125,11 +126,11 @@ object AccessMonitor {
   }
 
   def enforcePolicyOnRESTEndPoint(filePath: String, priviledge: String, regex: String) {
-    val output = Util.getURLAsString(sys.env("POLICYMANAGER_END_POINT") + "/enforcePolicy?priviledge=" + priviledge + "&filePath=" + filePath + "&regex=" + regex)
+    val output = Util.getURLAsString(sys.env("POLICYMANAGER_END_POINT") + "/enforcePolicy?priviledge=" + priviledge.trim() + "&filePath=" + URLEncoder.encode(filePath.trim()) + "&regex=" + URLEncoder.encode(regex.trim()))
     println(output)
   }
   def deregisterPolicyOnRESTEndPoint(filePath: String, priviledge: String, regex: String) {
-    val output = Util.getURLAsString(sys.env("POLICYMANAGER_END_POINT") + "/deregisterPolicy?priviledge=" + priviledge + "&filePath=" + filePath + "&regex=" + regex)
+    val output = Util.getURLAsString(sys.env("POLICYMANAGER_END_POINT") + "/deregisterPolicy?priviledge=" + priviledge .trim()+ "&filePath=" + URLEncoder.encode(filePath.trim()) + "&regex=" + URLEncoder.encode(regex.trim()))
     println(output)
   }
 

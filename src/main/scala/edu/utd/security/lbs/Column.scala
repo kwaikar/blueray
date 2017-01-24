@@ -1,15 +1,25 @@
-package edu.utd.security.common 
+package edu.utd.security.lbs 
+
 
 /**
  * Class responsible for holding details of column object.
  */
-class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean, rootCategory: Category) extends Serializable {
+class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean, rootCategory: Category,min:Double,max:Double) extends Serializable {
   def getName(): String = {
     return name;
   }
   def getIndex(): Int = {
     return index;
   }
+  
+  def getMin(): Double= {
+    return min;
+  }
+  
+  def getMax(): Double = {
+    return max;
+  }
+  
   def getColType(): Char = {
     return colType;
   }
@@ -21,7 +31,7 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
   }
   override def toString: String = {
     if (rootCategory == null)
-      return index + ":" + name + "=" + colType + "_" + isQuasiIdentifier + "[" + "]";
+      return index + ":" + name + "=" + colType + "_" + isQuasiIdentifier + "[" +min+"<->"+max+ "]";
     else
       return index + ":" + name + "=" + colType + "_" + isQuasiIdentifier + "[" + rootCategory.toString + "]";
   }
