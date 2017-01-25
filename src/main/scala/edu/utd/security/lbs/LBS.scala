@@ -62,22 +62,24 @@ class LBS {
     var newMap = new HashMap[Int, String]();
     for (i <- 0 to metadata.value.numColumns() - 1) {
 
-      if (metadata.value.getMetadata(i).get.getColType() == 's') {
-        newMap.put(i, metadata.value.getMetadata(i).get.getRootCategory().value());
-      } else {
-        newMap.put(i, metadata.value.getMetadata(i).get.getMin() + "_" + metadata.value.getMetadata(i).get.getMax());
+      if (metadata.value.getMetadata(i).get.getIsQuasiIdentifier()) {
+        if (metadata.value.getMetadata(i).get.getColType() == 's') {
+          newMap.put(i, metadata.value.getMetadata(i).get.getRootCategory().value());
+        } else {
+          newMap.put(i, metadata.value.getMetadata(i).get.getMin() + "_" + metadata.value.getMetadata(i).get.getMax());
+        }
+        println("Putting+ " + i + " - " + newMap.get(i).get)
       }
-      println("Putting+ " + i + " - " + newMap.get(i).get)
     }
 
     println("Is Leaf record leaf : " + isGLeafNode(newMap));
 
-    val optimalRecord = findOptimalStrategy(record, new LBSParameters(4, 1200))
+    val optimalRecord = findOptimalStrategy(record, new LBSParameters(4, 1200,1200))
   }
 
-  def getPublishersLoss(g: scala.collection.mutable.Map[Int, String]): Double =
+  def getPublishersLoss(lbsParam:LBSParameters): Double =
     {
-      return 1;
+      return lbsParam.getPublishersLoss();
     }
 
   def getPublishersBenefit(g: scala.collection.mutable.Map[Int, String], lbsParams: LBSParameters): Double =
@@ -90,28 +92,27 @@ class LBS {
       var infoLoss: Double = 0;
       val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
       for (i <- 0 to metadata.value.numColumns() - 1) {
-        var count: Long = 0;
-        val column = metadata.value.getMetadata(i).get;
-        val value = g.get(i).get.trim()
-        if (column.getColType() == 's') {
-          val children = column.getCategory(value).childrenString
-          count = linesRDD.filter({ case (x, y) => { children.contains(y.get(i).get) } }).count();
-        } else {
-          val range = value.split("_");
-          val min = range(0).toDouble
-          val max = range(1).toDouble
-          if ((min == column.getMin() && (max == column.getMax()))) {
-            if (totalDataCount == -1) {
-              totalDataCount = linesRDD.count();
-            }
-            count = totalDataCount;
+        if (metadata.value.getMetadata(i).get.getIsQuasiIdentifier()) {
+          var count: Long = 0;
+          val column = metadata.value.getMetadata(i).get;
+          val value = g.get(i).get.trim()
+          if (column.getColType() == 's') {
+            val children = column.getCategory(value).childrenString
+            count = linesRDD.filter({ case (x, y) => { children.contains(y.get(i).get) } }).count();
           } else {
-            count = linesRDD.filter({ case (x, y) => { y.get(i).get.toDouble >= min && y.get(i).get.toDouble <= max } }).count();
+            val minMax = getMinMax(value);
+            if ((minMax._1 == column.getMin() && (minMax._2 == column.getMax()))) {
+              if (totalDataCount == -1) {
+                totalDataCount = linesRDD.count();
+              }
+              count = totalDataCount;
+            } else {
+              count = linesRDD.filter({ case (x, y) => { !(y.get(i).get.toDouble > minMax._2 && y.get(i).get.toDouble < minMax._1) } }).count();
+            }
           }
 
+          infoLoss += -(1 / Math.log(count));
         }
-
-        infoLoss += -(1 / Math.log(count));
       }
       return 1;
     }
@@ -120,22 +121,71 @@ class LBS {
       var maximumInfoLoss: Double = 0;
       val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
       for (i <- 0 to metadata.value.numColumns() - 1) {
-        maximumInfoLoss += -(1 / Math.log( /*df. size*/ 1));
+
+        if (metadata.value.getMetadata(i).get.getIsQuasiIdentifier()) {
+          maximumInfoLoss += -(1 / Math.log( /*df. size*/ 1));
+        }
       }
       return maximumInfoLoss;
     }
 
+  /**
+   * Returns probability of adversaries success. Depends on total number of entries that fall in the same category.
+   */
   def getPiOfG(g: scala.collection.mutable.Map[Int, String]): Double =
     {
-      return 1;
+      val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
+      val matchingPopulationGroupSize = linesRDD.filter({
+        case (x: Long, y) =>
+          isRecordASuperSetOfRecordB(metadata, g, y)
+      }).count() - 1;
+
+      /**Self matching will always happen, hence it should be accounted for.*/
+      return (1 / matchingPopulationGroupSize);
     }
+  
+  
+  def isRecordASuperSetOfRecordB(metadata: Broadcast[Metadata], a: scala.collection.mutable.Map[Int, String], b: scala.collection.mutable.Map[Int, String]): Boolean = {
+    var allAttributesMatch: Boolean = true;
+    for (i <- 0 to metadata.value.numColumns() - 1) {
+      if (metadata.value.getMetadata(i).get.getIsQuasiIdentifier()) {
+        val column = metadata.value.getMetadata(i).get;
+        val value1 = a.get(i).get.trim()
+        val value2 = a.get(i).get.trim().toDouble
+
+        if (column.getColType() == 's') {
+          val children = column.getCategory(value1).childrenString
+          if (!children.contains(value2)) {
+            return false;
+          }
+        } else {
+          val minMax = getMinMax(value1);
+          if (value2 > minMax._2 || value2 < minMax._1) {
+            return false
+          }
+        }
+      }
+    }
+    allAttributesMatch;
+  }
+  def getMinMax(value: String): (Double, Double) = {
+    if (value.contains("_")) {
+      val range = value.split("_");
+      val min = range(0).toDouble
+      val max = range(1).toDouble
+      (min, max)
+    } else {
+      (value.toDouble, value.toDouble)
+    }
+
+  }
 
   def findOptimalStrategy(top: (Long, scala.collection.mutable.Map[Int, String]), lbsParam: LBSParameters): (Long, scala.collection.mutable.Map[Int, String]) = {
 
     val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
     var strategy = top._2;
     while (!isGLeafNode(strategy)) {
-      val riskValue = getPiOfG(strategy) * getPublishersLoss(strategy);
+      val riskValue = getPiOfG(strategy) * getPublishersLoss(lbsParam);
       if (riskValue <= lbsParam.getRecordCost()) {
         return (top._1, strategy);
       }
@@ -143,7 +193,7 @@ class LBS {
       var currentStrategy = strategy;
       val children = getChildren(strategy);
       for (child <- children) {
-        val childRiskValue = getPiOfG(child) * getPublishersLoss(child);
+        val childRiskValue = getPiOfG(child) * getPublishersLoss(lbsParam);
         val childBenefit = getPublishersBenefit(child, lbsParam) - childRiskValue;
         if (childBenefit >= currentBenefit) {
           currentStrategy = child;
@@ -204,15 +254,18 @@ class LBS {
         /**
          * Create child for lattice on each column one at a time.
          */
-        var copyOfG = g.clone();
-        val column = metadata.value.getMetadata(i).get;
-        val value = g.get(i).get.trim()
-        if (column.getColType() == 's') {
-          copyOfG.put(i, column.getParentCategory(value).value());
-        } else {
-          copyOfG.put(i, column.getParentRange(value.toDouble));
+
+        if (metadata.value.getMetadata(i).get.getIsQuasiIdentifier()) {
+          var copyOfG = g.clone();
+          val column = metadata.value.getMetadata(i).get;
+          val value = g.get(i).get.trim()
+          if (column.getColType() == 's') {
+            copyOfG.put(i, column.getParentCategory(value).value());
+          } else {
+            copyOfG.put(i, column.getParentRange(value.toDouble));
+          }
+          list += copyOfG;
         }
-        list += copyOfG;
       }
       return list.toList;
     }
