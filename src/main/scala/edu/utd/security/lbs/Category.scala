@@ -11,6 +11,9 @@ package edu.utd.security.lbs
       }
     var children: List[Category] = List();
     var childrenString: List[String] = List(value);
+    def hasChildren():Boolean={
+      children.length>0;
+    }
     def addChildren(childrenCategory: Category) {
       this.children = this.children :+ childrenCategory;
       this.childrenString = this.childrenString :+ childrenCategory.value();

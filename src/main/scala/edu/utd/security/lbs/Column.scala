@@ -74,4 +74,62 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
     }
     return rootCategory;
   }
+  
+  /**
+   * This method should implement logic for getting higher range for given value.
+   */
+  def getParentRange (value:Double):String={
+    return value.toString();
+  }
+  
+   def getParentCategory(childCategory: String): Category = {
+
+    var category = rootCategory;
+    var searchChild=true;
+    var parent = rootCategory;
+    /**
+     * Start from ancestor and Recurse until the parent node is found. 
+     */
+    while (searchChild && category.hasChildren()) {
+
+        val children = category.children.toArray
+        for (i <- 0 to children.size - 1) {
+          if (children(i).childrenString.contains(childCategory)) {
+            parent =category;
+            category = children(i);
+            searchChild=true;
+          }
+        }
+        if(!searchChild)
+        {
+          return parent;
+        }
+    }
+    return parent;
+  }
+   
+   
+   def getCategory(categoryString: String): Category = {
+
+    var category = rootCategory;
+    var searchChild=true;
+    /**
+     * Start from ancestor and Recurse until the node is found. 
+     */
+    while (searchChild && category.hasChildren()) {
+
+        val children = category.children.toArray
+        for (i <- 0 to children.size - 1) {
+          if (children(i).childrenString.contains(categoryString)) {
+            category = children(i);
+            searchChild=true;
+          }
+        }
+        if(!searchChild)
+        {
+          return category;
+        }
+    }
+    return category;
+  }
 }

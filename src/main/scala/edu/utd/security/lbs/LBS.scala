@@ -1,12 +1,12 @@
 package edu.utd.security.lbs
 
 import scala.collection.mutable.HashMap
+import scala.collection.mutable.ListBuffer
 
 import org.apache.spark.SparkContext
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
-import java.util.Collections
 
 /**
  * This is implementation of paper called "A Game Theoretic Framework for Analyzing Re-Identification Risk"
@@ -24,6 +24,7 @@ class LBS {
   var metadataFilePath: String = null;
   var dataReader: DataReader = null;
   var linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])] = null;
+  var totalDataCount: Long = -1;
   var sc: SparkContext = SparkSession
     .builder.appName("LBS").master("local[2]").getOrCreate().sparkContext;
 
@@ -71,9 +72,93 @@ class LBS {
 
     println("Is Leaf record leaf : " + isGLeafNode(newMap));
 
-    val optimalRecord = findOptimalStrategy(record)
+    val optimalRecord = findOptimalStrategy(record, new LBSParameters(4, 1200))
   }
 
+  def getPublishersLoss(g: scala.collection.mutable.Map[Int, String]): Double =
+    {
+      return 1;
+    }
+
+  def getPublishersBenefit(g: scala.collection.mutable.Map[Int, String], lbsParams: LBSParameters): Double =
+    {
+      return lbsParams.getMaxPublisherBenefit() * (1 - (getInformationLoss(g) / getMaximulInformationLoss(g)));
+    }
+
+  def getInformationLoss(g: scala.collection.mutable.Map[Int, String]): Double =
+    {
+      var infoLoss: Double = 0;
+      val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
+      for (i <- 0 to metadata.value.numColumns() - 1) {
+        var count: Long = 0;
+        val column = metadata.value.getMetadata(i).get;
+        val value = g.get(i).get.trim()
+        if (column.getColType() == 's') {
+          val children = column.getCategory(value).childrenString
+          count = linesRDD.filter({ case (x, y) => { children.contains(y.get(i).get) } }).count();
+        } else {
+          val range = value.split("_");
+          val min = range(0).toDouble
+          val max = range(1).toDouble
+          if ((min == column.getMin() && (max == column.getMax()))) {
+            if (totalDataCount == -1) {
+              totalDataCount = linesRDD.count();
+            }
+            count = totalDataCount;
+          } else {
+            count = linesRDD.filter({ case (x, y) => { y.get(i).get.toDouble >= min && y.get(i).get.toDouble <= max } }).count();
+          }
+
+        }
+
+        infoLoss += -(1 / Math.log(count));
+      }
+      return 1;
+    }
+  def getMaximulInformationLoss(g: scala.collection.mutable.Map[Int, String]): Double =
+    {
+      var maximumInfoLoss: Double = 0;
+      val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
+      for (i <- 0 to metadata.value.numColumns() - 1) {
+        maximumInfoLoss += -(1 / Math.log( /*df. size*/ 1));
+      }
+      return maximumInfoLoss;
+    }
+
+  def getPiOfG(g: scala.collection.mutable.Map[Int, String]): Double =
+    {
+      return 1;
+    }
+
+  def findOptimalStrategy(top: (Long, scala.collection.mutable.Map[Int, String]), lbsParam: LBSParameters): (Long, scala.collection.mutable.Map[Int, String]) = {
+
+    val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
+    var strategy = top._2;
+    while (!isGLeafNode(strategy)) {
+      val riskValue = getPiOfG(strategy) * getPublishersLoss(strategy);
+      if (riskValue <= lbsParam.getRecordCost()) {
+        return (top._1, strategy);
+      }
+      var currentBenefit = getPublishersBenefit(strategy, lbsParam) - riskValue;
+      var currentStrategy = strategy;
+      val children = getChildren(strategy);
+      for (child <- children) {
+        val childRiskValue = getPiOfG(child) * getPublishersLoss(child);
+        val childBenefit = getPublishersBenefit(child, lbsParam) - childRiskValue;
+        if (childBenefit >= currentBenefit) {
+          currentStrategy = child;
+          currentBenefit = childBenefit;
+
+        }
+      }
+      strategy = currentStrategy;
+    }
+    return (top._1, strategy);
+  }
+
+  /**
+   * This method returns true of input map corresponds to the bottommost level in lattice.
+   */
   def isGLeafNode(map: scala.collection.mutable.Map[Int, String]): Boolean =
     {
       val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
@@ -103,64 +188,33 @@ class LBS {
       }
       return true;
     }
-  def getPublishersLoss(g: scala.collection.mutable.Map[Int, String]): Double =
-    {
-      return 1;
-    }
-  val MAX_PUBLISHER_PROFIT = 0;
 
-  def getPublishersBenefit(g: scala.collection.mutable.Map[Int, String]): Double =
-    {
-
-      return MAX_PUBLISHER_PROFIT * (1 - (getInformationLoss(g) / getMaximulInformationLoss(g)));
-    }
-
-  def getInformationLoss(g: scala.collection.mutable.Map[Int, String]): Double =
-    {
-
-      return 1;
-    }
-  def getMaximulInformationLoss(g: scala.collection.mutable.Map[Int, String]): Double =
-    {
-
-      return 1;
-    }
-
-  def getPiOfG(g: scala.collection.mutable.Map[Int, String]): Double =
-    {
-      return 1;
-    }
+  /**
+   * This method returns the list of immediate children from lattice for the given entry.
+   */
   def getChildren(g: scala.collection.mutable.Map[Int, String]): List[scala.collection.mutable.Map[Int, String]] =
     {
       /**
        * Iterate over each attribute, generalize the value one step up at a time, accumulate and return the list.
        */
-      val list = List[scala.collection.mutable.Map[Int, String]]();
-      return list.+:(g);
-    }
-  def findOptimalStrategy(top: (Long, scala.collection.mutable.Map[Int, String]), lbsParam: LBSParameters): (Long, scala.collection.mutable.Map[Int, String]) = {
+      val list = ListBuffer[scala.collection.mutable.Map[Int, String]]();
+      val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
 
-    val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
-    var strategy = top._2;
-    while (!isGLeafNode(strategy)) {
-      val riskValue = getPiOfG(strategy) * getPublishersLoss(strategy);
-      if (riskValue <= lbsParam.getRecordCost()) {
-        return (top._1, strategy);
-      }
-      var currentBenefit = getPublishersBenefit(strategy) - riskValue;
-      var currentStrategy = strategy;
-      val children = getChildren(strategy);
-      for (child <- children) {
-        val childRiskValue = getPiOfG(child) * getPublishersLoss(child);
-        val childBenefit = getPublishersBenefit(child) - childRiskValue;
-        if (childBenefit >= currentBenefit) {
-          currentStrategy = child;
-          currentBenefit = childBenefit;
-
+      for (i <- 0 to metadata.value.numColumns() - 1) {
+        /**
+         * Create child for lattice on each column one at a time.
+         */
+        var copyOfG = g.clone();
+        val column = metadata.value.getMetadata(i).get;
+        val value = g.get(i).get.trim()
+        if (column.getColType() == 's') {
+          copyOfG.put(i, column.getParentCategory(value).value());
+        } else {
+          copyOfG.put(i, column.getParentRange(value.toDouble));
         }
+        list += copyOfG;
       }
-      strategy = currentStrategy;
+      return list.toList;
     }
-    return (top._1, strategy);
-  }
+
 }
