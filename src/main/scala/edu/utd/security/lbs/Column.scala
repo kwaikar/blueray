@@ -1,25 +1,24 @@
-package edu.utd.security.lbs 
-
+package edu.utd.security.lbs
 
 /**
  * Class responsible for holding details of column object.
  */
-class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean, rootCategory: Category,min:Double,max:Double) extends Serializable {
+class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean, rootCategory: Category, min: Double, max: Double) extends Serializable {
   def getName(): String = {
     return name;
   }
   def getIndex(): Int = {
     return index;
   }
-  
-  def getMin(): Double= {
+
+  def getMin(): Double = {
     return min;
   }
-  
+
   def getMax(): Double = {
     return max;
   }
-  
+
   def getColType(): Char = {
     return colType;
   }
@@ -31,39 +30,28 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
   }
   override def toString: String = {
     if (rootCategory == null)
-      return index + ":" + name + "=" + colType + "_" + isQuasiIdentifier + "[" +min+"<->"+max+ "]";
+      return index + ":" + name + "=" + colType + "_" + isQuasiIdentifier + "[" + min + "<->" + max + "]";
     else
       return index + ":" + name + "=" + colType + "_" + isQuasiIdentifier + "[" + rootCategory.toString + "]";
   }
-  def depth():Int=
-  {
-     if(colType =='s')
-      {
-       return depth(rootCategory);
-      }
-     else
-     {
-       // Add code for calculating numeric depth
-       return 1;
-     }
-  }
-  def depth(category:Category):Int={
-      var depthValue=0;    
-     
-      if (category.children != null && category.children.size > 0) {
-        
-        for (i <- 0 to category.children.size - 1) {
-          var childDepth = depth(category.children(i));
-          if(childDepth>depthValue)
-          {
-            depthValue = childDepth;
-          }
+  def depth(): Int =
+    {
+      return depth(rootCategory);
+    }
+  def depth(category: Category): Int = {
+    var depthValue = 0;
+
+    if (category.children != null && category.children.size > 0) {
+
+      for (i <- 0 to category.children.size - 1) {
+        var childDepth = depth(category.children(i));
+        if (childDepth > depthValue) {
+          depthValue = childDepth;
         }
       }
-      else
-      {
-        return 1;
-      }
+    } else {
+      return 1;
+    }
     return depthValue;
   }
   /**
@@ -75,7 +63,7 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
     var childFound = true;
 
     /**
-     * Start from ancestor and Recurse until the parent node is found. 
+     * Start from ancestor and Recurse until the parent node is found.
      */
     while (childFound) {
 
@@ -89,77 +77,85 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
           }
         }
         /**
-         * If none of the children have all column values, it means that 
-         * current level itself is a common parent for all values. 
+         * If none of the children have all column values, it means that
+         * current level itself is a common parent for all values.
          */
         if (!childFound) {
           return category;
         }
 
       } else {
-       /**
-        * Reached leaf - this is the bottommost level possible!
-        */
+        /**
+         * Reached leaf - this is the bottommost level possible!
+         */
         return category;
       }
     }
     return rootCategory;
   }
-  
-  /**
-   * This method should implement logic for getting higher range for given value.
-   */
-  def getParentRange (value:Double):String={
-    return value.toString();
-  }
-  
-   def getParentCategory(childCategory: String): Category = {
+
+  def getParentCategory(childCategory: String): Category = {
 
     var category = rootCategory;
-    var searchChild=true;
+    var searchChild = true;
     var parent = rootCategory;
     /**
-     * Start from ancestor and Recurse until the parent node is found. 
+     * Start from ancestor and Recurse until the parent node is found.
      */
     while (searchChild && category.hasChildren()) {
 
-        val children = category.children.toArray
-        for (i <- 0 to children.size - 1) {
+      val children = category.children.toArray
+      for (i <- 0 to children.size - 1) {
+        if (colType == 's') {
           if (children(i).childrenString.contains(childCategory)) {
-            parent =category;
+            parent = category;
             category = children(i);
-            searchChild=true;
+            searchChild = true;
+          }
+        } else {
+          val minMax = LBSUtil.getMinMax(childCategory);
+          if (children(i).min <= minMax._1 && children(i).max >= minMax._2) {
+            parent = category;
+            category = children(i);
+            searchChild = true;
           }
         }
-        if(!searchChild)
-        {
-          return parent;
-        }
+
+      }
+      if (!searchChild) {
+        return parent;
+      }
     }
     return parent;
   }
-   
-   
-   def getCategory(categoryString: String): Category = {
+
+  def getCategory(categoryString: String): Category = {
 
     var category = rootCategory;
-    var searchChild=true;
+    var searchChild = true;
     /**
-     * Start from ancestor and Recurse until the node is found. 
+     * Start from ancestor and Recurse until the node is found.
      */
     while (searchChild && category.hasChildren()) {
 
-        val children = category.children.toArray
-        for (i <- 0 to children.size - 1) {
+      val children = category.children.toArray
+      for (i <- 0 to children.size - 1) {
+        if (colType == 's') {
           if (children(i).childrenString.contains(categoryString)) {
             category = children(i);
-            searchChild=true;
+            searchChild = true;
+          }
+        } else {
+          val minMax = LBSUtil.getMinMax(categoryString);
+          if (children(i).min <= minMax._1 && children(i).max >= minMax._2) {
+            category = children(i);
+            searchChild = true;
           }
         }
-        if(!searchChild)
-        {
-          return category;
-        }
+      }
+      if (!searchChild) {
+        return category;
+      }
     }
     return category;
   }

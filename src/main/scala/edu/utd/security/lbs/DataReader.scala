@@ -69,7 +69,7 @@ class DataReader(sc: SparkContext) {
           /**
            * Numeric columns.
            */
-          val column = new Column(node.\("name").text, node.\("index").text.toInt, node.\("type").text.charAt(0), node.\("isQuasiIdentifier").text.toBoolean,null,node.\("min").text.toDouble,node.\("max").text.toDouble);
+          val column = new Column(node.\("name").text, node.\("index").text.toInt, node.\("type").text.charAt(0), node.\("isQuasiIdentifier").text.toBoolean,getHierarchy(node.\("hierarchy"), node.\("min").text.toDouble+"_"+node.\("max").text.toDouble),node.\("min").text.toDouble,node.\("max").text.toDouble);
           columns += ((column.getIndex(), column));
         }
       }

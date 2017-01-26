@@ -8,6 +8,8 @@ import org.apache.spark.SparkConf
 import org.apache.spark.SparkContext
 import org.junit.After
 import org.junit.Before
+import org.junit.Test
+
 
 class LBSTest {
   var sc: SparkContext = _;
@@ -25,8 +27,8 @@ class LBSTest {
     sc = null;
   }
 
- // @Test
-  def testMondrian() = {
+  @Test
+  def testLBS() = {
     sc.setLogLevel("ERROR");
     val lbs = new LBS();
     lbs.lbs("hdfs://localhost/user/adult.data2.txt", getClass.getResource("/metadata.xml").getPath, "/home/kanchan/op.txt", 3);

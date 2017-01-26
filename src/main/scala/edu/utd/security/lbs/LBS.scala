@@ -7,6 +7,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
+import edu.utd.security.lbs.LBSUtil
 
 /**
  * This is implementation of paper called "A Game Theoretic Framework for Analyzing Re-Identification Risk"
@@ -79,7 +80,7 @@ class LBS {
             val children = column.getCategory(value).childrenString
             count = linesRDD.filter({ case (x, y) => { children.contains(y.get(i).get) } }).count();
           } else {
-            val minMax = getMinMax(value);
+            val minMax =LBSUtil.getMinMax(value);
             if ((minMax._1 == column.getMin() && (minMax._2 == column.getMax()))) {
               if (totalDataCount == -1) {
                 totalDataCount = linesRDD.count();
@@ -144,7 +145,7 @@ class LBS {
             return false;
           }
         } else {
-          val minMax = getMinMax(value1);
+          val minMax = LBSUtil.getMinMax(value1);
           if (value2 > minMax._2 || value2 < minMax._1) {
             return false
           }
@@ -153,17 +154,7 @@ class LBS {
     }
     allAttributesMatch;
   }
-  def getMinMax(value: String): (Double, Double) = {
-    if (value.contains("_")) {
-      val range = value.split("_");
-      val min = range(0).toDouble
-      val max = range(1).toDouble
-      (min, max)
-    } else {
-      (value.toDouble, value.toDouble)
-    }
-
-  }
+  
 
   def findOptimalStrategy(top: (Long, scala.collection.mutable.Map[Int, String]), lbsParam: LBSParameters): (Long, scala.collection.mutable.Map[Int, String]) = {
 
@@ -248,11 +239,7 @@ class LBS {
           var copyOfG = g.clone();
           val column = metadata.value.getMetadata(i).get;
           val value = g.get(i).get.trim()
-          if (column.getColType() == 's') {
-            copyOfG.put(i, column.getParentCategory(value).value());
-          } else {
-            copyOfG.put(i, column.getParentRange(value.toDouble));
-          }
+          copyOfG.put(i, column.getParentCategory(value).value());
           list += copyOfG;
         }
       }
