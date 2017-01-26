@@ -10,7 +10,7 @@ import scala.xml.XML
 /**
  * This class is responsible for reading
  */
-class DataReader(sc: SparkContext) {
+class DataReader(sc: SparkContext) extends Serializable {
 
   /**
    * This method reads input Data file and returns the linesRDD.

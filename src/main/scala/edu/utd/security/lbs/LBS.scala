@@ -1,13 +1,11 @@
 package edu.utd.security.lbs
 
-import scala.collection.mutable.HashMap
 import scala.collection.mutable.ListBuffer
 
 import org.apache.spark.SparkContext
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
-import edu.utd.security.lbs.LBSUtil
 
 /**
  * This is implementation of paper called "A Game Theoretic Framework for Analyzing Re-Identification Risk"
@@ -15,12 +13,7 @@ import edu.utd.security.lbs.LBSUtil
  * booktitle = {In ICDE},
  * year = {2015}
  */
-class LBS {
-
-  def main(args: Array[String]): Unit = {
-    sc.setLogLevel("ERROR");
-    lbs(args(0), args(1), args(2), args(3).toInt);
-  }
+object LBS {
 
   var metadataFilePath: String = null;
   var dataReader: DataReader = null;
@@ -50,7 +43,22 @@ class LBS {
       metadata
     }
   }
+  def main(args: Array[String]): Unit = {
 
+    val dataReader = new DataReader(sc);
+    sc.setLogLevel("ERROR");
+    linesRDD = dataReader.readDataFile("hdfs://localhost/user/adult.data2.txt", true);
+    linesRDD.cache();
+    val metadata = Metadata.getInstance(sc, dataReader, "/home/kanchan/metadata.xml");
+    val record = linesRDD.first();
+
+   // println(getMaximulInformationLoss());
+ for (child <- getChildren(record._2)) {
+      println(child)
+      assert(LBS.isRecordASuperSetOfRecordB(record._2, child));
+    }
+   // val optimalRecord = findOptimalStrategy(record, new LBSParameters(4, 1200, 2000, 10))
+  } 
   def lbs(hdfsDataFilePath: String, metadataFilePath: String, outputFilePath: String, k: Int) {
 
     val dataReader = new DataReader(sc);
@@ -59,12 +67,16 @@ class LBS {
     linesRDD.cache();
     val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
     val record = linesRDD.first();
-    val optimalRecord = findOptimalStrategy(record, new LBSParameters(4, 1200, 2000, 10))
+
+    println("==========>" + getInformationLoss(record._2));
+
+   // val optimalRecord = findOptimalStrategy(record, new LBSParameters(4, 1200, 2000, 10))
   }
 
   def getPublishersBenefit(g: scala.collection.mutable.Map[Int, String], lbsParams: LBSParameters): Double =
     {
-      return lbsParams.getMaxPublisherBenefit() * (1 - (getInformationLoss(g) / getMaximulInformationLoss(g)));
+    println("Percentage: "+getInformationLoss(g) / getMaximulInformationLoss());
+      return lbsParams.getMaxPublisherBenefit() * (1.0 - (getInformationLoss(g) / getMaximulInformationLoss()));
     }
 
   def getInformationLoss(g: scala.collection.mutable.Map[Int, String]): Double =
@@ -72,6 +84,7 @@ class LBS {
       var infoLoss: Double = 0;
       val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
       for (i <- 0 to metadata.value.numColumns() - 1) {
+        println("i" + i);
         if (metadata.value.getMetadata(i).get.getIsQuasiIdentifier()) {
           var count: Long = 0;
           val column = metadata.value.getMetadata(i).get;
@@ -80,33 +93,40 @@ class LBS {
             val children = column.getCategory(value).childrenString
             count = linesRDD.filter({ case (x, y) => { children.contains(y.get(i).get) } }).count();
           } else {
-            val minMax =LBSUtil.getMinMax(value);
+            val minMax = LBSUtil.getMinMax(value);
             if ((minMax._1 == column.getMin() && (minMax._2 == column.getMax()))) {
-              if (totalDataCount == -1) {
-                totalDataCount = linesRDD.count();
-              }
-              count = totalDataCount;
+              
+              count = getTotalCount();
             } else {
-              count = linesRDD.filter({ case (x, y) => { !(y.get(i).get.toDouble > minMax._2 && y.get(i).get.toDouble < minMax._1) } }).count();
+              count = linesRDD.filter({ case (x, y) => { (y.get(i).get.toDouble >= minMax._1 && y.get(i).get.toDouble <= minMax._2) } }).count();
             }
           }
-
-          infoLoss += -(1 / Math.log(count));
+          println("(Index): " + i + " (Value): " + value + " (Count): " + count + "  (infoLoss): " +(1.0/count)+"->"+ ( Math.log(1.0/count)));
+          infoLoss += (- Math.log(1.0/count));
         }
       }
-      return 1;
+      return infoLoss;
     }
 
   var maximumInfoLoss: Double = -1;
+ 
+  def getTotalCount():Long={
+    if (totalDataCount == -1) 
+    {
+         totalDataCount = linesRDD.count();
+    }
+    return totalDataCount;
+  }
 
-  def getMaximulInformationLoss(g: scala.collection.mutable.Map[Int, String]): Double =
+  def getMaximulInformationLoss(): Double =
     {
       if (maximumInfoLoss == -1) {
         val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
         for (i <- 0 to metadata.value.numColumns() - 1) {
 
           if (metadata.value.getMetadata(i).get.getIsQuasiIdentifier()) {
-            maximumInfoLoss += -(1 / Math.log(metadata.value.getMetadata(i).get.depth()));
+            println(i+":"+Math.log(1.0/metadata.value.getMetadata(i).get.depth()));
+            maximumInfoLoss += (- Math.log(1.0/getTotalCount()));
           }
         }
       }
@@ -121,7 +141,7 @@ class LBS {
       val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
       val matchingPopulationGroupSize = linesRDD.filter({
         case (x: Long, y) =>
-          isRecordASuperSetOfRecordB(metadata, g, y)
+          isRecordASuperSetOfRecordB(g, y)
       }).count() - 1;
 
       /**Self matching will always happen, hence it should be accounted for.*/
@@ -131,13 +151,14 @@ class LBS {
   /**
    * This method checks whether record B is equal to or subset of record A with respect to Quasi-Identifiers.
    */
-  def isRecordASuperSetOfRecordB(metadata: Broadcast[Metadata], a: scala.collection.mutable.Map[Int, String], b: scala.collection.mutable.Map[Int, String]): Boolean = {
+  def isRecordASuperSetOfRecordB( a: scala.collection.mutable.Map[Int, String], b: scala.collection.mutable.Map[Int, String]): Boolean = {
     var allAttributesMatch: Boolean = true;
+      val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
     for (i <- 0 to metadata.value.numColumns() - 1) {
       if (metadata.value.getMetadata(i).get.getIsQuasiIdentifier()) {
         val column = metadata.value.getMetadata(i).get;
         val value1 = a.get(i).get.trim()
-        val value2 = a.get(i).get.trim().toDouble
+        val value2 = b.get(i).get.trim()
 
         if (column.getColType() == 's') {
           val children = column.getCategory(value1).childrenString
@@ -145,8 +166,9 @@ class LBS {
             return false;
           }
         } else {
-          val minMax = LBSUtil.getMinMax(value1);
-          if (value2 > minMax._2 || value2 < minMax._1) {
+          val minMax1 = LBSUtil.getMinMax(value1);
+          val minMax2 = LBSUtil.getMinMax(value1);
+          if (minMax2._2 > minMax1._2 || minMax2._1 < minMax1._1) {
             return false
           }
         }
@@ -154,7 +176,6 @@ class LBS {
     }
     allAttributesMatch;
   }
-  
 
   def findOptimalStrategy(top: (Long, scala.collection.mutable.Map[Int, String]), lbsParam: LBSParameters): (Long, scala.collection.mutable.Map[Int, String]) = {
 

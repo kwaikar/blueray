@@ -4,6 +4,9 @@ package edu.utd.security.lbs
  * Class responsible for holding hierarchy for categorical values.
  */
 class Category(value: String) extends Serializable {
+  
+ 
+   
   def value(): String =
     {
       return value;
@@ -12,7 +15,18 @@ class Category(value: String) extends Serializable {
   var childrenString: List[String] = List(value);
   var min: Double = -1;
   var max: Double = -1;
-
+  if (value.contains("_"))
+    {
+      val minMax = LBSUtil.getMinMax(value);
+      min = minMax._1;
+      max = minMax._2;
+    }
+  def getMin():Double ={
+    return min;
+  }
+  def getMax():Double ={
+    return max;
+  }
   def hasChildren(): Boolean = {
     children.length > 0;
   }
@@ -20,12 +34,7 @@ class Category(value: String) extends Serializable {
     this.children = this.children :+ childrenCategory;
     this.childrenString = this.childrenString :+ childrenCategory.value();
     this.childrenString ++= childrenCategory.childrenString;
-    if (childrenCategory.value().contains("_"))
-    {
-      val minMax = LBSUtil.getMinMax(childrenCategory.value());
-      min = minMax._1;
-      max = minMax._2;
-    }
+   
   }
 
   override def toString: String = {

@@ -155,7 +155,7 @@
 		<num_unique>21648</num_unique>
 		<min>12285</min>
 		<max>1484705</max>
-		<isQuasiIdentifier>true</isQuasiIdentifier>
+		<isQuasiIdentifier>false</isQuasiIdentifier>
 		<hierarchy>
 			<children>
 				<value>12285.0_748495.0</value>
@@ -257,26 +257,6 @@
 		<num_unique>16</num_unique>
 		<isQuasiIdentifier>true</isQuasiIdentifier>
 		<hierarchy>
-
-			<children>
-				<value>Without-Post-Secondary </value>
-				<children>
-					<value>Preschool</value>
-				</children>
-
-
-			</children>
-		</hierarchy>
-	</column>
-	<column>
-		<name>education-num</name>
-		<index>4</index>
-		<type>i</type>
-		<num_unique>16</num_unique>
-		<min>1</min>
-		<max>16</max>
-		<isQuasiIdentifier>true</isQuasiIdentifier>
-		<hierarchy>
 			<children>
 				<value>Without-Post-Secondary</value>
 				<children>
@@ -355,6 +335,37 @@
 				</children>
 			</children>
 		</hierarchy>
+
+	</column>
+	<column>
+		<name>education-num</name>
+		<index>4</index>
+		<type>i</type>
+		<num_unique>16</num_unique>
+		<min>1</min>
+		<max>16</max>
+		<isQuasiIdentifier>true</isQuasiIdentifier>
+		<hierarchy>
+			<children>
+				<value>1_8</value>
+				<children>
+					<value>1_4</value>
+				</children>
+				<children>
+					<value>5_8</value>
+				</children>
+			</children>
+			<children>
+				<value>9_16</value>
+				<children>
+					<value>9_12</value>
+				</children>
+				<children>
+					<value>13_16</value>
+				</children>
+			</children>
+		</hierarchy>
+
 
 
 	</column>
@@ -463,7 +474,7 @@
 		<index>7</index>
 		<type>s</type>
 		<num_unique>6</num_unique>
-		<isQuasiIdentifier>true</isQuasiIdentifier>
+		<isQuasiIdentifier>false</isQuasiIdentifier>
 		<hierarchy>
 			<children>
 				<value>In-family</value>
@@ -539,7 +550,7 @@
 		<num_unique>119</num_unique>
 		<min>0</min>
 		<max>99999</max>
-		<isQuasiIdentifier>true</isQuasiIdentifier>
+		<isQuasiIdentifier>false</isQuasiIdentifier>
 		<hierarchy>
 			<children>
 				<value>0.0_49999.0</value>
@@ -593,7 +604,7 @@
 		<index>11</index>
 		<min>0</min>
 		<max>4356</max>
-		<isQuasiIdentifier>true</isQuasiIdentifier>
+		<isQuasiIdentifier>false</isQuasiIdentifier>
 		<hierarchy>
 			<children>
 				<value>0.0_2178.0</value>
@@ -647,7 +658,7 @@
 		<num_unique>94</num_unique>
 		<min>1</min>
 		<max>99</max>
-		<isQuasiIdentifier>true</isQuasiIdentifier>
+		<isQuasiIdentifier>false</isQuasiIdentifier>
 		<hierarchy>
 			<children>
 				<value>1.0_50.0</value>
@@ -675,7 +686,7 @@
 		<type>s</type>
 		<index>13</index>
 		<num_unique>42</num_unique>
-		<isQuasiIdentifier>true</isQuasiIdentifier>
+		<isQuasiIdentifier>false</isQuasiIdentifier>
 		<hierarchy>
 			<children>
 				<value>North-America</value>
@@ -865,7 +876,7 @@
 		<type>s</type>
 		<index>14</index>
 		<num_unique>2</num_unique>
-		<isQuasiIdentifier>true</isQuasiIdentifier>
+		<isQuasiIdentifier>false</isQuasiIdentifier>
 		<hierarchy>
 			<children>
 				<value>&lt;=50K</value>

@@ -36,6 +36,7 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
   }
   def depth(): Int =
     {
+   // println("column : "+name+ " "+depth(rootCategory));
       return depth(rootCategory);
     }
   def depth(category: Category): Int = {
@@ -49,6 +50,7 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
           depthValue = childDepth;
         }
       }
+      depthValue+=1;
     } else {
       return 1;
     }
@@ -103,9 +105,11 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
      * Start from ancestor and Recurse until the parent node is found.
      */
     while (searchChild && category.hasChildren()) {
-
+    println("Searching for:"+category+ " "+searchChild)
+      searchChild = false;
       val children = category.children.toArray
-      for (i <- 0 to children.size - 1) {
+      for (i <- 0 to (children.size - 1)) {
+        println("Checking "+children(i).value() +" |"+searchChild)
         if (colType == 's') {
           if (children(i).childrenString.contains(childCategory)) {
             parent = category;
@@ -114,18 +118,24 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
           }
         } else {
           val minMax = LBSUtil.getMinMax(childCategory);
-          if (children(i).min <= minMax._1 && children(i).max >= minMax._2) {
-            parent = category;
+          println(minMax+"::"+"||"+children(i).value()+"=="+children(i).getMin()+ " |"+ children(i).getMax()+ " =>"+(minMax._1 >children(i).getMin() && minMax._2<children(i).getMax()));
+          if (minMax._1 >children(i).getMin() && minMax._2<children(i).getMax()) {
+            parent = children(i);
+            println("Selected parent: "+parent)
+
             category = children(i);
             searchChild = true;
           }
         }
 
       }
+      println(searchChild);
       if (!searchChild) {
+        println("Returning "+parent);
         return parent;
       }
     }
+        println("Returning "+parent);
     return parent;
   }
 
@@ -137,7 +147,7 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
      * Start from ancestor and Recurse until the node is found.
      */
     while (searchChild && category.hasChildren()) {
-
+      searchChild = false;
       val children = category.children.toArray
       for (i <- 0 to children.size - 1) {
         if (colType == 's') {
@@ -147,7 +157,7 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
           }
         } else {
           val minMax = LBSUtil.getMinMax(categoryString);
-          if (children(i).min <= minMax._1 && children(i).max >= minMax._2) {
+          if (children(i).getMin() <= minMax._1 && children(i).getMax() >= minMax._2) {
             category = children(i);
             searchChild = true;
           }

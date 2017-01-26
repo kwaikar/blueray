@@ -12,7 +12,7 @@ import scala.io.Source
  */
 object AccessMonitor {
 
-  val useRESTAPI = false;
+  val useRESTAPI = true;
 
   // val logger = Logger(LoggerFactory.getLogger(this.getClass))
   var policies: HashMap[String, HashSet[Policy]] = new scala.collection.mutable.HashMap
@@ -114,6 +114,7 @@ object AccessMonitor {
     }
 
   def getPolicyFromEndPoint(filePath: String, priviledge: String): Option[Policy] = {
+    println("-->"+sys.env("POLICYMANAGER_END_POINT")+ " :"+filePath+"-"+priviledge)
     val output = Util.getURLAsString(sys.env("POLICYMANAGER_END_POINT") + "/policy?priviledge=" + priviledge.trim() + "&filePath=" + filePath.trim())
     println(filePath+ " =>"+output)
     if (!output.contains("No Policy")) {
