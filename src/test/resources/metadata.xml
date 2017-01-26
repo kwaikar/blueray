@@ -8,7 +8,99 @@
 		<min>17</min>
 		<max>90</max>
 		<isQuasiIdentifier>true</isQuasiIdentifier>
-		<hierarchy></hierarchy>
+		<hierarchy>
+			<children>
+				<value>17.0_53.0</value>
+				<children>
+					<value>17.0_35.0</value>
+					<children>
+						<value>17.0_26.0</value>
+						<children>
+							<value>17.0_21.0</value>
+						</children>
+						<children>
+							<value>22.0_26.0</value>
+						</children>
+					</children>
+					<children>
+						<value>27.0_35.0</value>
+						<children>
+							<value>27.0_31.0</value>
+						</children>
+						<children>
+							<value>32.0_35.0</value>
+						</children>
+					</children>
+				</children>
+				<children>
+					<value>36.0_53.0</value>
+					<children>
+						<value>36.0_44.0</value>
+						<children>
+							<value>36.0_40.0</value>
+						</children>
+						<children>
+							<value>41.0_44.0</value>
+						</children>
+					</children>
+					<children>
+						<value>45.0_53.0</value>
+						<children>
+							<value>45.0_49.0</value>
+						</children>
+						<children>
+							<value>50.0_53.0</value>
+						</children>
+					</children>
+				</children>
+			</children>
+			<children>
+				<value>54.0_90.0</value>
+				<children>
+					<value>54.0_72.0</value>
+					<children>
+						<value>54.0_63.0</value>
+						<children>
+							<value>54.0_58.0</value>
+						</children>
+						<children>
+							<value>59.0_63.0</value>
+						</children>
+					</children>
+					<children>
+						<value>64.0_72.0</value>
+						<children>
+							<value>64.0_68.0</value>
+						</children>
+						<children>
+							<value>69.0_72.0</value>
+						</children>
+					</children>
+				</children>
+				<children>
+					<value>73.0_90.0</value>
+					<children>
+						<value>73.0_81.0</value>
+						<children>
+							<value>73.0_77.0</value>
+						</children>
+						<children>
+							<value>78.0_81.0</value>
+						</children>
+					</children>
+					<children>
+						<value>82.0_90.0</value>
+						<children>
+							<value>82.0_86.0</value>
+						</children>
+						<children>
+							<value>87.0_90.0</value>
+						</children>
+					</children>
+				</children>
+			</children>
+		</hierarchy>
+
 		<index>0</index>
 	</column>
 	<column>
@@ -64,7 +156,99 @@
 		<min>12285</min>
 		<max>1484705</max>
 		<isQuasiIdentifier>true</isQuasiIdentifier>
-		<hierarchy></hierarchy>
+		<hierarchy>
+			<children>
+				<value>12285.0_748495.0</value>
+				<children>
+					<value>12285.0_380390.0</value>
+					<children>
+						<value>12285.0_196337.0</value>
+						<children>
+							<value>12285.0_104311.0</value>
+						</children>
+						<children>
+							<value>104312.0_196337.0</value>
+						</children>
+					</children>
+					<children>
+						<value>196338.0_380390.0</value>
+						<children>
+							<value>196338.0_288364.0</value>
+						</children>
+						<children>
+							<value>288365.0_380390.0</value>
+						</children>
+					</children>
+				</children>
+				<children>
+					<value>380391.0_748495.0</value>
+					<children>
+						<value>380391.0_564443.0</value>
+						<children>
+							<value>380391.0_472417.0</value>
+						</children>
+						<children>
+							<value>472418.0_564443.0</value>
+						</children>
+					</children>
+					<children>
+						<value>564444.0_748495.0</value>
+						<children>
+							<value>564444.0_656469.0</value>
+						</children>
+						<children>
+							<value>656470.0_748495.0</value>
+						</children>
+					</children>
+				</children>
+			</children>
+			<children>
+				<value>748496.0_1484705.0</value>
+				<children>
+					<value>748496.0_1116600.0</value>
+					<children>
+						<value>748496.0_932548.0</value>
+						<children>
+							<value>748496.0_840522.0</value>
+						</children>
+						<children>
+							<value>840523.0_932548.0</value>
+						</children>
+					</children>
+					<children>
+						<value>932549.0_1116600.0</value>
+						<children>
+							<value>932549.0_1024574.0</value>
+						</children>
+						<children>
+							<value>1024575.0_1116600.0</value>
+						</children>
+					</children>
+				</children>
+				<children>
+					<value>1116601.0_1484705.0</value>
+					<children>
+						<value>1116601.0_1300653.0</value>
+						<children>
+							<value>1116601.0_1208627.0</value>
+						</children>
+						<children>
+							<value>1208628.0_1300653.0</value>
+						</children>
+					</children>
+					<children>
+						<value>1300654.0_1484705.0</value>
+						<children>
+							<value>1300654.0_1392679.0</value>
+						</children>
+						<children>
+							<value>1392680.0_1484705.0</value>
+						</children>
+					</children>
+				</children>
+			</children>
+		</hierarchy>
+
 	</column>
 	<column>
 		<name>education</name>
@@ -123,16 +307,17 @@
 					</children>
 					<children>
 						<value>
-							Senior-Secondary</value>
-							<children>
-								<value>11th</value>
-							</children>
-							<children>
-								<value>12th</value>
-							</children>
-							<children>
-								<value>HS-grad</value>
-							</children>
+							Senior-Secondary
+						</value>
+						<children>
+							<value>11th</value>
+						</children>
+						<children>
+							<value>12th</value>
+						</children>
+						<children>
+							<value>HS-grad</value>
+						</children>
 					</children>
 				</children>
 			</children>
@@ -315,19 +500,20 @@
 			</children>
 			<children>
 				<value>
-					Colored</value>
-					<children>
-						<value>Asian-Pac-Islander</value>
-					</children>
-					<children>
-						<value>Amer-Indian-Eskimo</value>
-					</children>
-					<children>
-						<value>Other</value>
-					</children>
-					<children>
-						<value>Black</value>
-					</children>
+					Colored
+				</value>
+				<children>
+					<value>Asian-Pac-Islander</value>
+				</children>
+				<children>
+					<value>Amer-Indian-Eskimo</value>
+				</children>
+				<children>
+					<value>Other</value>
+				</children>
+				<children>
+					<value>Black</value>
+				</children>
 			</children>
 		</hierarchy>
 	</column>
@@ -354,7 +540,51 @@
 		<min>0</min>
 		<max>99999</max>
 		<isQuasiIdentifier>true</isQuasiIdentifier>
-		<hierarchy></hierarchy>
+		<hierarchy>
+			<children>
+				<value>0.0_49999.0</value>
+				<children>
+					<value>0.0_24999.0</value>
+					<children>
+						<value>0.0_12499.0</value>
+					</children>
+					<children>
+						<value>12500.0_24999.0</value>
+					</children>
+				</children>
+				<children>
+					<value>25000.0_49999.0</value>
+					<children>
+						<value>25000.0_37499.0</value>
+					</children>
+					<children>
+						<value>37500.0_49999.0</value>
+					</children>
+				</children>
+			</children>
+			<children>
+				<value>50000.0_99999.0</value>
+				<children>
+					<value>50000.0_74999.0</value>
+					<children>
+						<value>50000.0_62499.0</value>
+					</children>
+					<children>
+						<value>62500.0_74999.0</value>
+					</children>
+				</children>
+				<children>
+					<value>75000.0_99999.0</value>
+					<children>
+						<value>75000.0_87499.0</value>
+					</children>
+					<children>
+						<value>87500.0_99999.0</value>
+					</children>
+				</children>
+			</children>
+		</hierarchy>
+
 	</column>
 	<column>
 		<name>capital-loss</name>
@@ -364,7 +594,51 @@
 		<min>0</min>
 		<max>4356</max>
 		<isQuasiIdentifier>true</isQuasiIdentifier>
-		<hierarchy></hierarchy>
+		<hierarchy>
+			<children>
+				<value>0.0_2178.0</value>
+				<children>
+					<value>0.0_1089.0</value>
+					<children>
+						<value>0.0_544.0</value>
+					</children>
+					<children>
+						<value>545.0_1089.0</value>
+					</children>
+				</children>
+				<children>
+					<value>1090.0_2178.0</value>
+					<children>
+						<value>1090.0_1634.0</value>
+					</children>
+					<children>
+						<value>1635.0_2178.0</value>
+					</children>
+				</children>
+			</children>
+			<children>
+				<value>2179.0_4356.0</value>
+				<children>
+					<value>2179.0_3267.0</value>
+					<children>
+						<value>2179.0_2723.0</value>
+					</children>
+					<children>
+						<value>2724.0_3267.0</value>
+					</children>
+				</children>
+				<children>
+					<value>3268.0_4356.0</value>
+					<children>
+						<value>3268.0_3812.0</value>
+					</children>
+					<children>
+						<value>3813.0_4356.0</value>
+					</children>
+				</children>
+			</children>
+		</hierarchy>
+
 	</column>
 	<column>
 		<name>hours-per-week</name>
@@ -374,7 +648,27 @@
 		<min>1</min>
 		<max>99</max>
 		<isQuasiIdentifier>true</isQuasiIdentifier>
-		<hierarchy></hierarchy>
+		<hierarchy>
+			<children>
+				<value>1.0_50.0</value>
+				<children>
+					<value>1.0_25.0</value>
+				</children>
+				<children>
+					<value>26.0_50.0</value>
+				</children>
+			</children>
+			<children>
+				<value>51.0_99.0</value>
+				<children>
+					<value>51.0_75.0</value>
+				</children>
+				<children>
+					<value>76.0_99.0</value>
+				</children>
+			</children>
+		</hierarchy>
+
 	</column>
 	<column>
 		<name>native-country</name>
@@ -457,79 +751,81 @@
 			</children>
 			<children>
 				<value>
-					Europe</value>
+					Europe
+				</value>
+				<children>
+					<value>Western-Europe</value>
 					<children>
-						<value>Western-Europe</value>
-						<children>
-							<value>France</value>
-						</children>
-						<children>
-							<value>England</value>
-						</children>
-						<children>
-							<value>Ireland</value>
-						</children>
-						<children>
-							<value>Scotland</value>
-						</children>
-						<children>
-							<value>Holand-Netherlands</value>
-						</children>
+						<value>France</value>
 					</children>
 					<children>
-						<value>Southern-Europe</value>
-						<children>
-							<value>Italy</value>
-						</children>
-						<children>
-							<value>Greece</value>
-						</children>
+						<value>England</value>
 					</children>
 					<children>
-						<value>Southwestern-Europe</value>
-						<children>
-							<value>Portugal</value>
-						</children>
+						<value>Ireland</value>
 					</children>
 					<children>
-						<value>Southeastern-Europe</value>
-						<children>
-							<value>Yugoslavia</value>
-						</children>
+						<value>Scotland</value>
 					</children>
 					<children>
-						<value>Central-Europe</value>
-						<children>
-							<value>Hungary</value>
-						</children>
-						<children>
-							<value>Germany</value>
-						</children>
-						<children>
-							<value>Poland</value>
-						</children>
+						<value>Holand-Netherlands</value>
 					</children>
+				</children>
+				<children>
+					<value>Southern-Europe</value>
+					<children>
+						<value>Italy</value>
+					</children>
+					<children>
+						<value>Greece</value>
+					</children>
+				</children>
+				<children>
+					<value>Southwestern-Europe</value>
+					<children>
+						<value>Portugal</value>
+					</children>
+				</children>
+				<children>
+					<value>Southeastern-Europe</value>
+					<children>
+						<value>Yugoslavia</value>
+					</children>
+				</children>
+				<children>
+					<value>Central-Europe</value>
+					<children>
+						<value>Hungary</value>
+					</children>
+					<children>
+						<value>Germany</value>
+					</children>
+					<children>
+						<value>Poland</value>
+					</children>
+				</children>
 			</children>
 			<children>
 				<value>Asia</value>
 				<children>
 					<value>
-						Southeastern-Asia</value>
-						<children>
-							<value>Philippines</value>
-						</children>
-						<children>
-							<value>Thailand</value>
-						</children>
-						<children>
-							<value>Cambodia</value>
-						</children>
-						<children>
-							<value>Vietnam</value>
-						</children>
-						<children>
-							<value>Laos</value>
-						</children>
+						Southeastern-Asia
+					</value>
+					<children>
+						<value>Philippines</value>
+					</children>
+					<children>
+						<value>Thailand</value>
+					</children>
+					<children>
+						<value>Cambodia</value>
+					</children>
+					<children>
+						<value>Vietnam</value>
+					</children>
+					<children>
+						<value>Laos</value>
+					</children>
 				</children>
 				<children>
 					<value>Southern-Asia</value>
@@ -570,6 +866,13 @@
 		<index>14</index>
 		<num_unique>2</num_unique>
 		<isQuasiIdentifier>true</isQuasiIdentifier>
-		<hierarchy></hierarchy>
+		<hierarchy>
+			<children>
+				<value>&lt;=50K</value>
+			</children>
+			<children>
+				<value>&gt;50K</value>
+			</children>
+		</hierarchy>
 	</column>
 </columns>

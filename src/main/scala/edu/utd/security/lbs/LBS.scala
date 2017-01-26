@@ -58,29 +58,8 @@ class LBS {
     linesRDD.cache();
     val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
     val record = linesRDD.first();
-    println("Is first record leaf : " + isGLeafNode(record._2));
-    var newMap = new HashMap[Int, String]();
-    for (i <- 0 to metadata.value.numColumns() - 1) {
-
-      if (metadata.value.getMetadata(i).get.getIsQuasiIdentifier()) {
-        if (metadata.value.getMetadata(i).get.getColType() == 's') {
-          newMap.put(i, metadata.value.getMetadata(i).get.getRootCategory().value());
-        } else {
-          newMap.put(i, metadata.value.getMetadata(i).get.getMin() + "_" + metadata.value.getMetadata(i).get.getMax());
-        }
-        println("Putting+ " + i + " - " + newMap.get(i).get)
-      }
-    }
-
-    println("Is Leaf record leaf : " + isGLeafNode(newMap));
-
-    val optimalRecord = findOptimalStrategy(record, new LBSParameters(4, 1200,1200))
+    val optimalRecord = findOptimalStrategy(record, new LBSParameters(4, 1200, 2000, 10))
   }
-
-  def getPublishersLoss(lbsParam:LBSParameters): Double =
-    {
-      return lbsParam.getPublishersLoss();
-    }
 
   def getPublishersBenefit(g: scala.collection.mutable.Map[Int, String], lbsParams: LBSParameters): Double =
     {
@@ -116,14 +95,18 @@ class LBS {
       }
       return 1;
     }
+
+  var maximumInfoLoss: Double = -1;
+
   def getMaximulInformationLoss(g: scala.collection.mutable.Map[Int, String]): Double =
     {
-      var maximumInfoLoss: Double = 0;
-      val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
-      for (i <- 0 to metadata.value.numColumns() - 1) {
+      if (maximumInfoLoss == -1) {
+        val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
+        for (i <- 0 to metadata.value.numColumns() - 1) {
 
-        if (metadata.value.getMetadata(i).get.getIsQuasiIdentifier()) {
-          maximumInfoLoss += -(1 / Math.log( /*df. size*/ 1));
+          if (metadata.value.getMetadata(i).get.getIsQuasiIdentifier()) {
+            maximumInfoLoss += -(1 / Math.log(metadata.value.getMetadata(i).get.depth()));
+          }
         }
       }
       return maximumInfoLoss;
@@ -132,7 +115,7 @@ class LBS {
   /**
    * Returns probability of adversaries success. Depends on total number of entries that fall in the same category.
    */
-  def getPiOfG(g: scala.collection.mutable.Map[Int, String]): Double =
+  def getRiskOfStrategy(g: scala.collection.mutable.Map[Int, String]): Double =
     {
       val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
       val matchingPopulationGroupSize = linesRDD.filter({
@@ -143,8 +126,10 @@ class LBS {
       /**Self matching will always happen, hence it should be accounted for.*/
       return (1 / matchingPopulationGroupSize);
     }
-  
-  
+
+  /**
+   * This method checks whether record B is equal to or subset of record A with respect to Quasi-Identifiers.
+   */
   def isRecordASuperSetOfRecordB(metadata: Broadcast[Metadata], a: scala.collection.mutable.Map[Int, String], b: scala.collection.mutable.Map[Int, String]): Boolean = {
     var allAttributesMatch: Boolean = true;
     for (i <- 0 to metadata.value.numColumns() - 1) {
@@ -182,28 +167,32 @@ class LBS {
 
   def findOptimalStrategy(top: (Long, scala.collection.mutable.Map[Int, String]), lbsParam: LBSParameters): (Long, scala.collection.mutable.Map[Int, String]) = {
 
-    val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
-    var strategy = top._2;
-    while (!isGLeafNode(strategy)) {
-      val riskValue = getPiOfG(strategy) * getPublishersLoss(lbsParam);
-      if (riskValue <= lbsParam.getRecordCost()) {
-        return (top._1, strategy);
-      }
-      var currentBenefit = getPublishersBenefit(strategy, lbsParam) - riskValue;
-      var currentStrategy = strategy;
-      val children = getChildren(strategy);
-      for (child <- children) {
-        val childRiskValue = getPiOfG(child) * getPublishersLoss(lbsParam);
-        val childBenefit = getPublishersBenefit(child, lbsParam) - childRiskValue;
-        if (childBenefit >= currentBenefit) {
-          currentStrategy = child;
-          currentBenefit = childBenefit;
+    var publisherPayOff: Double = -1;
+    var adversaryBenefit: Double = -1;
 
+    val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
+    var genStrategy = top._2;
+
+    while (!isGLeafNode(genStrategy)) {
+      adversaryBenefit = getRiskOfStrategy(genStrategy) * lbsParam.getPublishersLossOnIdentification(); // adversaryBenefit = publisherLoss.
+      if (adversaryBenefit <= lbsParam.getRecordCost()) {
+        return (top._1, genStrategy);
+      }
+      publisherPayOff = getPublishersBenefit(genStrategy, lbsParam) - adversaryBenefit;
+      var currentStrategy = genStrategy;
+      val children = getChildren(genStrategy);
+
+      for (child <- children) {
+        val childAdvBenefit = getRiskOfStrategy(child) * lbsParam.getPublishersLossOnIdentification();
+        val childPublisherPayoff = getPublishersBenefit(child, lbsParam) - childAdvBenefit;
+        if (childPublisherPayoff >= publisherPayOff) {
+          currentStrategy = child;
+          publisherPayOff = childPublisherPayoff;
         }
       }
-      strategy = currentStrategy;
+      genStrategy = currentStrategy;
     }
-    return (top._1, strategy);
+    return (top._1, genStrategy);
   }
 
   /**

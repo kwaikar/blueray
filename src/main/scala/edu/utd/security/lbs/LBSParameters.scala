@@ -1,6 +1,6 @@
 package edu.utd.security.lbs
 
-class LBSParameters (recordCost:Double,maxPublisherBenefit:Double,publishersLoss:Double) extends Serializable{
+class LBSParameters (recordCost:Double,maxPublisherBenefit:Double,publishersLoss:Double, adversaryAttackCost:Double) extends Serializable{
   
   def getRecordCost():Double=
   {
@@ -11,8 +11,13 @@ class LBSParameters (recordCost:Double,maxPublisherBenefit:Double,publishersLoss
     return maxPublisherBenefit;
   }
   
-  def getPublishersLoss():Double=
+  def getPublishersLossOnIdentification():Double=
   {
     return publishersLoss;
+  }
+  
+  def getAdversaryAttackCost():Double=
+  {
+    return adversaryAttackCost;
   }
 }

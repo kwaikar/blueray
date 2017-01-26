@@ -1,19 +1,13 @@
 package edu.utd.security.lbs
 
+import scala.annotation.elidable
 import scala.annotation.elidable.ASSERTION
+import scala.collection.mutable.HashMap
 
 import org.apache.spark.SparkConf
 import org.apache.spark.SparkContext
 import org.junit.After
 import org.junit.Before
-import org.junit.Test
-import edu.utd.security.lbs.LBS
-import scala.collection.mutable.HashMap
-import edu.utd.security.lbs.Metadata
-import shapeless.record
-import edu.utd.security.lbs.LBS
-import edu.utd.security.lbs.LBS
-import edu.utd.security.lbs.LBS
 
 class LBSTest {
   var sc: SparkContext = _;
@@ -31,7 +25,7 @@ class LBSTest {
     sc = null;
   }
 
-  @Test
+ // @Test
   def testMondrian() = {
     sc.setLogLevel("ERROR");
     val lbs = new LBS();

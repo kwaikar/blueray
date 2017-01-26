@@ -35,6 +35,37 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
     else
       return index + ":" + name + "=" + colType + "_" + isQuasiIdentifier + "[" + rootCategory.toString + "]";
   }
+  def depth():Int=
+  {
+     if(colType =='s')
+      {
+       return depth(rootCategory);
+      }
+     else
+     {
+       // Add code for calculating numeric depth
+       return 1;
+     }
+  }
+  def depth(category:Category):Int={
+      var depthValue=0;    
+     
+      if (category.children != null && category.children.size > 0) {
+        
+        for (i <- 0 to category.children.size - 1) {
+          var childDepth = depth(category.children(i));
+          if(childDepth>depthValue)
+          {
+            depthValue = childDepth;
+          }
+        }
+      }
+      else
+      {
+        return 1;
+      }
+    return depthValue;
+  }
   /**
    * Given list of string values, this method finds the bottom most category that contains all elements containing given set.
    */
