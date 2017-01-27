@@ -1,5 +1,7 @@
 package edu.utd.security.lbs
 
+import org.apache.hadoop.metrics2.util.SampleStat.MinMax
+
 /**
  * Class responsible for holding details of column object.
  */
@@ -36,7 +38,7 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
   }
   def depth(): Int =
     {
-   // println("column : "+name+ " "+depth(rootCategory));
+   // //println("column : "+name+ " "+depth(rootCategory));
       return depth(rootCategory);
     }
   def depth(category: Category): Int = {
@@ -104,12 +106,13 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
     /**
      * Start from ancestor and Recurse until the parent node is found.
      */
+    //println("Initiating     "+childCategory)
     while (searchChild && category.hasChildren()) {
-    println("Searching for:"+category+ " "+searchChild)
+    //println("Searching for:"+category+ " "+searchChild)
       searchChild = false;
       val children = category.children.toArray
       for (i <- 0 to (children.size - 1)) {
-        println("Checking "+children(i).value() +" |"+searchChild)
+        //println("Checking "+children(i).value() +" |"+searchChild)
         if (colType == 's') {
           if (children(i).childrenString.contains(childCategory)) {
             parent = category;
@@ -118,10 +121,14 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
           }
         } else {
           val minMax = LBSUtil.getMinMax(childCategory);
-          println(minMax+"::"+"||"+children(i).value()+"=="+children(i).getMin()+ " |"+ children(i).getMax()+ " =>"+(minMax._1 >children(i).getMin() && minMax._2<children(i).getMax()));
-          if (minMax._1 >children(i).getMin() && minMax._2<children(i).getMax()) {
+          //println(minMax+"::"+"||"+children(i).value()+"=="+children(i).getMin()+ " |"+ children(i).getMax()+ " =>"+(((min==max)&&(minMax._1 >=children(i).getMin() && minMax._2<=children(i).getMax()))||
+           //   ((minMax._1!=minMax._2)&& (minMax._1 >children(i).getMin() && minMax._2<children(i).getMax()))   ));
+          
+          if (((minMax._1==minMax._2)&&(minMax._1 >=children(i).getMin() && minMax._2<=children(i).getMax()))||
+              ((minMax._1!=minMax._2)&& (minMax._1 >children(i).getMin() && minMax._2<children(i).getMax()))    
+          ) {
             parent = children(i);
-            println("Selected parent: "+parent)
+            //println("Selected parent: "+parent)
 
             category = children(i);
             searchChild = true;
@@ -129,44 +136,55 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
         }
 
       }
-      println(searchChild);
+      //println(searchChild);
       if (!searchChild) {
-        println("Returning "+parent);
+        //println("Returning "+parent);
         return parent;
       }
     }
-        println("Returning "+parent);
+        //println("Returning "+parent);
     return parent;
   }
 
-  def getCategory(categoryString: String): Category = {
+ def getCategory(childCategory: String): Category = {
 
     var category = rootCategory;
     var searchChild = true;
     /**
-     * Start from ancestor and Recurse until the node is found.
+     * Start from ancestor and Recurse until the parent node is found.
      */
+    //println("SAMEINIT:     "+childCategory)
     while (searchChild && category.hasChildren()) {
+    //println("SAMESEARCH for:"+category+ " "+searchChild)
       searchChild = false;
       val children = category.children.toArray
-      for (i <- 0 to children.size - 1) {
+      for (i <- 0 to (children.size - 1)) {
+        //println("SAMEChecking "+children(i).value() +" |"+searchChild)
         if (colType == 's') {
-          if (children(i).childrenString.contains(categoryString)) {
+          if (children(i).childrenString.contains(childCategory)) {
             category = children(i);
             searchChild = true;
           }
         } else {
-          val minMax = LBSUtil.getMinMax(categoryString);
-          if (children(i).getMin() <= minMax._1 && children(i).getMax() >= minMax._2) {
+          val minMax = LBSUtil.getMinMax(childCategory);
+          //println(minMax+"::"+"||"+children(i).value()+"=="+children(i).getMin()+ " |"+ children(i).getMax()+ " =>"+ ( minMax._1 >children(i).getMin() && minMax._2<children(i).getMax()));
+          
+          if ( minMax._1 >children(i).getMin() && minMax._2<children(i).getMax()) {
+            //println("SAMESelected parent: "+children(i))
+
             category = children(i);
             searchChild = true;
           }
         }
+
       }
+      //println(searchChild);
       if (!searchChild) {
         return category;
       }
     }
+        //println("Returning "+category);
     return category;
   }
+
 }

@@ -83,7 +83,7 @@ class LBSTest {
 
     for (child <- LBS.getChildren(record._2)) {
       println(child)
-      assert(LBS.isRecordASuperSetOfRecordB(record._2, child));
+      assert(LBS.isRecordASuperSetOfRecordB( child,record._2));
     }
     //
     // assert(17.8622848986764== ben);

@@ -54,8 +54,8 @@ object LBS {
 
    // println(getMaximulInformationLoss());
  for (child <- getChildren(record._2)) {
-      println(child)
-      assert(LBS.isRecordASuperSetOfRecordB(record._2, child));
+      println("->"+child)
+      //assert(LBS.isRecordASuperSetOfRecordB(child,record._2));
     }
    // val optimalRecord = findOptimalStrategy(record, new LBSParameters(4, 1200, 2000, 10))
   } 
@@ -153,22 +153,28 @@ object LBS {
    */
   def isRecordASuperSetOfRecordB( a: scala.collection.mutable.Map[Int, String], b: scala.collection.mutable.Map[Int, String]): Boolean = {
     var allAttributesMatch: Boolean = true;
+    println(a)
+    println("-----------------------------------------")
+    println(b)
       val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
     for (i <- 0 to metadata.value.numColumns() - 1) {
       if (metadata.value.getMetadata(i).get.getIsQuasiIdentifier()) {
         val column = metadata.value.getMetadata(i).get;
         val value1 = a.get(i).get.trim()
         val value2 = b.get(i).get.trim()
-
+        println(value1+ " | "+value2)
         if (column.getColType() == 's') {
           val children = column.getCategory(value1).childrenString
+          println("Checking "+value2+" in ->"+value1+"_"+children)
           if (!children.contains(value2)) {
             return false;
           }
         } else {
           val minMax1 = LBSUtil.getMinMax(value1);
-          val minMax2 = LBSUtil.getMinMax(value1);
-          if (minMax2._2 > minMax1._2 || minMax2._1 < minMax1._1) {
+          val minMax2 = LBSUtil.getMinMax(value2);
+        println("Checking "+value1+" in ->"+value2)
+
+          if (!(minMax2._2 >= minMax1._2 || minMax2._2 <= minMax2._1) ){
             return false
           }
         }
