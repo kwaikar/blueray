@@ -25,7 +25,11 @@ object Mondrian {
    * 2. Metadata file
    * 3. Output File path
    * 4. value of k
-   */
+   
+   * Cluster execution command -  
+   *  ./spark-submit --class edu.utd.security.mondrian.Mondrian --master "spark://cloudmaster3:7077"  /data/kanchan/blueray-0.0.18-$BLUEVAR-SNAPSHOT.jar  "hdfs://cloudmaster3:54310/user/adult.data.txt" "hdfs://cloudmaster3:54310/user/metadata.xml" "hdfs://cloudmaster3:54310/user/small_data_500" 500
+   * 
+   * */
   def main(args: Array[String]): Unit = {
    // sc.setLogLevel("ERROR");
    // kanonymize(args(0), args(1), args(2), args(3).toInt);

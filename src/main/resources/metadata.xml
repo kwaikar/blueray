@@ -108,7 +108,7 @@
 		<type>s</type>
 		<index>1</index>
 		<num_unique>9</num_unique>
-		<isQuasiIdentifier>true</isQuasiIdentifier>
+		<isQuasiIdentifier>false</isQuasiIdentifier>
 		<hierarchy>
 			<children>
 				<value>WORKED</value>
@@ -255,7 +255,7 @@
 		<index>3</index>
 		<type>s</type>
 		<num_unique>16</num_unique>
-		<isQuasiIdentifier>true</isQuasiIdentifier>
+		<isQuasiIdentifier>false</isQuasiIdentifier>
 		<hierarchy>
 			<children>
 				<value>Without-Post-Secondary</value>
@@ -344,7 +344,7 @@
 		<num_unique>16</num_unique>
 		<min>1</min>
 		<max>16</max>
-		<isQuasiIdentifier>true</isQuasiIdentifier>
+		<isQuasiIdentifier>false</isQuasiIdentifier>
 		<hierarchy>
 			<children>
 				<value>1_8</value>
@@ -374,7 +374,7 @@
 		<type>s</type>
 		<index>5</index>
 		<num_unique>7</num_unique>
-		<isQuasiIdentifier>true</isQuasiIdentifier>
+		<isQuasiIdentifier>false</isQuasiIdentifier>
 		<hierarchy>
 
 			<children>
@@ -414,7 +414,7 @@
 		<index>6</index>
 		<type>s</type>
 		<num_unique>15</num_unique>
-		<isQuasiIdentifier>true</isQuasiIdentifier>
+		<isQuasiIdentifier>false</isQuasiIdentifier>
 		<hierarchy>
 			<children>
 				<value>White-collar</value>

@@ -19,7 +19,7 @@ class LBSTest {
 
   @Before
   def setUp() {
-    val conf = new SparkConf().setAppName("Simple Application").setMaster("local[2]");
+    val conf = new SparkConf().setAppName("Simple Application").setMaster("local[1]");
     conf.set("POLICY_FILE_PATH", "hdfs://localhost/blueray/empty_policies.csv");
     sc = new SparkContext(conf)
     sc.setLogLevel("ERROR");
@@ -27,10 +27,9 @@ class LBSTest {
     val dataReader = new DataReader(sc);
     linesRDD = dataReader.readDataFile("hdfs://localhost/user/adult.data2.txt", true);
     linesRDD.cache();
-    val metadata = LBS.Metadata.getInstance(sc, dataReader, getClass.getResource("/metadata.xml").getPath);
-    record = linesRDD.first();
     metadataVal = dataReader.readMetadata(getClass.getResource("/metadata.xml").getPath);
-    LBS.lbs("hdfs://localhost/user/adult.data2.txt", getClass.getResource("/metadata.xml").getPath, "/home/kanchan/op.txt", 3);
+    LBS.setup("hdfs://localhost/user/adult.data2.txt", getClass.getResource("/metadata.xml").getPath, new LBSParameters(4, 1200, 2000, 10));
+    LBS.lbs("/home/kanchan/op.txt");
   }
   @After
   def destroy() {
@@ -59,11 +58,9 @@ class LBSTest {
     }
     newMap
   }
-  // @Test
+   @Test
   def testInformationLoss() {
-    println(record._2.mkString(","));
-    //   LBS.lbs("hdfs://localhost/user/adult.data2.txt", getClass.getResource("/metadata.xml").getPath, "/home/kanchan/op.txt", 3);
-    assert((41.54091679442631 == LBS.getInformationLoss(record._2)));
+//    assert((41.54091679442631 == LBS.getInformationLoss(record._2)));
   }
 
   // @Test
@@ -72,7 +69,7 @@ class LBSTest {
     println("==>" + loss);
     assert(17.8622848986764 == loss);
   }
-  @Test
+ // @Test
   def testPublisherBenefit() {
     assert(LBS.getTotalCount() == 92)
     var ben = LBS.getPublishersBenefit(record._2, new LBSParameters(4, 1200, 2000, 10));
@@ -81,11 +78,29 @@ class LBSTest {
     ben = LBS.getPublishersBenefit(getTopMostGeneralization(), new LBSParameters(4, 1200, 2000, 10));
     println("Top ==>" + ben);
 
-    for (child <- LBS.getChildren(record._2)) {
+  }
+ // @Test
+  def testSuperSets()
+  {
+      for (child <- LBS.getChildren(record._2)) {
       println(child)
       assert(LBS.isRecordASuperSetOfRecordB( child,record._2));
     }
-    //
-    // assert(17.8622848986764== ben);
   }
+  //@Test
+  def testRiskOfStrategy()
+  {
+    println(LBS.getRiskOfStrategy(record._2));
+    assert (LBS.getRiskOfStrategy(record._2) ==1)
+    println(LBS.getRiskOfStrategy(getTopMostGeneralization()) +" + "+(1.0/92));
+    assert(LBS.getRiskOfStrategy(getTopMostGeneralization()) == (1.0/92))
+    
+     for (child <- LBS.getChildren(record._2)) {
+      println(child)
+      println("==>"+LBS.getRiskOfStrategy( child))
+      assert(LBS.getRiskOfStrategy( child)==1);
+    }
+    
+  }
+  
 }

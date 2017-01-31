@@ -50,6 +50,7 @@ class DataReader(sc: SparkContext) extends Serializable {
   def readMetadata(filePath: String): Metadata =
     {
       var columns: Map[Int, Column] = Map[Int, Column]();
+      println("Reading file on path :"+filePath);
       val xml = XML.loadString(sc.textFile(filePath).toLocalIterator.mkString);
       val iterator = xml.\\("columns").\("column").iterator;
       while (iterator.hasNext) {
