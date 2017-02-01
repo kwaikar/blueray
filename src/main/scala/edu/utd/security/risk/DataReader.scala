@@ -1,4 +1,4 @@
-package edu.utd.security.lbs
+package edu.utd.security.risk
 
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
@@ -47,11 +47,10 @@ class DataReader(sc: SparkContext) extends Serializable {
   /**
    * This method reads metadata object from an xml file.
    */
-  def readMetadata(filePath: String): Metadata =
+  def readMetadata(data: String): Metadata =
     {
       var columns: Map[Int, Column] = Map[Int, Column]();
-      println("Reading file on path :"+filePath);
-      val xml = XML.loadString(sc.textFile(filePath).toLocalIterator.mkString);
+      val xml = XML.loadString(data);
       val iterator = xml.\\("columns").\("column").iterator;
       while (iterator.hasNext) {
         val node = iterator.next;
@@ -60,17 +59,17 @@ class DataReader(sc: SparkContext) extends Serializable {
            * For String column types.
            */
           if (node.\("hierarchy").text.length() > 0) {
-            val column = new Column(node.\("name").text, node.\("index").text.toInt, node.\("type").text.charAt(0), node.\("isQuasiIdentifier").text.toBoolean, getHierarchy(node.\("hierarchy"), "*"),-1,-1);
+            val column = new Column(node.\("name").text, node.\("index").text.toInt, node.\("type").text.charAt(0), node.\("isQuasiIdentifier").text.toBoolean, getHierarchy(node.\("hierarchy"), "*"),-1,-1, node.\("num_unique").text.toInt);
             columns += ((column.getIndex(), column));
           } else {
-            val column = new Column(node.\("name").text, node.\("index").text.toInt, node.\("type").text.charAt(0), node.\("isQuasiIdentifier").text.toBoolean, new Category("*"),-1,-1);
+            val column = new Column(node.\("name").text, node.\("index").text.toInt, node.\("type").text.charAt(0), node.\("isQuasiIdentifier").text.toBoolean, new Category("*"),-1,-1, node.\("num_unique").text.toInt);
             columns += ((column.getIndex(), column));
           }
         } else {
           /**
            * Numeric columns.
            */
-          val column = new Column(node.\("name").text, node.\("index").text.toInt, node.\("type").text.charAt(0), node.\("isQuasiIdentifier").text.toBoolean,getHierarchy(node.\("hierarchy"), node.\("min").text.toDouble+"_"+node.\("max").text.toDouble),node.\("min").text.toDouble,node.\("max").text.toDouble);
+          val column = new Column(node.\("name").text, node.\("index").text.toInt, node.\("type").text.charAt(0), node.\("isQuasiIdentifier").text.toBoolean,getHierarchy(node.\("hierarchy"), node.\("min").text.toDouble+"_"+node.\("max").text.toDouble),node.\("min").text.toDouble,node.\("max").text.toDouble, node.\("num_unique").text.toInt);
           columns += ((column.getIndex(), column));
         }
       }

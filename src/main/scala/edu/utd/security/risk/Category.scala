@@ -1,4 +1,4 @@
-package edu.utd.security.lbs
+package edu.utd.security.risk
 
 /**
  * Class responsible for holding hierarchy for categorical values.

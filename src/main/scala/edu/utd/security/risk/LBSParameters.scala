@@ -1,4 +1,4 @@
-package edu.utd.security.lbs
+package edu.utd.security.risk
 
 class LBSParameters (recordCost:Double,maxPublisherBenefit:Double,publishersLoss:Double, adversaryAttackCost:Double) extends Serializable{
   

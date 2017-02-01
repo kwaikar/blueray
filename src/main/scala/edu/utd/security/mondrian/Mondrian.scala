@@ -24,15 +24,15 @@ object Mondrian {
    * 1. hdfs File path
    * 2. Metadata file
    * 3. Output File path
-   * 4. value of k
+   * 4. value of k*/
    
-   * Cluster execution command -  
+   /* Cluster execution command -  
    *  ./spark-submit --class edu.utd.security.mondrian.Mondrian --master "spark://cloudmaster3:7077"  /data/kanchan/blueray-0.0.18-$BLUEVAR-SNAPSHOT.jar  "hdfs://cloudmaster3:54310/user/adult.data.txt" "hdfs://cloudmaster3:54310/user/metadata.xml" "hdfs://cloudmaster3:54310/user/small_data_500" 500
    * 
    * */
   def main(args: Array[String]): Unit = {
    // sc.setLogLevel("ERROR");
-   // kanonymize(args(0), args(1), args(2), args(3).toInt);
+    kanonymize(args(0), args(1), args(2), args(3).toInt);
   }
   /**
    * Program invariants
@@ -50,7 +50,7 @@ object Mondrian {
   var metadataFilePath: String = null;
   var dataReader: DataReader = null;
   var sc: SparkContext = SparkSession
-    .builder.appName("Mondrian").master("local[2]").getOrCreate().sparkContext;
+    .builder.appName("Mondrian").master("spark://cloudmaster3:7077").getOrCreate().sparkContext;
 
   /**
    * Using following singleton to retrieve/broadcast metadata variables.
