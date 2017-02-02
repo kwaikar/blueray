@@ -27,8 +27,8 @@ class LBSTest {
     val dataReader = new DataReader(sc);
     linesRDD = dataReader.readDataFile("hdfs://localhost/user/adult.data2.txt", true);
     linesRDD.cache();
-    metadataVal = dataReader.readMetadata("hdfs://localhost//user/metadata_lbs.xml");
-    LBS.setup("hdfs://localhost/user/adult.data2.txt", "hdfs://localhost//user/metadata_lbs.xml", "/home/kanchan/op.txt", new LBSParameters(4, 1200, 2000, 10));
+    metadataVal = dataReader.readMetadata("/home/kanchan/metadata.xml");
+    LBS.setup("hdfs://localhost/user/adult.data2.txt", "/home/kanchan/metadata.xml", "/home/kanchan/op.txt", new LBSParameters(4, 1200, 2000, 10));
   }
   @After
   def destroy() {
@@ -40,9 +40,9 @@ class LBSTest {
   //@Test
   def testLBSIsLeafNodeFunction() {
 
-    assert(!LBS.isGLeafNode(record._2,"hdfs://localhost//user/metadata_lbs.xml"));
+    assert(!LBS.isGLeafNode(record._2));
     var newMap = getTopMostGeneralization();
-    assert(LBS.isGLeafNode(newMap,"hdfs://localhost//user/metadata_lbs.xml"));
+    assert(LBS.isGLeafNode(newMap));
   }
 
   def getTopMostGeneralization() = {
@@ -64,40 +64,40 @@ class LBSTest {
 
   // @Test
   def testGetMaximulInformationLoss() {
-    val loss = LBS.Metadata.getMaximulInformationLoss(sc,"hdfs://localhost//user/metadata_lbs.xml",linesRDD);
+    val loss = LBS.Metadata.getMaximulInformationLoss(sc,linesRDD);
     println("==>" + loss);
     assert(17.8622848986764 == loss);
   }
  // @Test
   def testPublisherBenefit() {
     assert(LBS.Metadata.getTotalCount(sc,linesRDD) == 92)
-    var ben = LBS.getPublishersBenefit(record._2, new LBSParameters(4, 1200, 2000, 10),"hdfs://localhost//user/metadata_lbs.xml",linesRDD);
+    var ben = LBS.getPublishersBenefit(record._2, new LBSParameters(4, 1200, 2000, 10) ,linesRDD);
     println("Record ==>" + ben);
 
-    ben = LBS.getPublishersBenefit(getTopMostGeneralization(), new LBSParameters(4, 1200, 2000, 10),"hdfs://localhost//user/metadata_lbs.xml",linesRDD);
+    ben = LBS.getPublishersBenefit(getTopMostGeneralization(), new LBSParameters(4, 1200, 2000, 10) ,linesRDD);
     println("Top ==>" + ben);
 
   }
  // @Test
   def testSuperSets()
   {
-      for (child <- LBS.getChildren(record._2,"hdfs://localhost//user/metadata_lbs.xml")) {
+      for (child <- LBS.getChildren(record._2)) {
       println(child)
-      assert(LBS.isRecordASuperSetOfRecordB( child,record._2,"hdfs://localhost//user/metadata_lbs.xml"));
+    //  assert(LBS.isRecordASuperSetOfRecordB( child,record._2));
     }
   }
   //@Test
   def testRiskOfStrategy()
   {
-    println(LBS.getRiskOfStrategy(record._2,"hdfs://localhost//user/metadata_lbs.xml",linesRDD));
-    assert (LBS.getRiskOfStrategy(record._2,"hdfs://localhost//user/metadata_lbs.xml",linesRDD) ==1)
-    println(LBS.getRiskOfStrategy(getTopMostGeneralization(),"hdfs://localhost//user/metadata_lbs.xml",linesRDD) +" + "+(1.0/92));
-    assert(LBS.getRiskOfStrategy(getTopMostGeneralization(),"hdfs://localhost//user/metadata_lbs.xml",linesRDD) == (1.0/92))
+    println(LBS.getRiskOfStrategy(record._2,metadataVal,linesRDD));
+    assert (LBS.getRiskOfStrategy(record._2,metadataVal,linesRDD) ==1)
+    println(LBS.getRiskOfStrategy(getTopMostGeneralization(),metadataVal,linesRDD) +" + "+(1.0/92));
+    assert(LBS.getRiskOfStrategy(getTopMostGeneralization(),metadataVal,linesRDD) == (1.0/92))
     
-     for (child <- LBS.getChildren(record._2,"hdfs://localhost//user/metadata_lbs.xml")) {
+     for (child <- LBS.getChildren(record._2)) {
       println(child)
-      println("==>"+LBS.getRiskOfStrategy( child,"hdfs://localhost//user/metadata_lbs.xml",linesRDD))
-      assert(LBS.getRiskOfStrategy( child,"hdfs://localhost//user/metadata_lbs.xml",linesRDD)==1);
+      println("==>"+LBS.getRiskOfStrategy( child,metadataVal,linesRDD))
+      assert(LBS.getRiskOfStrategy( child,metadataVal,linesRDD)==1);
     }
     
   }

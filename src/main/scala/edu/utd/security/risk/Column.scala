@@ -37,17 +37,17 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
     else
       return index + ":" + name + "=" + colType + "_" + isQuasiIdentifier + "[" + rootCategory.toString + "]";
   }
-  def depth(): Int =
+  def height(): Int =
     {
-      return depth(rootCategory);
+      return height(rootCategory);
     }
-  def depth(category: Category): Int = {
+  def height(category: Category): Int = {
     var depthValue = 0;
 
     if (category.children != null && category.children.size > 0) {
 
       for (i <- 0 to category.children.size - 1) {
-        var childDepth = depth(category.children(i));
+        var childDepth = height(category.children(i));
         if (childDepth > depthValue) {
           depthValue = childDepth;
         }
