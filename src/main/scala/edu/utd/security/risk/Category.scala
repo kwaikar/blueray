@@ -61,7 +61,6 @@ class Category(value: String) extends Serializable {
           }
         }
       }
-      println("Returning map: " + map+ " : "+key);
       return map.get(key.trim()).get;
     }
   override def toString: String = {

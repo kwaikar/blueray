@@ -5,12 +5,12 @@ import scala.reflect.runtime.universe
 
 import org.apache.spark.annotation.Since
 import org.apache.spark.ml.feature.BucketedRandomProjectionLSH
+import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.linalg.VectorUDT
 import org.apache.spark.ml.linalg.Vectors
+import org.apache.spark.sql.Row
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.ml.linalg.DenseVector
-import org.apache.spark.sql.Row
 
 object LSH {
 
@@ -27,14 +27,11 @@ object LSH {
     val op = rows.map({
       case (x, y) => ({
         val columnStartCounts = LBSUtil.getColumnStartCounts(metadata.value);
-        println("y->"+y)
+        println("y->" + y)
         val row = LBSUtil.extractRow(metadata.value, columnStartCounts, y, true)
-        println("row->"+row)
-        println("Undecoded ->"+LBSUtil.extractReturnObject(metadata.value, columnStartCounts, row));
         (x.intValue(), Vectors.dense(row))
       })
     })
-    println(op.collect());
     val inputToModel = op.collect().toSeq;
     val dataFrame = sqlContext.createDataFrame(inputToModel).toDF("id", "keys");
 
@@ -48,17 +45,16 @@ object LSH {
 
     val model = brp.fit(dataFrame)
     val txModel = model.transform(dataFrame)
-    
-		val columnStartCounts =LBSUtil.getColumnStartCounts(metadata.value);
-    val neighbors:List[Row] =  model.approxNearestNeighbors(txModel, Vectors.dense(LBSUtil.extractRow(metadata.value, columnStartCounts, rows.first()._2, true)),3).collectAsList().asInstanceOf[List[Row]];
-		System.out.println();
-		System.out.println("Neighbors for following entry are:");
-		for(neighbor <- neighbors)
-		{
-			System.out.println("Neighbour"+neighbor.get(0));
-			LBSUtil.extractReturnObject(metadata.value, columnStartCounts, ((neighbor.get(1)).asInstanceOf[DenseVector]).asInstanceOf[Array[Double]]);
-		}
 
+    val columnStartCounts = LBSUtil.getColumnStartCounts(metadata.value);
+    val neighbors = model.approxNearestNeighbors(txModel, Vectors.dense(LBSUtil.extractRow(metadata.value, columnStartCounts, (rows.take(7)(6))._2, true)), 40).collectAsList().asInstanceOf[java.util.List[Row]];
+    println();
+    println("Neighbors for following entry are:");
+    for (i <- 0 to neighbors.size() - 1) {
+      val neighbor = neighbors.get(i);
+      val output = LBSUtil.extractReturnObject(metadata.value, columnStartCounts, (neighbor.get(1).asInstanceOf[DenseVector]).values);
+      println(neighbor.get(0)+" ->" +output)
+    }
 
   }
 
