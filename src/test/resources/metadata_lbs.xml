@@ -255,7 +255,7 @@
 		<index>3</index>
 		<type>s</type>
 		<num_unique>16</num_unique>
-		<isQuasiIdentifier>false</isQuasiIdentifier>
+		<isQuasiIdentifier>true</isQuasiIdentifier>
 		<hierarchy>
 			<children>
 				<value>Without-Post-Secondary</value>
@@ -374,7 +374,7 @@
 		<type>s</type>
 		<index>5</index>
 		<num_unique>7</num_unique>
-		<isQuasiIdentifier>false</isQuasiIdentifier>
+		<isQuasiIdentifier>true</isQuasiIdentifier>
 		<hierarchy>
 
 			<children>

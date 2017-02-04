@@ -19,7 +19,7 @@ class LBSTest {
   
   @Before
   def setUp() {
-    val conf = new SparkConf().setAppName("Simple Application").setMaster("local[1]");
+    val conf = new SparkConf().setAppName("Simple Application").setMaster("local[4]");
     conf.set("POLICY_FILE_PATH", "hdfs://localhost/blueray/empty_policies.csv");
     sc = new SparkContext(conf)
     sc.setLogLevel("ERROR");
@@ -27,8 +27,8 @@ class LBSTest {
     val dataReader = new DataReader(sc);
     linesRDD = dataReader.readDataFile("hdfs://localhost/user/adult.data2.txt", true);
     linesRDD.cache();
-    metadataVal = dataReader.readMetadata("/home/kanchan/metadata.xml");
-    LBS.setup("hdfs://localhost/user/adult.data2.txt", "/home/kanchan/metadata.xml", "/home/kanchan/op.txt", new LBSParameters(4, 1200, 2000, 10));
+    metadataVal = LBS.Metadata.getInstance(sc).value;
+    LBS.setup("hdfs://localhost/user/adult.data2.txt", "/home/kanchan/metadata.xml", "/home/kanchan/op.txt", new LBSParameters(4, 1200, 2000, 10),true,10);
   }
   @After
   def destroy() {
@@ -59,10 +59,10 @@ class LBSTest {
   }
    @Test
   def testInformationLoss() {
-//    assert((41.54091679442631 == LBS.getInformationLoss(record._2)));
+    assert((41.54091679442631 == LBS.getInformationLoss(record._2,linesRDD)));
   }
 
-  // @Test
+   @Test
   def testGetMaximulInformationLoss() {
     val loss = LBS.Metadata.getMaximulInformationLoss(sc,linesRDD);
     println("==>" + loss);

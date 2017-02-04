@@ -23,12 +23,15 @@ object LSH {
   def lsh(sqlContext: SQLContext, hdfsFilePath: String) {
     val linesRDD = new DataReader(sc).readDataFile(hdfsFilePath, true).cache();
     val metadata = LBS.Metadata.getInstance(sc);
-    val rows = LBSUtil.getMinimalDataSet(metadata.value, linesRDD);
+    val rows = LBSUtil.getMinimalDataSet(metadata.value, linesRDD,false);
+
+    val linesZipped = linesRDD.map((_._2)).zipWithIndex().map { case (map, index) => (index, map) }.cache();
+
     val op = rows.map({
       case (x, y) => ({
         val columnStartCounts = LBSUtil.getColumnStartCounts(metadata.value);
-        println("y->" + y)
         val row = LBSUtil.extractRow(metadata.value, columnStartCounts, y, true)
+        println(x.intValue()+"-->"+ Vectors.dense(row)+"=="+LBSUtil.extractReturnObject(metadata.value, columnStartCounts, row))
         (x.intValue(), Vectors.dense(row))
       })
     })
@@ -47,15 +50,16 @@ object LSH {
     val txModel = model.transform(dataFrame)
 
     val columnStartCounts = LBSUtil.getColumnStartCounts(metadata.value);
-    val neighbors = model.approxNearestNeighbors(txModel, Vectors.dense(LBSUtil.extractRow(metadata.value, columnStartCounts, (rows.take(7)(6))._2, true)), 40).collectAsList().asInstanceOf[java.util.List[Row]];
-    println();
-    println("Neighbors for following entry are:");
+    val neighbors = model.approxNearestNeighbors(txModel, Vectors.dense(LBSUtil.extractRow(metadata.value, columnStartCounts, (rows.take(1)(0))._2, true)), 4).collectAsList().asInstanceOf[java.util.List[Row]];
+
+    
+    
     for (i <- 0 to neighbors.size() - 1) {
       val neighbor = neighbors.get(i);
       val output = LBSUtil.extractReturnObject(metadata.value, columnStartCounts, (neighbor.get(1).asInstanceOf[DenseVector]).values);
-      println(neighbor.get(0)+" ->" +output)
     }
 
   }
+   
 
 }

@@ -42,7 +42,6 @@ object LBSUtil {
       //println("New NextStartCound" + nextStartCount + " index " + index +"="+ columnStartCounts(index))
       index = index + 1;
     }
-    //println("Returning "+columnStartCounts.toArray)
     return columnStartCounts.toArray;
   }
 
@@ -57,45 +56,51 @@ object LBSUtil {
     }
     return totalCounts;
   }
-  def getMinimalDataSet(metadata: Metadata, linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])]): RDD[(Long, scala.collection.mutable.Map[Int, String])] = {
+  def getMinimalDataSet(metadata: Metadata, linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], quasiIdentifier: Boolean): RDD[(Long, scala.collection.mutable.Map[Int, String])] = {
     val list = ListBuffer[Row]();
     val columns = ListBuffer[Int]();
 
     for (i <- 0 to metadata.numColumns() - 1) {
       val column = metadata.getMetadata(i).get;
-      if (!column.getIsQuasiIdentifier()) {
-        columns += column.getIndex();
-        //println("blocking column : "+column.getIndex())
+      if (quasiIdentifier) {
+        if (column.getIsQuasiIdentifier()) {
+          columns += column.getIndex();
+          //println("blocking column : "+column.getIndex())
+        }
+      } else {
+        if (!column.getIsQuasiIdentifier()) {
+          columns += column.getIndex();
+          //println("blocking column : "+column.getIndex())
+        }
       }
+
     }
-    linesRDD.map({
+ val map =    linesRDD.map({
       case (x, y) => ({
-        var newY = y;
+        var newY :scala.collection.mutable.Map[Int,String]= new scala.collection.mutable.HashMap[Int,String]();
+        newY ++= y;
         for (i <- columns) {
           newY.remove(i)
         }
         (x, newY)
       })
     });
+    return map;
   }
 
   def extractRow(metadata: Metadata, columnStartCounts: Array[Int], values: scala.collection.mutable.Map[Int, String], normalize: Boolean): Array[Double] = {
     var row: Array[Double] = Array.fill(getTotalNewColumns(metadata))(0.0);
     var index = 0;
-    
-    //println(columnStartCounts+ "- " +values+" ROWLENGTH" +row.length+ " : "+getTotalNewColumns(metadata));
+
     for (column <- metadata.getQuasiColumns()) {
       if (column.getColType() == 's') {
         row((columnStartCounts(index) + column.getRootCategory().getIndexOfColumnValue(values.get(column.getIndex()).get))) = 1.0;
-      } else { 
-          row(columnStartCounts(index)) = ((values.get(column.getIndex()).get.toDouble) - column.getMin()) / (column.getMax() - column.getMin());
+      } else {
+        row(columnStartCounts(index)) = ((values.get(column.getIndex()).get.toDouble) - column.getMin()) / (column.getMax() - column.getMin());
       }
-        index = index + 1;
-      
+      index = index + 1;
+
     }
-    //println(values)
-    //println(row)
-    //println(extractReturnObject(metadata, columnStartCounts, row))
     return row;
   }
 
@@ -110,8 +115,8 @@ object LBSUtil {
           var max = data(position);
           var maxPosition = position;
           //println(position+" : "+(position + column.getNumUnique()))
-          for (pos <- position to (position + column.getNumUnique()-1)) {
-          //println("Looping: "+pos)
+          for (pos <- position to (position + column.getNumUnique() - 1)) {
+            //println("Looping: "+pos)
             if (max < data(pos)) {
               max = data(pos);
               maxPosition = pos;

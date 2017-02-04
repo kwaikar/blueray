@@ -129,9 +129,11 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
 
       }
       if (!searchChild) {
+     //   println("Parent for"+childCategory+ " : Is "+parent);
         return parent;
       }
     }
+   // println("Parent for"+childCategory+ " : Is "+parent);
     return parent;
   }
 
@@ -160,9 +162,11 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
         }
       }
       if (!searchChild) {
+       // println("Category for"+childCategory+ " : Is "+category);
         return category;
       }
     }
+       // println("Category for"+childCategory+ " : Is "+category);
     return category;
   }
 

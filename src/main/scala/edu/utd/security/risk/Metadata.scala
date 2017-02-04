@@ -24,7 +24,6 @@ class Metadata(columnMetadata: Map[Int, Column]) extends Serializable {
           localColumns += column;
         }
       }
-      println("localColumns"+localColumns.size+ " Setting columns "+localColumns.toArray)
       columns  = localColumns.toArray;
     }
     return columns
