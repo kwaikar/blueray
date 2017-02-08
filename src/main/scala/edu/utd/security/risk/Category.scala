@@ -66,7 +66,7 @@ class Category(value: String) extends Serializable {
           }
         }
       }
-      //println("Checking "+key+" in  "+map.mkString(","));
+     // println("Checking "+key+" in  "+map.mkString(","));
       return map.get(key.trim()).get;
     }
   override def toString: String = {

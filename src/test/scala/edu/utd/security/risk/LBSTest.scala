@@ -28,7 +28,7 @@ class LBSTest {
     linesRDD = dataReader.readDataFile("hdfs://localhost/user/adult.data2.txt", true);
     linesRDD.cache();
     metadataVal = LBS.Metadata.getInstance(sc).value;
-    LBS.setup("hdfs://localhost/user/adult.data2.txt", "/home/kanchan/metadata.xml", "/home/kanchan/op.txt", new LBSParameters(4, 1200, 2000, 10),true,10);
+    LBS.setup("hdfs://localhost/user/adult.data.txt", "/home/kanchan/metadata.xml", "/home/kanchan/op.txt", new LBSParameters(4, 1200, 2000, 20),true,50);
   }
   @After
   def destroy() {

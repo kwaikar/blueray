@@ -18,12 +18,13 @@ object LSH {
 
   def main(args: Array[String]): Unit = {
     val sqlContext = new SQLContext(sc);
+    sc.setLogLevel("ERROR")
     lsh(sqlContext, args(0));
   }
   def lsh(sqlContext: SQLContext, hdfsFilePath: String) {
     val linesRDD = new DataReader(sc).readDataFile(hdfsFilePath, true).cache();
     val metadata = LBS.Metadata.getInstance(sc);
-    val rows = LBSUtil.getMinimalDataSet(metadata.value, linesRDD,false);
+    val rows = LBSUtil.getMinimalDataSet(metadata.value, linesRDD, false);
 
     val linesZipped = linesRDD.map((_._2)).zipWithIndex().map { case (map, index) => (index, map) }.cache();
 
@@ -31,7 +32,8 @@ object LSH {
       case (x, y) => ({
         val columnStartCounts = LBSUtil.getColumnStartCounts(metadata.value);
         val row = LBSUtil.extractRow(metadata.value, columnStartCounts, y, true)
-        println(x.intValue()+"-->"+ Vectors.dense(row)+"=="+LBSUtil.extractReturnObject(metadata.value, columnStartCounts, row))
+        //println(x.intValue()+"-->"+ Vectors.dense(row)+"=="+LBSUtil.extractReturnObject(metadata.value, columnStartCounts, row))
+        println(x.intValue()+ " :"+row.mkString(","))
         (x.intValue(), Vectors.dense(row))
       })
     })
@@ -50,16 +52,18 @@ object LSH {
     val txModel = model.transform(dataFrame)
 
     val columnStartCounts = LBSUtil.getColumnStartCounts(metadata.value);
-    val neighbors = model.approxNearestNeighbors(txModel, Vectors.dense(LBSUtil.extractRow(metadata.value, columnStartCounts, (rows.take(1)(0))._2, true)), 4).collectAsList().asInstanceOf[java.util.List[Row]];
+    val rowsToIterate = rows.take(20);
+    for (i <- 0 to 19) {
+      val row = (LBSUtil.extractRow(metadata.value, columnStartCounts, (rowsToIterate(i))._2, true))
+      println("Row: " + rowsToIterate(i))
+      val neighbors = model.approxNearestNeighbors(txModel, Vectors.dense(row), 10).collectAsList().asInstanceOf[java.util.List[Row]];
 
-    
-    
-    for (i <- 0 to neighbors.size() - 1) {
-      val neighbor = neighbors.get(i);
-      val output = LBSUtil.extractReturnObject(metadata.value, columnStartCounts, (neighbor.get(1).asInstanceOf[DenseVector]).values);
+      for (i <- 0 to neighbors.size() - 1) {
+        val neighbor = neighbors.get(i);
+        val output = LBSUtil.extractReturnObject(metadata.value, columnStartCounts, (neighbor.get(1).asInstanceOf[DenseVector]).values);
+        println(neighbor.get(0).asInstanceOf[Int]+ " - "+output);
+      }
     }
-
   }
-   
 
 }
