@@ -19,7 +19,7 @@ class LBSTest {
   
   @Before
   def setUp() {
-    val conf = new SparkConf().setAppName("Simple Application").setMaster("local[4]");
+    val conf = new SparkConf().setAppName("Simple Application").setMaster("local[1]");
     conf.set("POLICY_FILE_PATH", "hdfs://localhost/blueray/empty_policies.csv");
     sc = new SparkContext(conf)
     sc.setLogLevel("ERROR");
@@ -28,7 +28,7 @@ class LBSTest {
     linesRDD = dataReader.readDataFile("hdfs://localhost/user/adult.data2.txt", true);
     linesRDD.cache();
     metadataVal = LBS.Metadata.getInstance(sc).value;
-    LBS.setup("hdfs://localhost/user/adult.data.txt", "/home/kanchan/metadata.xml", "/home/kanchan/op.txt", new LBSParameters(4, 1200, 2000, 20),true,50);
+    LBS.setup("hdfs://localhost/user/adult.data2.txt", "/home/kanchan/metadata.xml", "/home/kanchan/op.txt", new LBSParameters(4, 1200, 2000, 20),true,50);
   }
   @After
   def destroy() {

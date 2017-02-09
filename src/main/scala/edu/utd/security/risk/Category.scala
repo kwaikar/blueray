@@ -43,32 +43,37 @@ class Category(value: String) extends Serializable {
 
   def getValueAtIndex(key: Int): String =
     {
+      populateMapIfRequired();
       return revMap.get(key).get;
     }
   def getIndexOfColumnValue(key: String): Int =
     {
-      if (map == null || map.size == 0) {
-        var index = 0;
-        map = new scala.collection.mutable.HashMap();
-        revMap = new scala.collection.mutable.HashMap();
-        var queue = scala.collection.mutable.Queue[Category]();
-        queue.enqueue(this);
-        while (!queue.isEmpty) {
-          val category = queue.dequeue();
-          for (child <- category.children) {
-            if (child.children.length == 0) {
-              map.put(child.value().trim(), index)
-              revMap.put(index, child.value().trim())
-              index = index + 1;
-            } else {
-              queue.enqueue(child);
-            }
-          }
-        }
-      }
+      populateMapIfRequired();
      // println("Checking "+key+" in  "+map.mkString(","));
       return map.get(key.trim()).get;
     }
+
+  def populateMapIfRequired() = {
+    if (map == null || map.size == 0) {
+      var index = 0;
+      map = new scala.collection.mutable.HashMap();
+      revMap = new scala.collection.mutable.HashMap();
+      var queue = scala.collection.mutable.Queue[Category]();
+      queue.enqueue(this);
+      while (!queue.isEmpty) {
+        val category = queue.dequeue();
+        for (child <- category.children) {
+          if (child.children.length == 0) {
+            map.put(child.value().trim(), index)
+            revMap.put(index, child.value().trim())
+            index = index + 1;
+          } else {
+            queue.enqueue(child);
+          }
+        }
+      }
+    }
+  }
   override def toString: String = {
     return value + "(" + value + "=" + childrenString.mkString + ")=>" + "[" + children.foreach { x => x.toString() } + "]";
   }

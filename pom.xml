@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>edu.utd.security</groupId>
 	<artifactId>blueray</artifactId>
-	<version>0.0.18-24-SNAPSHOT</version>
+	<version>1.0-LBSLSH-SNAPSHOT</version>
 	<name>blueray</name>
 	<description>Access control in Spark</description>
 	<inceptionYear>2016</inceptionYear>
@@ -111,6 +111,11 @@
 			<groupId>commons-collections</groupId>
 			<artifactId>commons-collections</artifactId>
 			<version>3.2.1</version>
+		</dependency>
+		<dependency>
+			<groupId>com.typesafe</groupId>
+			<artifactId>scalalogging-slf4j_2.10</artifactId>
+			<version>1.0.1</version>
 		</dependency>
 	</dependencies>
 

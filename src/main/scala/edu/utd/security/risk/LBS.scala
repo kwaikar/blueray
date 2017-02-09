@@ -1,25 +1,25 @@
 package edu.utd.security.risk
 
+import scala.annotation.migration
 import scala.annotation.varargs
 import scala.collection.mutable.ListBuffer
 import scala.io.Source
 import scala.reflect.runtime.universe
-import scala.util.control.Breaks._
+import scala.util.control.Breaks.break
+import scala.util.control.Breaks.breakable
 
 import org.apache.spark.SparkContext
+import org.apache.spark.annotation.Experimental
 import org.apache.spark.annotation.Since
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.feature.BucketedRandomProjectionLSH
 import org.apache.spark.ml.linalg.DenseVector
-import org.apache.spark.ml.linalg.VectorUDT
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.rdd.RDD
 import org.apache.spark.rdd.RDD.rddToPairRDDFunctions
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.SparkSession
-
 import edu.utd.security.mondrian.DataWriter
 
 /**
@@ -28,8 +28,8 @@ import edu.utd.security.mondrian.DataWriter
  * booktitle = {In ICDE},
  * year = {2015}
  */
-object LBS {
-
+object LBS  {
+  
   def main(args: Array[String]): Unit = {
 
     if (args.length < 9) {
@@ -56,7 +56,7 @@ object LBS {
       if (metadata == null) {
         synchronized {
           if (metadata == null) {
-            val data = Source.fromFile("/data/kanchan/metadata.xml").getLines().mkString("\n");
+            val data = Source.fromFile("/data/kanchan/metadata_exp.xml").getLines().mkString("\n");
             val metadataVal = new DataReader(sc).readMetadata(data);
             metadata = sc.broadcast(metadataVal)
           }
@@ -137,15 +137,24 @@ object LBS {
   }
 
   def lsh(linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], lbsParam: LBSParameters, numNeighbors: Int): (Double, Double, List[RDD[(Int, String)]]) = {
-    val metadata = Metadata.getInstance(getSC());
-    val quasiRows = LBSUtil.getMinimalDataSet(metadata.value, linesRDD, false);
 
-    val linesZipped = linesRDD.map((_._2)).zipWithIndex().map { case (map, index) => (index, map) }.cache();
-        val columnStartCounts = LBSUtil.getColumnStartCounts(metadata.value);
-    println(quasiRows.take(1).mkString("]]"));
-    val inputToModel = quasiRows.map({
+    var list: ListBuffer[(Int, String)] = ListBuffer();
+    var rdds: List[RDD[(Int, String)]] = List();
+    val numNeighborsVal =sc.broadcast(numNeighbors);
+    var totalPublisherPayOff = 0.0;
+    var totalAdvBenefit = 0.0;
+    var counter = 0;
+    var predicted = 0;
+
+    /**
+     * Build LSHmodel
+     */
+    val metadata = Metadata.getInstance(getSC());
+    val columnStartCounts = sc.broadcast(LBSUtil.getColumnStartCounts(metadata.value));
+
+    val inputToModel = linesRDD.map({
       case (x, y) => ({
-        val row = LBSUtil.extractRow(metadata.value, columnStartCounts, y, true)
+        val row = LBSUtil.extractRow(metadata.value, columnStartCounts.value, y, true)
         (x.intValue(), Vectors.dense(row))
       })
     }).collect().toSeq
@@ -160,54 +169,69 @@ object LBS {
 
     val model = brp.fit(dataFrame)
     val txModel = model.transform(dataFrame)
-
-
-    var mapOfIdAndPredict = collection.mutable.Map((linesRDD.map({ case (x, y) => (x, true) }).collect().toMap.toSeq: _*));
-
-    var list: ListBuffer[(Int, String)] = ListBuffer();
-    var rdds: List[RDD[(Int, String)]] = List();
-
-    var totalPublisherPayOff = 0.0;
-    var totalAdvBenefit = 0.0;
-    val nonQuasiRows = LBSUtil.getMinimalDataSet(metadata.value, linesRDD, true).zipWithIndex().map { case (map, index) => (index, map) }.cache(); ;
-    var counter = 0;
-    var predicted = 0;
-    val keys = mapOfIdAndPredict.keys.toArray;
-    for (key <- keys) {
-      val value = mapOfIdAndPredict.get(key);
-      if (value.get == true) {
-        val currentRecord =linesZipped.lookup(key)(0);
-        val optimalRecord = findOptimalStrategy(currentRecord, lbsParam, linesRDD)
-        predicted = predicted + 1;
-        val neighbors = model.approxNearestNeighbors(txModel, Vectors.dense(LBSUtil.extractRow(metadata.value, columnStartCounts, quasiRows.lookup(key)(0), true)), numNeighbors).collectAsList().asInstanceOf[java.util.List[Row]];
-        var quasiGeneralizedMap = scala.collection.mutable.Map[Int, String]();
-
-        for (column <- metadata.value.getQuasiColumns()) {
-          quasiGeneralizedMap.put(column.getIndex(), optimalRecord._3.get(column.getIndex()).get.trim());
+    txModel.show();
+    /**
+     * Build Neighbour Map
+     *//*
+    val neighborMap = linesRDD.map({
+      case (x, y) => {
+        val vector =Vectors.dense(LBSUtil.extractRow(metadata.value, columnStartCounts.value, y, true));
+        println("Checking: "+vector+ " -"+modelBroadCast.value)
+        val neighbors = model.approxNearestNeighbors(txModel, vector, numNeighborsVal.value).collectAsList().asInstanceOf[java.util.List[Row]];
+        println("neighbours found "+neighbors.size() )
+        var map = scala.collection.mutable.Map[Long, Array[Double]]();
+        var itr = neighbors.iterator();
+        while (itr.hasNext()) {
+          val row = itr.next();
+          map.put(row.get(0).asInstanceOf[Int].longValue(),  (row.get(1).asInstanceOf[DenseVector]).values);
         }
-        println(key +" =>"+(counter+predicted) +"-->"+quasiGeneralizedMap.mkString(",") )
-     
-        for (i <- 0 to neighbors.size() - 1) {
-          val neighbor = neighbors.get(i);
-          
-          val nebkey =neighbor.get(0).asInstanceOf[Int].longValue()
-          
-          if (mapOfIdAndPredict.get(nebkey).get) {
-          val output = LBSUtil.extractReturnObject(metadata.value, columnStartCounts, (neighbor.get(1).asInstanceOf[DenseVector]).values);
+        println("map ->"+map);
+        (x, map);
+      }
+    }).cache();*/
 
+    var keysRemaining = linesRDD.map({ case (x, y) => (x, true) }).collect().toMap;
+
+    while (keysRemaining != null && keysRemaining.size > 0) {
+
+      // Pick up a key.
+      val key = keysRemaining.last._1
+
+      val currentRecord = linesRDD.lookup(key)(0);
+      val optimalRecord = findOptimalStrategy(currentRecord, lbsParam, linesRDD)
+      predicted = predicted + 1;
+      totalPublisherPayOff += optimalRecord._1;
+      totalAdvBenefit += optimalRecord._2;
+      val arr = optimalRecord._3.toArray
+      val nonQuasiMap = linesRDD.lookup(key)(0)
+      var quasiGeneralizedMap = scala.collection.mutable.Map[Int, String]();
+      for (column <- metadata.value.getQuasiColumns()) {
+        quasiGeneralizedMap.put(column.getIndex(), optimalRecord._3.get(column.getIndex()).get.trim());
+      }
+
+      val outputMap = (nonQuasiMap ++= quasiGeneralizedMap).toArray.sortBy(_._1).map(_._2);
+      list += ((key.intValue(), outputMap.mkString(",")));
+      keysRemaining = keysRemaining - key;
+      val neighborsRow = model.approxNearestNeighbors(txModel, Vectors.dense(LBSUtil.extractRow(metadata.value, columnStartCounts.value, currentRecord, true)), numNeighborsVal.value).collectAsList().asInstanceOf[java.util.List[Row]]
+      val nebMap =sc.parallelize(neighborsRow.toArray.asInstanceOf[Array[Row]]).map({case(row)=>(row(0).asInstanceOf[Int].longValue(),  (row(1).asInstanceOf[DenseVector]).values)});
+      val neighbors =nebMap.filter({
+        case (x, y) => {
+          if (keysRemaining.contains(x)) {
+            
+            val map =LBSUtil.extractReturnObject(metadata.value, columnStartCounts.value, y)
             var neighborIsSubSet = true;
-
-            for (column <- metadata.value.getQuasiColumns()) {
-              if (neighborIsSubSet) {
+            breakable {
+              for (column <- metadata.value.getQuasiColumns()) {
 
                 val genHierarchyValue = optimalRecord._3.get(column.getIndex()).get.trim()
-                val neighborValue = output.get(column.getIndex()).get.trim();
+                val neighborValue = map.get(column.getIndex()).get.trim();
 
                 if (genHierarchyValue != neighborValue) {
                   if (column.getColType() == 's') {
                     val genCategory = column.getCategory(genHierarchyValue);
                     if (!genCategory.children.contains(neighborValue)) {
                       neighborIsSubSet = false;
+                      break;
                     }
                   } else {
                     val minMax1 = LBSUtil.getMinMax(genHierarchyValue);
@@ -215,50 +239,41 @@ object LBS {
                     //println("Mismatched :  " + minMax1 + " " + minMax2)
                     if (minMax1._1 > minMax2._1 || minMax1._2 < minMax2._2) {
                       neighborIsSubSet = false;
+                      break;
                     }
                   }
                 }
               }
             }
-            if (neighborIsSubSet) {
-              counter = counter + 1;
-              mapOfIdAndPredict.put(neighbor.get(0).asInstanceOf[Int].longValue(), false);
-              totalPublisherPayOff += optimalRecord._1;
-              totalAdvBenefit += optimalRecord._2;
-             // print(nebkey+" " )
-              val arr = optimalRecord._3.toArray
-           //   println(neighbor.get(0) + ": " + optimalRecord._1 + "_" + optimalRecord._2);
-              val nonQuasiMap = nonQuasiRows.lookup(neighbor.get(0).asInstanceOf[Int].longValue())(0)._2
-              val outputMap = (nonQuasiMap ++= quasiGeneralizedMap).toArray.sortBy(_._1).map(_._2);
-            //  println(outputMap.mkString(","));
-              list += ((neighbor.get(0).asInstanceOf[Int], outputMap.mkString(",")));
-              if (i % 3000 == 2999) {
-                val vl = getSC().parallelize(list.toList)
-                rdds = rdds :+ vl;
-                list = ListBuffer();
-              }
-            }
-          } 
-        }   
-        println();
-        if(mapOfIdAndPredict.get(key).get)
-        {
-        mapOfIdAndPredict.put(key, false);
-        totalPublisherPayOff += optimalRecord._1;
-        totalAdvBenefit += optimalRecord._2;
-        val arr = optimalRecord._3.toArray
-        val nonQuasiMap = nonQuasiRows.lookup(key)(0)._2
-        val outputMap = (nonQuasiMap ++= quasiGeneralizedMap).toArray.sortBy(_._1).map(_._2);
-        list += ((key.intValue(), outputMap.mkString(",")));
+            neighborIsSubSet;
+          } else {
+            false;
+          }
         }
-        else
-        {
-              counter = counter - 1;
-          
+      });
+      val keys =neighbors.keys.collect();
+      keysRemaining = keysRemaining -- keys;
+      counter += keys.size
+      println("Neighbours found : " + counter + " " + "keys Remaining  =>" + (keysRemaining.size) + "-->" + quasiGeneralizedMap.mkString(","))
+      totalPublisherPayOff +=keys.size * optimalRecord._1;
+      totalAdvBenefit += keys.size * optimalRecord._2;
+
+      val neighboursOriginal = linesRDD.filter({ case (x, y) => keys.contains(x) });
+      val newNeighBours = neighboursOriginal.map({
+        case (x, y) => {
+
+          var newY: scala.collection.mutable.Map[Int, String] = new scala.collection.mutable.HashMap[Int, String]();
+          newY ++= y;
+          for (i <- metadata.value.getQuasiColumns()) {
+            newY.remove(i.getIndex())
+          }
+          newY ++= quasiGeneralizedMap;
+          (x.intValue(), newY.toArray.sortBy(_._1).map(_._2).mkString(","))
         }
-      }  
+      });
+      rdds :+= newNeighBours;
     }
-    
+
     val vl = getSC().parallelize(list.toList)
     rdds = rdds :+ vl;
     println("Number of predictions done :" + predicted + " : neighbours: " + counter);
@@ -315,8 +330,9 @@ object LBS {
    * Returns probability of adversaries success. Depends on total number of entries that fall in the same category.
    * Should return a number between 0 and 1 - 1 when only single record (self) exists.
    */
-  def getRiskOfStrategy(a: scala.collection.mutable.Map[Int, String], metadata: Metadata, linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])]): Double =
+  def getRiskOfStrategy(a: scala.collection.mutable.Map[Int, String], metadata: Broadcast[Metadata], linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])]): Double =
     {
+    val aVal = sc.broadcast(a);
       val matchingPopulationGroupSize = linesRDD.filter({
         case (x: Long, b) => {
           /**
@@ -324,8 +340,8 @@ object LBS {
            */
           var status = true;
           breakable {
-            for (column <- metadata.getQuasiColumns()) {
-              val value1 = a.get(column.getIndex()).get.trim()
+            for (column <- metadata.value.getQuasiColumns()) {
+              val value1 = aVal.value.get(column.getIndex()).get.trim()
               val value2 = b.get(column.getIndex()).get.trim()
 
               if (!(value1 == value2)) {
@@ -365,39 +381,38 @@ object LBS {
 
     val metadata = Metadata.getInstance(getSC()).value;
     var genStrategy = top;
-    //   println("starting search")
     while (!isGLeafNode(genStrategy)) {
-      //println(":0::")
-      adversaryBenefit = getRiskOfStrategy(genStrategy, metadata, linesRDD) * lbsParam.getPublishersLossOnIdentification(); // adversaryBenefit = publisherLoss.
+     // println(":0::")
+      adversaryBenefit = getRiskOfStrategy(genStrategy, Metadata.getInstance(getSC()), linesRDD) * lbsParam.getPublishersLossOnIdentification(); // adversaryBenefit = publisherLoss.
 
-      //println(":1::")
+     // println(":1::")
       publisherPayOff = getPublishersBenefit(genStrategy, lbsParam, linesRDD) - adversaryBenefit;
 
-      //  println("::2:("+publisherPayOff+")")
+       // println("::2:("+publisherPayOff+")")
       if (adversaryBenefit <= lbsParam.getRecordCost()) {
         return (publisherPayOff, adversaryBenefit, genStrategy);
       }
-      // println("Publisher Payoff " + publisherPayOff + ": " + genStrategy);
+//      println("Publisher Payoff " + publisherPayOff + ": " + genStrategy);
       var currentStrategy = genStrategy;
       val children = getChildren(genStrategy);
 
       for (child <- children) {
-        //println("children:::"+child)
-        val childAdvBenefit = getRiskOfStrategy(child, metadata, linesRDD) * lbsParam.getPublishersLossOnIdentification();
-        //    println ("childAdvBenefit"+childAdvBenefit);
+  //     println("children:::"+child)
+        val childAdvBenefit = getRiskOfStrategy(child, Metadata.getInstance(getSC()), linesRDD) * lbsParam.getPublishersLossOnIdentification();
+   //         println ("childAdvBenefit"+childAdvBenefit);
         val childPublisherPayoff = getPublishersBenefit(child, lbsParam, linesRDD) - childAdvBenefit;
-        //println("Child payoff " + childPublisherPayoff + "->" +  "|"+(childPublisherPayoff >= publisherPayOff)+"___"+child)
+     //   println("Child payoff " + childPublisherPayoff + "->" +  "|"+(childPublisherPayoff >= publisherPayOff)+"___"+child)
 
         if (childPublisherPayoff >= publisherPayOff) {
-          //    println("Assigning values " + childPublisherPayoff + "->" + child)
+       //       println("Assigning values " + childPublisherPayoff + "->" + child)
           currentStrategy = child;
           adversaryBenefit = childAdvBenefit;
           publisherPayOff = childPublisherPayoff;
         }
       }
       if (currentStrategy == genStrategy) {
-        //println("Selected "+currentStrategy);
-        // println("Parent Payoff is better than any of the children payoff" + publisherPayOff);
+       //// println("Selected "+currentStrategy);
+         //println("Parent Payoff is better than any of the children payoff" + publisherPayOff);
         return (publisherPayOff, adversaryBenefit, genStrategy);
       }
       genStrategy = currentStrategy;
