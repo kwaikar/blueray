@@ -30,7 +30,7 @@ class AccessAuthorizerAspect {
     val policy = getPolicy(context, jp, PointCutType.SPARK);
      if (policy != None) 
     {
-      val authorizedIterator = new AuthorizedInterruptibleIterator(context, iterator.asInstanceOf[Iterator[_]], /*policy.get.regex*/ "White");
+      val authorizedIterator = new AuthorizedInterruptibleIterator(context, iterator.asInstanceOf[Iterator[_]], policy.get.regex);
       println("Returning new iterator")
    // return iterator;
         return authorizedIterator
