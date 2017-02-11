@@ -59,12 +59,12 @@ class LBSTest {
   }
    @Test
   def testInformationLoss() {
-    assert((41.54091679442631 == LBS.getInformationLoss(record._2,linesRDD)));
+    assert((41.54091679442631 == LBS.getInformationLoss(record._2)));
   }
 
    @Test
   def testGetMaximulInformationLoss() {
-    val loss = LBS.Metadata.getMaximulInformationLoss(sc,linesRDD);
+    val loss = LBS.Metadata.getMaximulInformationLoss(sc);
     println("==>" + loss);
     assert(17.8622848986764 == loss);
   }
@@ -89,15 +89,15 @@ class LBSTest {
   //@Test
   def testRiskOfStrategy()
   {
-    println(LBS.getRiskOfStrategy(record._2,metadataVal,linesRDD));
-    assert (LBS.getRiskOfStrategy(record._2,metadataVal,linesRDD) ==1)
-    println(LBS.getRiskOfStrategy(getTopMostGeneralization(),metadataVal,linesRDD) +" + "+(1.0/92));
-    assert(LBS.getRiskOfStrategy(getTopMostGeneralization(),metadataVal,linesRDD) == (1.0/92))
+    println(LBS.getRiskOfStrategy(record._2,LBS.Metadata.getInstance(sc),linesRDD));
+    assert (LBS.getRiskOfStrategy(record._2,LBS.Metadata.getInstance(sc),linesRDD) ==1)
+    println(LBS.getRiskOfStrategy(getTopMostGeneralization(),LBS.Metadata.getInstance(sc),linesRDD) +" + "+(1.0/92));
+    assert(LBS.getRiskOfStrategy(getTopMostGeneralization(),LBS.Metadata.getInstance(sc),linesRDD) == (1.0/92))
     
      for (child <- LBS.getChildren(record._2)) {
       println(child)
-      println("==>"+LBS.getRiskOfStrategy( child,metadataVal,linesRDD))
-      assert(LBS.getRiskOfStrategy( child,metadataVal,linesRDD)==1);
+      println("==>"+LBS.getRiskOfStrategy( child,LBS.Metadata.getInstance(sc),linesRDD))
+      assert(LBS.getRiskOfStrategy( child,LBS.Metadata.getInstance(sc),linesRDD)==1);
     }
     
   }

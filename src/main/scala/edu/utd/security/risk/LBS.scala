@@ -28,8 +28,8 @@ import edu.utd.security.mondrian.DataWriter
  * booktitle = {In ICDE},
  * year = {2015}
  */
-object LBS  {
-  
+object LBS {
+
   def main(args: Array[String]): Unit = {
 
     if (args.length < 9) {
@@ -75,7 +75,7 @@ object LBS  {
 
     var maximumInfoLoss: Broadcast[Double] = null;
 
-    def getMaximulInformationLoss(sc: SparkContext, linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])]): Broadcast[Double] =
+    def getMaximulInformationLoss(sc: SparkContext): Broadcast[Double] =
       {
         if (maximumInfoLoss == null) {
           val metadata = getInstance(sc);
@@ -101,7 +101,6 @@ object LBS  {
   def lbs(outputFilePath: String, linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], useLSH: Boolean, lbsParam: LBSParameters, numNeighbours: Int) {
 
     val metadata = Metadata.getInstance(getSC());
-    val linesZipped = linesRDD.map((_._2)).zipWithIndex().map { case (map, index) => (index, map) }.cache();
     var totalPublisherPayOff = 0.0;
     var totalAdvBenefit = 0.0;
 
@@ -113,9 +112,28 @@ object LBS  {
       totalPublisherPayOff = output._1
       totalAdvBenefit = output._2
     } else {
-      for (i <- 0 to Metadata.getTotalCount(getSC(), linesRDD).value.intValue() - 1) {
-        val optimalRecord = findOptimalStrategy(linesZipped.lookup(i.longValue())(0), lbsParam, linesRDD)
-        totalPublisherPayOff += optimalRecord._1;
+       val cartesian = linesRDD.cartesian(linesRDD)
+      println("cartesianed"+cartesian.count())
+  val op=cartesian.groupByKey();
+      println("grouped"+op.count())
+      val op2 = op.map({case(x,y)=>{
+        println("parallelizing "+x)
+     (x,sc.parallelize( y.toSeq))  
+      }
+      }); 
+      val lbsParamVal = sc.broadcast(lbsParam);
+      val linesBroadCast = sc.broadcast(linesRDD.collect());
+      val opts = op2.map({
+        case (x,y) => {
+
+          val optimalRecord = findOptimalStrategy(x._2, lbsParamVal.value, y);
+          println((x._1) + " " + optimalRecord._1 + "_" + optimalRecord._2 + " =>" + optimalRecord._3);
+          optimalRecord;
+        }
+      });
+      println("final  " + opts.count())
+      println(opts.map(_._1).mean() + " " + opts.map(_._2).mean());
+      /* totalPublisherPayOff += optimalRecord._1;
         totalAdvBenefit += optimalRecord._2;
         val arr = optimalRecord._3.toArray
         println((i + 1) + " " + optimalRecord._1 + "_" + optimalRecord._2);
@@ -126,7 +144,7 @@ object LBS  {
           rdds = rdds :+ vl;
           list = ListBuffer();
         }
-      }
+      }*/
     }
     val vl = getSC().parallelize(list.toList)
     rdds = rdds :+ vl;
@@ -140,7 +158,7 @@ object LBS  {
 
     var list: ListBuffer[(Int, String)] = ListBuffer();
     var rdds: List[RDD[(Int, String)]] = List();
-    val numNeighborsVal =sc.broadcast(numNeighbors);
+    val numNeighborsVal = sc.broadcast(numNeighbors);
     var totalPublisherPayOff = 0.0;
     var totalAdvBenefit = 0.0;
     var counter = 0;
@@ -172,7 +190,7 @@ object LBS  {
     txModel.show();
     /**
      * Build Neighbour Map
-     *//*
+     */ /*
     val neighborMap = linesRDD.map({
       case (x, y) => {
         val vector =Vectors.dense(LBSUtil.extractRow(metadata.value, columnStartCounts.value, y, true));
@@ -191,7 +209,7 @@ object LBS  {
     }).cache();*/
 
     var keysRemaining = linesRDD.map({ case (x, y) => (x, true) }).collect().toMap;
-
+    val linesRDDBroadcast = sc.broadcast(linesRDD.collect());
     while (keysRemaining != null && keysRemaining.size > 0) {
 
       // Pick up a key.
@@ -213,12 +231,12 @@ object LBS  {
       list += ((key.intValue(), outputMap.mkString(",")));
       keysRemaining = keysRemaining - key;
       val neighborsRow = model.approxNearestNeighbors(txModel, Vectors.dense(LBSUtil.extractRow(metadata.value, columnStartCounts.value, currentRecord, true)), numNeighborsVal.value).collectAsList().asInstanceOf[java.util.List[Row]]
-      val nebMap =sc.parallelize(neighborsRow.toArray.asInstanceOf[Array[Row]]).map({case(row)=>(row(0).asInstanceOf[Int].longValue(),  (row(1).asInstanceOf[DenseVector]).values)});
-      val neighbors =nebMap.filter({
+      val nebMap = sc.parallelize(neighborsRow.toArray.asInstanceOf[Array[Row]]).map({ case (row) => (row(0).asInstanceOf[Int].longValue(), (row(1).asInstanceOf[DenseVector]).values) });
+      val neighbors = nebMap.filter({
         case (x, y) => {
           if (keysRemaining.contains(x)) {
-            
-            val map =LBSUtil.extractReturnObject(metadata.value, columnStartCounts.value, y)
+
+            val map = LBSUtil.extractReturnObject(metadata.value, columnStartCounts.value, y)
             var neighborIsSubSet = true;
             breakable {
               for (column <- metadata.value.getQuasiColumns()) {
@@ -251,11 +269,11 @@ object LBS  {
           }
         }
       });
-      val keys =neighbors.keys.collect();
+      val keys = neighbors.keys.collect();
       keysRemaining = keysRemaining -- keys;
       counter += keys.size
       println("Neighbours found : " + counter + " " + "keys Remaining  =>" + (keysRemaining.size) + "-->" + quasiGeneralizedMap.mkString(","))
-      totalPublisherPayOff +=keys.size * optimalRecord._1;
+      totalPublisherPayOff += keys.size * optimalRecord._1;
       totalAdvBenefit += keys.size * optimalRecord._2;
 
       val neighboursOriginal = linesRDD.filter({ case (x, y) => keys.contains(x) });
@@ -282,11 +300,12 @@ object LBS  {
 
   def getPublishersBenefit(g: scala.collection.mutable.Map[Int, String], lbsParams: LBSParameters, linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])]): Double =
     {
+
       //println ("Publisher Benefit" +lbsParams.getMaxPublisherBenefit()+"* ( 1.0 - "+getInformationLoss(g,linesRDD) +"/"+Metadata.getMaximulInformationLoss(getSC(), linesRDD).value +" ="+lbsParams.getMaxPublisherBenefit() * (1.0 - (getInformationLoss(g,  linesRDD) / Metadata.getMaximulInformationLoss(getSC(), linesRDD).value)));
-      return lbsParams.getMaxPublisherBenefit() * (1.0 - (getInformationLoss(g, linesRDD) / Metadata.getMaximulInformationLoss(getSC(), linesRDD).value));
+      return lbsParams.getMaxPublisherBenefit() * (1.0 - (getInformationLoss(g) / Metadata.getMaximulInformationLoss(getSC()).value));
     }
 
-  def getInformationLoss(g: scala.collection.mutable.Map[Int, String], linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])]): Double =
+  def getInformationLoss(g: scala.collection.mutable.Map[Int, String]): Double =
     {
       var infoLoss: Double = 0;
       val metadata = Metadata.getInstance(getSC());
@@ -332,9 +351,9 @@ object LBS  {
    */
   def getRiskOfStrategy(a: scala.collection.mutable.Map[Int, String], metadata: Broadcast[Metadata], linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])]): Double =
     {
-    val aVal = sc.broadcast(a);
-      val matchingPopulationGroupSize = linesRDD.filter({
-        case (x: Long, b) => {
+      val aVal = sc.broadcast(a);
+      val matchingPopulationGroupSize = linesRDD.map({
+        case (x, b) => {
           /**
            * This method checks whether record B is equal to or subset of record A with respect to Quasi-Identifiers.
            */
@@ -365,16 +384,16 @@ object LBS  {
               }
             }
           }
-          status
+          if (status) { (1) } else { (0) };
         }
-      }).count();
-
-      //println("Risk of Strategy: " + matchingPopulationGroupSize + " | " + (1.0 / matchingPopulationGroupSize))
-      return (1.0 / matchingPopulationGroupSize);
+      });
+      val sum = matchingPopulationGroupSize.reduce(_ + _)
+      println("Risk of Strategy: " + sum + " | " + (1.0 / sum))
+      return (1.0 / sum);
     }
 
   def findOptimalStrategy(top: scala.collection.mutable.Map[Int, String], lbsParam: LBSParameters, linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])]): (Double, Double, scala.collection.mutable.Map[Int, String]) = {
-    //println("starting ::+:")
+     println("starting ::+:")
 
     var publisherPayOff: Double = -1;
     var adversaryBenefit: Double = -1;
@@ -382,37 +401,37 @@ object LBS  {
     val metadata = Metadata.getInstance(getSC()).value;
     var genStrategy = top;
     while (!isGLeafNode(genStrategy)) {
-     // println(":0::")
+        println(":0::")
       adversaryBenefit = getRiskOfStrategy(genStrategy, Metadata.getInstance(getSC()), linesRDD) * lbsParam.getPublishersLossOnIdentification(); // adversaryBenefit = publisherLoss.
 
-     // println(":1::")
+      // println(":1::")
       publisherPayOff = getPublishersBenefit(genStrategy, lbsParam, linesRDD) - adversaryBenefit;
 
-       // println("::2:("+publisherPayOff+")")
+      // println("::2:("+publisherPayOff+")")
       if (adversaryBenefit <= lbsParam.getRecordCost()) {
         return (publisherPayOff, adversaryBenefit, genStrategy);
       }
-//      println("Publisher Payoff " + publisherPayOff + ": " + genStrategy);
+      //      println("Publisher Payoff " + publisherPayOff + ": " + genStrategy);
       var currentStrategy = genStrategy;
       val children = getChildren(genStrategy);
 
       for (child <- children) {
-  //     println("children:::"+child)
+        //     println("children:::"+child)
         val childAdvBenefit = getRiskOfStrategy(child, Metadata.getInstance(getSC()), linesRDD) * lbsParam.getPublishersLossOnIdentification();
-   //         println ("childAdvBenefit"+childAdvBenefit);
+        //         println ("childAdvBenefit"+childAdvBenefit);
         val childPublisherPayoff = getPublishersBenefit(child, lbsParam, linesRDD) - childAdvBenefit;
-     //   println("Child payoff " + childPublisherPayoff + "->" +  "|"+(childPublisherPayoff >= publisherPayOff)+"___"+child)
+        //   println("Child payoff " + childPublisherPayoff + "->" +  "|"+(childPublisherPayoff >= publisherPayOff)+"___"+child)
 
         if (childPublisherPayoff >= publisherPayOff) {
-       //       println("Assigning values " + childPublisherPayoff + "->" + child)
+          //       println("Assigning values " + childPublisherPayoff + "->" + child)
           currentStrategy = child;
           adversaryBenefit = childAdvBenefit;
           publisherPayOff = childPublisherPayoff;
         }
       }
       if (currentStrategy == genStrategy) {
-       //// println("Selected "+currentStrategy);
-         //println("Parent Payoff is better than any of the children payoff" + publisherPayOff);
+        //// println("Selected "+currentStrategy);
+        //println("Parent Payoff is better than any of the children payoff" + publisherPayOff);
         return (publisherPayOff, adversaryBenefit, genStrategy);
       }
       genStrategy = currentStrategy;

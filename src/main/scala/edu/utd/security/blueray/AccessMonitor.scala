@@ -6,41 +6,37 @@ import scala.util.control.Breaks.break
 import scala.util.control.Breaks.breakable
 import java.net.URLEncoder
 import scala.io.Source
+import scala.util.parsing.json.JSON
 
 /**
  * Singleton object for implementing Access Control in Spark
  */
 object AccessMonitor {
 
-  val useRESTAPI = true;
+   val useRESTAPI = true;
 
   // val logger = Logger(LoggerFactory.getLogger(this.getClass))
   var policies: HashMap[String, HashSet[Policy]] = new scala.collection.mutable.HashMap
   var policiesLoaded = false;
-  loadDefaultPolicy();
-  def loadDefaultPolicy() {
-    if (!useRESTAPI) {
-      enforcePolicy(new Policy(sys.env("BLUERAY_POLICIES_PATH"), Util.encrypt(Util.getSC().sparkUser), "zxasdsxccsdcsd"));
-    }
-  }
+ 
   /**
    * Register policy mechanism for enforcing new policy
    */
   def enforcePolicy(policy: Policy) {
-    if (useRESTAPI) {
+     if (useRESTAPI) {
       enforcePolicyOnRESTEndPoint(policy.resourcePath, policy.priviledge, policy.regex);
-    } else {
-      policy.priviledge = Util.decrypt(policy.priviledge)
+     } else {
+      policy.priviledge = policy.priviledge
       var policiesSet: HashSet[Policy] = if (policies.get(policy.resourcePath) != None) (policies.get(policy.resourcePath).get) else (new HashSet[Policy]);
       policiesSet.add(policy)
       println("Added policy:" + policy);
       policies.put(policy.resourcePath, policiesSet)
-    }
+    } 
   }
   def deRegisterPolicy(policy: Policy) {
-    if (useRESTAPI) {
+     if (useRESTAPI) {
       deregisterPolicyOnRESTEndPoint(policy.resourcePath, policy.priviledge, policy.regex);
-    } else {
+     } else {
       var policiesSet: Option[HashSet[Policy]] = policies.get(policy.resourcePath)
       if (policiesSet != None) {
         for (entry <- policiesSet.get) {
@@ -55,12 +51,12 @@ object AccessMonitor {
         }
       }
     }
-    println("Policies deregistered:" + policies)
+    println("Policies deregistered:" + policies)  
   }
-  def loadPolicies() {
+   def loadPolicies() {
     if (!policiesLoaded) {
-      println("Reading policies from path : " + sys.env("BLUERAY_POLICIES_PATH"))
-      val lines = Source.fromFile(sys.env("BLUERAY_POLICIES_PATH")).getLines();
+      println("Reading policies from path : " + getPolicyPath())
+      val lines = Source.fromFile(getPolicyPath()).getLines();
       for (line <- lines) {
 
         val arr = line.split(",");
@@ -69,21 +65,21 @@ object AccessMonitor {
           regex = arr(0).replaceAll("\"", "");
         }
         println("Final: " + arr(0) + " : " + regex);
-        enforcePolicy(new Policy(arr(2), Util.encrypt(arr(1)), regex));
+        enforcePolicy(new Policy(arr(2), (arr(1)), regex));
       }
       println("Policies read");
       policiesLoaded = true;
     }
-  }
+  } 
   /**
    * Returns policy from map based on authorization
    */
   def getPolicy(path: String, priviledgeRestriction: Option[String]): Option[Policy] =
     {
-      if (useRESTAPI) {
+       if (useRESTAPI) { 
         return getPolicyFromEndPoint(path, priviledgeRestriction.get);
 
-      } else {
+       } else {
         println("going through======================" + path);
         loadPolicies();
         var policyToBeReturned: Option[Policy] = None;
@@ -110,29 +106,69 @@ object AccessMonitor {
         }
         println("Returning policy" + policyToBeReturned)
         return policyToBeReturned
-      }
+      } 
     }
 
   def getPolicyFromEndPoint(filePath: String, priviledge: String): Option[Policy] = {
-    println("-->"+sys.env("POLICYMANAGER_END_POINT")+ " :"+filePath+"-"+priviledge)
-    val output = Util.getURLAsString(sys.env("POLICYMANAGER_END_POINT") + "/policy?priviledge=" + priviledge.trim() + "&filePath=" + filePath.trim())
+    println("-->"+getURL()+ " :"+filePath+"-"+priviledge)
+    val output = getURLAsString(getURL() + "/policy?priviledge=" + priviledge.trim() + "&filePath=" + filePath.trim())
     println(filePath+ " =>"+output)
     if (!output.contains("No Policy")) {
-      val policy = Util.extractPolicy(output);
+      val policy = extractPolicy(output);
       println("Returing policy:" + policy)
       policy
     } else {
       return None;
     }
   }
+  
+  def getPolicyPath():String={
+    return sys.env("BLUERAY_POLICIES_PATH")
+  return "/data/kanchan/policies.csv";
+  }
+  
+  def getURL():String={
+    return sys.env("POLICYMANAGER_END_POINT");
+  }
+  
+   def getURLAsString(url: String): String = {
+    val html = Source.fromURL(url)
+    html.mkString
+  }
 
   def enforcePolicyOnRESTEndPoint(filePath: String, priviledge: String, regex: String) {
-    val output = Util.getURLAsString(sys.env("POLICYMANAGER_END_POINT") + "/enforcePolicy?priviledge=" + priviledge.trim() + "&filePath=" + URLEncoder.encode(filePath.trim()) + "&regex=" + URLEncoder.encode(regex.trim()))
+    val output = getURLAsString(getURL() + "/enforcePolicy?priviledge=" + priviledge.trim() + "&filePath=" + URLEncoder.encode(filePath.trim()) + "&regex=" + URLEncoder.encode(regex.trim()))
     println(output)
   }
   def deregisterPolicyOnRESTEndPoint(filePath: String, priviledge: String, regex: String) {
-    val output = Util.getURLAsString(sys.env("POLICYMANAGER_END_POINT") + "/deregisterPolicy?priviledge=" + priviledge .trim()+ "&filePath=" + URLEncoder.encode(filePath.trim()) + "&regex=" + URLEncoder.encode(regex.trim()))
+    val output = getURLAsString(getURL() + "/deregisterPolicy?priviledge=" + priviledge .trim()+ "&filePath=" + URLEncoder.encode(filePath.trim()) + "&regex=" + URLEncoder.encode(regex.trim()))
     println(output)
   }
 
+  def extractPolicy(json: String): Option[Policy] = {
+    var policy: Option[Policy] = None;
+    val policyJson = JSON.parseFull(json);
+    if (policyJson != None) {
+      val filePath = policyJson match {
+        case Some(m: Map[String, Any]) => m("filePath") match {
+          case s: String => s
+        }
+      }
+
+      val priviledge = policyJson match {
+        case Some(m: Map[String, Any]) => m("priviledge") match {
+          case s: String => s
+        }
+      }
+
+      val regex = policyJson match {
+        case Some(m: Map[String, Any]) => m("regex") match {
+          case s: String => s
+        }
+      }
+      return Some(new Policy(filePath, priviledge, regex));
+
+    }
+    return policy;
+  }
 }

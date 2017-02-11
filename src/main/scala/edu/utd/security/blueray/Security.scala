@@ -13,7 +13,7 @@ import java.security.AlgorithmParameters
 
 object Security {
 
-  var cipherEncrypt: Cipher = _;
+  /*var cipherEncrypt: Cipher = _;
   val ALGORITHM = "PBEWithHmacSHA256AndAES_128";
   var salt: Array[Byte] = Array[Byte](
     0xc7.toByte, 0x73.toByte, 0x21.toByte, 0x8c.toByte,
@@ -25,7 +25,7 @@ object Security {
     val encryptedText = Security.encrypt("hello Its me")
     val decryptedText = Security.decrypt(encryptedText)
   }
-
+*/
   def generateAndStoreMasterKey(admin1Password: String, admin2Password: String) {
     // This method would write encryption key to hdfs file
   }
@@ -38,24 +38,24 @@ object Security {
       // new String(deCipheredText)
       encryptedText
     }
-
+/*
   def getSecretKey(password: String) = {
     val pbeKeySpec: PBEKeySpec = new PBEKeySpec(password.toCharArray());
     val keyFac: SecretKeyFactory = SecretKeyFactory.getInstance(ALGORITHM);
     val pbeKey: SecretKey = keyFac.generateSecret(pbeKeySpec);
     pbeKey
-  }
+  }*/
 
   def encrypt(plainText: String): String =
     {
 
-      val pbeKey = getSecretKey("ADMIN_1_PASSWORD");
+      /*val pbeKey = getSecretKey("ADMIN_1_PASSWORD");
 
       if (cipherEncrypt == null) {
         //println("cipherEncrypt inited")
         // cipherEncrypt = Cipher.getInstance(pbeKey.getAlgorithm);
         //cipherEncrypt.init(Cipher.ENCRYPT_MODE, pbeKey, pbeParamSpec);
-      }
+      }*/
       //println("cipherEncrypt inited==>"+cipherEncrypt)
       //  var cipherText: Array[Byte] = cipherEncrypt.doFinal(plainText.getBytes);
       // println("Encrypted:" + Base64.getEncoder().encodeToString(cipherText))
