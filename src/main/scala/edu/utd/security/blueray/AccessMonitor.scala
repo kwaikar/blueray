@@ -12,8 +12,7 @@ import scala.util.parsing.json.JSON
  * Singleton object for implementing Access Control in Spark
  */
 object AccessMonitor {
-
-   val useRESTAPI = true;
+ 
 
   // val logger = Logger(LoggerFactory.getLogger(this.getClass))
   var policies: HashMap[String, HashSet[Policy]] = new scala.collection.mutable.HashMap
@@ -23,7 +22,7 @@ object AccessMonitor {
    * Register policy mechanism for enforcing new policy
    */
   def enforcePolicy(policy: Policy) {
-     if (useRESTAPI) {
+     if (sys.env("POLICYMANAGER_END_POINT")!=null) {
       enforcePolicyOnRESTEndPoint(policy.resourcePath, policy.priviledge, policy.regex);
      } else {
       policy.priviledge = policy.priviledge
@@ -34,7 +33,7 @@ object AccessMonitor {
     } 
   }
   def deRegisterPolicy(policy: Policy) {
-     if (useRESTAPI) {
+     if (sys.env("POLICYMANAGER_END_POINT")!=null) {
       deregisterPolicyOnRESTEndPoint(policy.resourcePath, policy.priviledge, policy.regex);
      } else {
       var policiesSet: Option[HashSet[Policy]] = policies.get(policy.resourcePath)
@@ -76,7 +75,7 @@ object AccessMonitor {
    */
   def getPolicy(path: String, priviledgeRestriction: Option[String]): Option[Policy] =
     {
-       if (useRESTAPI) { 
+       if (sys.env("POLICYMANAGER_END_POINT")!=null) { 
         return getPolicyFromEndPoint(path, priviledgeRestriction.get);
 
        } else {
@@ -124,7 +123,7 @@ object AccessMonitor {
   
   def getPolicyPath():String={
     return sys.env("BLUERAY_POLICIES_PATH")
-  return "/data/kanchan/policies.csv";
+ // return "/data/kanchan/policies.csv";
   }
   
   def getURL():String={
