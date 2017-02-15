@@ -63,7 +63,6 @@ class BlockingTest {
     println("Starting")
     var inputFile = sc.textFile(filePath)
     println("Plain =>"+ inputFile.collect().mkString)
-    assert(inputFile.collect().mkString.equals("*,38111.0_38120.0,19,Black*,37880.0_37890.0,31,Amer-Indian-Eskimo"));
     val sqlContext = new SQLContext(sc)
     
     
@@ -78,8 +77,12 @@ class BlockingTest {
     val dfs = sqlContext.read.json(filePath)
     val dfs2 = sqlContext.read.json(filePath)
     
-    println("DF ==>" + dfs.collect().mkString);
-    println("RDD ==>" + dfs2.rdd.collect().mkString);
+    println("DF ==>" + dfs.collect().mkString.trim()+"| ");
+    println("RDD ==>" + dfs2.rdd.collect().mkString+"| ");
+     assert(inputFile.collect().mkString.trim().equals("*,38111.0_38120.0,19,Black*,37880.0_37890.0,31,Amer-Indian-Eskimo"));
+     assert(dfs.collect().mkString.trim().equals("[*,38111.0_38120.0,1][*,37880.0_37890.0,31,Amer-Indian]"));
+     assert(dfs2.rdd.collect().mkString.trim().equals("[*,38111.0_38120.0,1][*,37880.0_37890.0,31,Amer-Indian]"));
+
       }
    
   

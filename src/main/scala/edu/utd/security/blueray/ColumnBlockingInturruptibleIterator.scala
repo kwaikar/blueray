@@ -12,13 +12,12 @@ import edu.utd.security.risk.DataReader
 /**
  * Custom Implementation of InteruptibleIterator that blocks the value passed while iterating over the array.
  */
-class ColumnBlockingInterruptibleIterator[T](context: TaskContext, delegate: Iterator[T], val columnsToBeBlocked: String)
+class ColumnBlockingInterruptibleIterator[T](context: TaskContext, delegate: Iterator[T], val columnsToBeBlocked: String, val dataMetadata: Metadata)
     extends InterruptibleIterator[T](context, delegate) {
 
   val numColumns = columnsToBeBlocked.substring(0, columnsToBeBlocked.indexOf('[')).toInt;
   val blockCols = columnsToBeBlocked.substring(columnsToBeBlocked.indexOf('[') + 1, columnsToBeBlocked.indexOf(']')).split(",").map(_.toInt);
   val metadataPath = columnsToBeBlocked.substring(columnsToBeBlocked.indexOf(']')+1, columnsToBeBlocked.length());
-  var dataMetadata: Metadata = null;
   /**
    * This method verifies whether next element available through iterator is authorized or not. If authorized, it holds it in the memory for serving via next method.
    */
@@ -36,16 +35,7 @@ class ColumnBlockingInterruptibleIterator[T](context: TaskContext, delegate: Ite
      */
     val nextElement = super.next();
     var cnt = 0;
-    if (metadataPath != null && metadataPath.trim().length()>3 && dataMetadata == null) {
-      synchronized {
-        if (dataMetadata == null) {
-          val data = Source.fromFile(metadataPath).getLines().mkString("\n");
-          if(data!=null && data.trim().length()>0){
-          dataMetadata = new DataReader().readMetadata(data);
-          }
-        }
-      }
-    }
+   
     if (nextElement != null) {
       var localNextElementStr = "";
       if (nextElement.getClass == classOf[UnsafeRow]) {
@@ -72,7 +62,7 @@ class ColumnBlockingInterruptibleIterator[T](context: TaskContext, delegate: Ite
 
           val unsafeRow: UnsafeRow = nextElement.asInstanceOf[UnsafeRow];
           var newElement: UnsafeRow = new UnsafeRow(unsafeRow.numFields());
-        //  //println(blockCols.mkString + "============================Class Type Found UnsafeRow : " + unsafeRow.numFields() + " |" + localNextElementStr.trim() + "|")
+        println(blockCols.mkString + "============================Class Type Found UnsafeRow : " + unsafeRow.numFields() + " |" + localNextElementStr.trim() + "|")
           localNextElementStr = localNextElementStr.trim().r.replaceAllIn(localNextElementStr, split.mkString(","));
           //println("replacing ++" + localNextElementStr.trim() + "|")
           //println("Returning |" + localNextElementStr.trim() + "|")

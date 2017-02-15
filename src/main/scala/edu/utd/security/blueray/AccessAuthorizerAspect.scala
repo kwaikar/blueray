@@ -1,17 +1,17 @@
 package edu.utd.security.blueray
 
-import java.util.Enumeration
+import scala.util.control.Breaks.break
+import scala.util.control.Breaks.breakable
 
-import org.apache.hadoop.mapred.JobConf
+import org.apache.spark.InterruptibleIterator
 import org.apache.spark.Partition
 import org.apache.spark.TaskContext
 import org.aspectj.lang.ProceedingJoinPoint
 import org.aspectj.lang.annotation.Around
 import org.aspectj.lang.annotation.Aspect
-import org.apache.spark.SparkContext
-import org.apache.spark.SparkConf
-import scala.util.control.Breaks.break
-import scala.util.control.Breaks.breakable
+import scala.io.Source
+import edu.utd.security.risk.DataReader
+import edu.utd.security.risk.Metadata
 
 /**
  * Aspect implementing authorized computation of the RDD
@@ -19,6 +19,7 @@ import scala.util.control.Breaks.breakable
 @Aspect
 class AccessAuthorizerAspect {
 
+  var dataMetadata: Metadata = null;
   @Around(value = "execution(* org.apache.spark.rdd.MapPartitionsRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
   def aroundAdvice_spark(jp: ProceedingJoinPoint, theSplit: Partition, context: TaskContext): AnyRef = {
 
@@ -27,9 +28,21 @@ class AccessAuthorizerAspect {
     val iterator = (jp.proceed(jp.getArgs()));
 
     if (sys.env.contains("BlockColumns")) {
+        val blockCols = sys.env("BlockColumns");
+        val metadataPath = blockCols.substring(blockCols.indexOf(']') + 1, blockCols.length());
+        if (metadataPath != null && metadataPath.trim().length() > 3 && dataMetadata == null) {
+          synchronized {
+            if (dataMetadata == null) {
+              val data = Source.fromFile(metadataPath).getLines().mkString("\n");
+              if (data != null && data.trim().length() > 0) {
+                dataMetadata = new DataReader().readMetadata(data);
+              }
+            }
+          }
+        }
+      val columnBlockingIterator = new ColumnBlockingInterruptibleIterator(context, iterator.asInstanceOf[Iterator[_]], sys.env("BlockColumns"), dataMetadata);
 
-      val columnBlockingIterator = new ColumnBlockingInterruptibleIterator(context, iterator.asInstanceOf[Iterator[_]], sys.env("BlockColumns"));
-      println("Returning new iterator")
+      println("Returning   iterator" + columnBlockingIterator)
       return columnBlockingIterator;
     }
     // if (context.getLocalProperty("PRIVILEDGE") != null) {
