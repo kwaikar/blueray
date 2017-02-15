@@ -22,7 +22,7 @@ object LSH {
     lsh(sqlContext, args(0));
   }
   def lsh(sqlContext: SQLContext, hdfsFilePath: String) {
-    val linesRDD = new DataReader(sc).readDataFile(hdfsFilePath, true).cache();
+    val linesRDD = new DataReader().readDataFile(sc,hdfsFilePath, true).cache();
     val metadata = LBS.Metadata.getInstance(sc);
     val rows = LBSUtil.getMinimalDataSet(metadata.value, linesRDD, false);
 

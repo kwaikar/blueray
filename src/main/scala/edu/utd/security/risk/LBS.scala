@@ -40,7 +40,7 @@ object LBS {
     }
   }
   val sc = SparkSession
-    .builder.appName("LBS").master("spark://cloudmaster3:7077").getOrCreate().sparkContext;
+    .builder.appName("LBS").master("local[4]").getOrCreate().sparkContext;
   def getSC(): SparkContext =
     {
       sc
@@ -49,7 +49,7 @@ object LBS {
   /**
    * Using following singleton to retrieve/broadcast metadata variables.
    */
-  object Metadata {
+object Metadata {
     @volatile private var metadata: Broadcast[Metadata] = null;
     @volatile private var totalDataCount: Broadcast[Long] = null;
     def getInstance(sc: SparkContext): Broadcast[Metadata] = {
@@ -57,7 +57,7 @@ object LBS {
         synchronized {
           if (metadata == null) {
             val data = Source.fromFile("/data/kanchan/metadata_exp.xml").getLines().mkString("\n");
-            val metadataVal = new DataReader(sc).readMetadata(data);
+            val metadataVal = new DataReader().readMetadata(data);
             metadata = sc.broadcast(metadataVal)
           }
         }
@@ -91,10 +91,11 @@ object LBS {
         return maximumInfoLoss;
       }
   }
+  var linesRDD :RDD[(Long, scala.collection.mutable.Map[Int, String])] =null;
 
   def setup(hdfsFilePath: String, predictionFilePath: String, outputFilePath: String, lbsParam: LBSParameters, useLSH: Boolean, numNeighbours: Int) {
-    val linesRDD = new DataReader(getSC()).readDataFile(hdfsFilePath, true).cache();
-
+      linesRDD = new DataReader().readDataFile(getSC(),hdfsFilePath, true).cache();
+ 
     val metadata = Metadata.getInstance(getSC());
     lbs(outputFilePath, linesRDD, useLSH, lbsParam, numNeighbours);
   }
@@ -112,7 +113,7 @@ object LBS {
       totalPublisherPayOff = output._1
       totalAdvBenefit = output._2
     } else {
-       val cartesian = linesRDD.cartesian(linesRDD)
+ /*      val cartesian = linesRDD.cartesian(linesRDD)
       println("cartesianed"+cartesian.count())
   val op=cartesian.groupByKey();
       println("grouped"+op.count())
@@ -132,8 +133,13 @@ object LBS {
         }
       });
       println("final  " + opts.count())
-      println(opts.map(_._1).mean() + " " + opts.map(_._2).mean());
-      /* totalPublisherPayOff += optimalRecord._1;
+      println(opts.map(_._1).mean() + " " + opts.map(_._2).mean());*/
+      
+     // for (i <- 0 to Metadata.getTotalCount(getSC(), linesRDD).value.intValue() - 1) {
+     val i=29779;
+      val optimalRecord = findOptimalStrategy(linesRDD.lookup(i.longValue())(0), lbsParam, linesRDD)
+      totalPublisherPayOff += optimalRecord._1;
+        
         totalAdvBenefit += optimalRecord._2;
         val arr = optimalRecord._3.toArray
         println((i + 1) + " " + optimalRecord._1 + "_" + optimalRecord._2);
@@ -144,7 +150,7 @@ object LBS {
           rdds = rdds :+ vl;
           list = ListBuffer();
         }
-      }*/
+   //   }
     }
     val vl = getSC().parallelize(list.toList)
     rdds = rdds :+ vl;
@@ -314,21 +320,21 @@ object LBS {
         val value = g.get(column.getIndex()).get.trim()
         if (column.getColType() == 's') {
           val children = column.getCategory(value);
-          if (children.leaves.length != 0) {
+         /* if (children.leaves.length != 0) {
             //   println(value + " _ " + (-Math.log(1.0 / children.leaves.length)));
             infoLoss += (-Math.log(1.0 / children.leaves.length));
-          }
-          /*if (value != children.value) {
+          }*/
+          if (value != children.value) {
             count = linesRDD.filter({ case (x, y) => { children.childrenString.contains(y.get(column.getIndex()).get) } }).count();
             infoLoss += (-Math.log(1.0 / count));
-          }*/
+          }
         } else {
           val minMax = LBSUtil.getMinMax(value);
-          if (minMax._1 != minMax._2) {
+          /*if (minMax._1 != minMax._2) {
             // println(value + " _ " + (-Math.log(1.0 / (1 + minMax._2 - minMax._1))))
             infoLoss += (-Math.log(1.0 / (1 + minMax._2 - minMax._1)));
-          }
-          /*if (minMax._1 != minMax._2) {
+          }*/
+          if (minMax._1 != minMax._2) {
             if ((minMax._1 == column.getMin() && (minMax._2 == column.getMax()))) {
 
               count = Metadata.getTotalCount(getSC(), linesRDD).value;
@@ -338,10 +344,10 @@ object LBS {
               count = linesRDD.filter({ case (x, y) => { (y.get(column.getIndex()).get.toDouble >= minMax._1 && y.get(column.getIndex()).get.toDouble <= minMax._2) } }).count();
               infoLoss += (-Math.log(1.0 / count));
             }
-          }*/
+          }
         }
       }
-      //   println("Total infoLoss for " + g + " =" + infoLoss);
+        println("Total infoLoss for " + g + " =" + infoLoss);
       return infoLoss;
     }
 
@@ -393,7 +399,7 @@ object LBS {
     }
 
   def findOptimalStrategy(top: scala.collection.mutable.Map[Int, String], lbsParam: LBSParameters, linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])]): (Double, Double, scala.collection.mutable.Map[Int, String]) = {
-     println("starting ::+:")
+     //println("starting ::+:")
 
     var publisherPayOff: Double = -1;
     var adversaryBenefit: Double = -1;
@@ -401,7 +407,7 @@ object LBS {
     val metadata = Metadata.getInstance(getSC()).value;
     var genStrategy = top;
     while (!isGLeafNode(genStrategy)) {
-        println(":0::")
+        //println(":0::")
       adversaryBenefit = getRiskOfStrategy(genStrategy, Metadata.getInstance(getSC()), linesRDD) * lbsParam.getPublishersLossOnIdentification(); // adversaryBenefit = publisherLoss.
 
       // println(":1::")
@@ -409,6 +415,7 @@ object LBS {
 
       // println("::2:("+publisherPayOff+")")
       if (adversaryBenefit <= lbsParam.getRecordCost()) {
+        println("::2:("+publisherPayOff+")")
         return (publisherPayOff, adversaryBenefit, genStrategy);
       }
       //      println("Publisher Payoff " + publisherPayOff + ": " + genStrategy);
@@ -431,12 +438,12 @@ object LBS {
       }
       if (currentStrategy == genStrategy) {
         //// println("Selected "+currentStrategy);
-        //println("Parent Payoff is better than any of the children payoff" + publisherPayOff);
+        println("Parent Payoff is better than any of the children payoff" + publisherPayOff);
         return (publisherPayOff, adversaryBenefit, genStrategy);
       }
       genStrategy = currentStrategy;
     }
-    //println("Outside return payoff" + publisherPayOff);
+    println("Outside return payoff" + publisherPayOff);
     return (publisherPayOff, adversaryBenefit, genStrategy);
   }
 

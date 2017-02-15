@@ -5,17 +5,15 @@ import org.apache.spark.rdd.RDD
 import scala.xml.NodeSeq
 import scala.xml.XML
 
-
-
 /**
  * This class is responsible for reading
  */
-class DataReader(sc: SparkContext) extends Serializable {
+class DataReader() extends Serializable {
 
   /**
    * This method reads input Data file and returns the linesRDD.
    */
-  def readDataFile(hdfsDataPath: String, skipMissingRecords: Boolean): RDD[(Long, scala.collection.mutable.Map[Int, String])] = {
+  def readDataFile(sc: SparkContext,hdfsDataPath: String, skipMissingRecords: Boolean): RDD[(Long, scala.collection.mutable.Map[Int, String])] = {
     val file = sc.textFile(hdfsDataPath, 8)
     /**
      * Split by new line, filter lines containing missing data.

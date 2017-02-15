@@ -10,6 +10,7 @@ import org.apache.spark.rdd.RDD.rddToPairRDDFunctions
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
+import org.apache.spark.sql.SQLContext
 
 /**
  * Unit Test class for testing AccessAuthorization functionality.
@@ -96,6 +97,8 @@ class AccessAuthorizerTest {
   //    new StreamingTest().testSparkStreaming(sc, "hdfs://localhost/user/user_all_phones.csv", valueToBlock, newValue, valueNotBlocked);
   }
 
+  
+   
   private def testSpark(filePath: String, valueToBlock: String, newValue: String, valueNotBlocked: String) = {
     var policy = new edu.utd.security.blueray.Policy(filePath, Util.encrypt("ADMIN"), valueToBlock);
     edu.utd.security.blueray.AccessMonitor.enforcePolicy(policy);

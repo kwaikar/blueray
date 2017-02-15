@@ -16,7 +16,7 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
    */
   override def hasNext: Boolean = {
     
-    println("HASNext called");
+    //println("HASNext called");
     super.hasNext;
   }
   /**
@@ -27,15 +27,15 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
     /**
      * Consume the authorized next element by returning the same
      */
-    println("Next called");
+    //println("Next called");
     val nextElement = super.next();
     var cnt = 0;
-    println("Next checking");
+    //println("Next checking");
     if (nextElement != null) {
       var localNextElementStr = "";
       if (nextElement.getClass == classOf[UnsafeRow]) {
 
-        println("accessing value called");
+        //println("accessing value called");
         var row: UnsafeRow = nextElement.asInstanceOf[UnsafeRow];
         var objectVal: Array[Byte] = nextElement.asInstanceOf[UnsafeRow].getBytes.asInstanceOf[Array[Byte]];
         for (c <- objectVal) {
@@ -43,16 +43,16 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
           localNextElementStr += (c.toChar);
           //print("[" + cnt + "=" + c.toInt + "]")
         }
-        println("value Accessed");
+        //println("value Accessed");
       } else {
-        println("accessing : value called");
+        //println("accessing : value called");
         localNextElementStr = nextElement.toString();
-        println("value : Accessed");
+        //println("value : Accessed");
       }
-      println("Checking: " + localNextElementStr.trim() + " ==> " + valueToBeBlocked)
+      //println("Checking: " + localNextElementStr.trim() + " ==> " + valueToBeBlocked)
 
       if (localNextElementStr.trim().length() > 0 && (valueToBeBlocked.r.findAllIn(localNextElementStr).length > 0)) {
-        println("Blocking: |" + valueToBeBlocked.trim() + "| ==> " + localNextElementStr.toString().trim() + " | " + nextElement.getClass)
+        //println("Blocking: |" + valueToBeBlocked.trim() + "| ==> " + localNextElementStr.toString().trim() + " | " + nextElement.getClass)
 
         if (nextElement.getClass == classOf[String]) {
           if (valueToBeBlocked.trim().length() == 0) {
@@ -73,7 +73,7 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
               }
             }
             newElement.pointTo(objectVal, unsafeRow.getBaseOffset, unsafeRow.getSizeInBytes)
-            println("done with unsafeRow")
+            //println("done with unsafeRow")
 
           } else {
 
@@ -83,7 +83,7 @@ class AuthorizedInterruptibleIterator[T](context: TaskContext, delegate: Iterato
               localNextElementStr = valueToBeBlocked.r.replaceAllIn(localNextElementStr, replaceMent);
               newElement.pointTo(localNextElementStr.map(_.toByte).toArray, unsafeRow.getBaseOffset, unsafeRow.getSizeInBytes)
             }
-          println("In else:")
+          //println("In else:")
 
           }
           return newElement.asInstanceOf[T];

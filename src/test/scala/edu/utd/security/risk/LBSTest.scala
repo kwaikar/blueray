@@ -24,8 +24,8 @@ class LBSTest {
     sc = new SparkContext(conf)
     sc.setLogLevel("ERROR");
     sc.setLocalProperty("USER", "kanchan");
-    val dataReader = new DataReader(sc);
-    linesRDD = dataReader.readDataFile("hdfs://localhost/user/adult.data2.txt", true);
+    val dataReader = new DataReader();
+    linesRDD = dataReader.readDataFile(sc,"hdfs://localhost/user/adult.data2.txt", true);
     linesRDD.cache();
     metadataVal = LBS.Metadata.getInstance(sc).value;
     LBS.setup("hdfs://localhost/user/adult.data2.txt", "/home/kanchan/metadata.xml", "/home/kanchan/op.txt", new LBSParameters(4, 1200, 2000, 20),true,50);
@@ -57,12 +57,12 @@ class LBSTest {
     }
     newMap
   }
-   @Test
+  // @Test
   def testInformationLoss() {
     assert((41.54091679442631 == LBS.getInformationLoss(record._2)));
   }
 
-   @Test
+   //@Test
   def testGetMaximulInformationLoss() {
     val loss = LBS.Metadata.getMaximulInformationLoss(sc);
     println("==>" + loss);

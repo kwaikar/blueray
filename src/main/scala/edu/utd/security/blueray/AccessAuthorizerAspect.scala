@@ -18,40 +18,43 @@ import scala.util.control.Breaks.breakable
  */
 @Aspect
 class AccessAuthorizerAspect {
-  
 
   @Around(value = "execution(* org.apache.spark.rdd.MapPartitionsRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
   def aroundAdvice_spark(jp: ProceedingJoinPoint, theSplit: Partition, context: TaskContext): AnyRef = {
 
     println("----------------------- Going through the Aspect ---------------------------------");
-  
+
     val iterator = (jp.proceed(jp.getArgs()));
+
+    if (sys.env.contains("BlockColumns")) {
+
+      val columnBlockingIterator = new ColumnBlockingInterruptibleIterator(context, iterator.asInstanceOf[Iterator[_]], sys.env("BlockColumns"));
+      println("Returning new iterator")
+      return columnBlockingIterator;
+    }
     // if (context.getLocalProperty("PRIVILEDGE") != null) {
     val policy = getPolicy(context, jp, PointCutType.SPARK);
-     if (policy != None) 
-    {
+    if (policy != None) {
       val authorizedIterator = new AuthorizedInterruptibleIterator(context, iterator.asInstanceOf[Iterator[_]], policy.get.regex);
       println("Returning new iterator")
-   // return iterator;
-        return authorizedIterator
-    } 
+      // return iterator;
+      return authorizedIterator
+    }
     return iterator
   }
 
- 
   def getPolicy(context: org.apache.spark.TaskContext, jp: org.aspectj.lang.ProceedingJoinPoint, pcType: Any): Option[Policy] = {
     var policy: Option[Policy] = None;
-    val auth: Option[String] =Some( context.getLocalProperty("USER") )// Util.extractAuth(context)
+    val auth: Option[String] = Some(context.getLocalProperty("USER")) // Util.extractAuth(context)
 
     var path = extractPathForSpark(jp);
-     if (path == null || path.trim().length() == 0) {
+    if (path == null || path.trim().length() == 0) {
       path = extractPathForSparkSQL(jp);
     }
-   policy = AccessMonitor.getPolicy(path, auth)
+    policy = AccessMonitor.getPolicy(path, auth)
     policy
   }
-  
-  
+
   def extractPathForSpark(jp: org.aspectj.lang.ProceedingJoinPoint): String = {
     var pathFound = false;
     var path: String = "";
