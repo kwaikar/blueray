@@ -56,7 +56,7 @@ class BlockingTest {
   }
    
   
-  @Test
+ // @Test
   def testGeneralizing() = {
     val filePath="hdfs://localhost/user/adult.2lines.csv";
     sc.setLogLevel("ERROR");

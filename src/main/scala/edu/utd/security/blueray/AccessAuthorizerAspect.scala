@@ -20,7 +20,7 @@ import edu.utd.security.risk.Metadata
 class AccessAuthorizerAspect {
 
   var dataMetadata: Metadata = null;
-  @Around(value = "execution(* org.apache.spark.rdd.MapPartitionsRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
+//  @Around(value = "execution(* org.apache.spark.rdd.MapPartitionsRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
   def aroundAdvice_spark(jp: ProceedingJoinPoint, theSplit: Partition, context: TaskContext): AnyRef = {
 
     println("----------------------- Going through the Aspect ---------------------------------");
