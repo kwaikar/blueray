@@ -72,7 +72,6 @@ object LBS {
           if (population == null) {
             val data = Source.fromFile("/data/kanchan/dict.csv").getLines();
             val sortedZipList = Source.fromFile("/data/kanchan/sortedziplist").getLines().map(x => (x.split(",")(0).trim(), x.split(",")(1).trim())).toMap;
-            println("sortedZipList:" + sortedZipList.size)
             population = scala.collection.mutable.Map[(String, String, Double, Double), Double]();
             for (line <- data) {
               val split = line.split(",");
@@ -82,34 +81,38 @@ object LBS {
         }
       }
       println(population.size + " " + population.head);
-      val metadata = Metadata.getInstance(sc).value;
-      var numMatches: Double = 0;
-  //println(metadata.getMetadata(0).get.getCategory(key.get(0).get).leaves + ":" +  metadata.getMetadata(3).get.getCategory(key.get(3).get).leaves + ":" + LBSUtil.getMinMax(key.get(2).get) + ":" +  LBSUtil.getMinMax(key.get(1).get))
+      if (key != null) {
+        val metadata = Metadata.getInstance(sc).value;
+        var numMatches: Double = 0;
+        //println(metadata.getMetadata(0).get.getCategory(key.get(0).get).leaves + ":" +  metadata.getMetadata(3).get.getCategory(key.get(3).get).leaves + ":" + LBSUtil.getMinMax(key.get(2).get) + ":" +  LBSUtil.getMinMax(key.get(1).get))
 
-      for (genderStr <- metadata.getMetadata(0).get.getCategory(key.get(0).get).leaves) //321
-      {
-        for (raceStr <- metadata.getMetadata(3).get.getCategory(key.get(3).get).leaves) {
-          val ageRange = LBSUtil.getMinMax(key.get(2).get);
-          for (age <- ageRange._1.toInt to ageRange._2.toInt) {
-            val zipRange = LBSUtil.getMinMax(key.get(1).get);
-            for (zipCode <- zipRange._1.toInt to zipRange._2.toInt) {
-              val gender = genderStr.replaceAll( "Male","0").replaceAll( "Female","1");
-              val race = raceStr.replaceAll("White", "0").replaceAll("Asian-Pac-Islander", "1").replaceAll("Amer-Indian-Eskimo", "2").replaceAll("Other", "3").replaceAll("Black", "4");
+        for (genderStr <- metadata.getMetadata(0).get.getCategory(key.get(0).get).leaves) //321
+        {
+          for (raceStr <- metadata.getMetadata(3).get.getCategory(key.get(3).get).leaves) {
+            val ageRange = LBSUtil.getMinMax(key.get(2).get);
+            for (age <- ageRange._1.toInt to ageRange._2.toInt) {
+              val zipRange = LBSUtil.getMinMax(key.get(1).get);
+              for (zipCode <- zipRange._1.toInt to zipRange._2.toInt) {
+                val gender = genderStr.replaceAll("Male", "0").replaceAll("Female", "1");
+                val race = raceStr.replaceAll("White", "0").replaceAll("Asian-Pac-Islander", "1").replaceAll("Amer-Indian-Eskimo", "2").replaceAll("Other", "3").replaceAll("Black", "4");
 
-           //   println(race + ":" + gender + ":" + age + ":" + zipCode + population.get((race, gender, age.toDouble, zipCode.toDouble)))
+                //   println(race + ":" + gender + ":" + age + ":" + zipCode + population.get((race, gender, age.toDouble, zipCode.toDouble)))
 
-              if (population.get((race, gender, age.toDouble, zipCode.toDouble)) != None) {
-                println(gender + ":" + race + ":" + age + ":" + zipCode + population.get((race, gender, age.toDouble, zipCode.toDouble)).get)
-                numMatches += population.get((race, gender, age.toDouble, zipCode.toDouble)).get;
+                if (population.get((race, gender, age.toDouble, zipCode.toDouble)) != None) {
+                  //   println(gender + ":" + race + ":" + age + ":" + zipCode + population.get((race, gender, age.toDouble, zipCode.toDouble)).get)
+                  numMatches += population.get((race, gender, age.toDouble, zipCode.toDouble)).get;
+                }
               }
             }
           }
         }
+        return numMatches.toInt;
+      } else {
+        return population.size;
       }
-      return numMatches.toInt;
     }
 
-    def getTotalCount(sc: SparkContext, linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])]): Broadcast[Long] = {
+    def getTotalCount(sc: SparkContext , linesRDD : RDD[(Long, scala.collection.mutable.Map[Int, String])]): Broadcast[Long] = {
       if (totalDataCount == null) {
         val totalDataCountVal = linesRDD.count();
         totalDataCount = sc.broadcast(totalDataCountVal)
@@ -127,24 +130,24 @@ object LBS {
           var maximumInfoLossValue: Double = 0.0;
           for (column <- metadata.value.getQuasiColumns()) {
             //println(i + ":" + Math.log(1.0 / metadata.value.getMetadata(i).get.depth()));
-            /*val denom = Metadata.getTotalCount(sc, linesRDD).value*/
+            /*val denom = Metadata.getTotalCount(sc/* , linesRDD */).value*/
             //println("NumUnique: " + column.getName() + "::" + column.getNumUnique())
             maximumInfoLossValue += (-Math.log(1.0 / column.getNumUnique()));
           }
           maximumInfoLoss = sc.broadcast(maximumInfoLossValue);
         }
-        return maximumInfoLoss;
+        return /*maximumInfoLoss*/sc.broadcast(getNumMatches(sc,null).toDouble );
       }
   }
-  var linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])] = null;
-
+/*  var linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])] = null;
+*/
   def setup(hdfsFilePath: String, predictionFilePath: String, outputFilePath: String, lbsParam: LBSParameters, useLSH: Boolean, numNeighbours: Int) {
-    linesRDD = new DataReader().readDataFile(getSC(), hdfsFilePath, true).cache();
+   var linesRDD = new DataReader().readDataFile(getSC(), hdfsFilePath, true).cache();
 
     val metadata = Metadata.getInstance(getSC());
-    lbs(outputFilePath, linesRDD, useLSH, lbsParam, numNeighbours);
+    lbs(outputFilePath , linesRDD , useLSH, lbsParam, numNeighbours);
   }
-  def lbs(outputFilePath: String, linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], useLSH: Boolean, lbsParam: LBSParameters, numNeighbours: Int) {
+  def lbs(outputFilePath: String, linesRDD : RDD[(Long, scala.collection.mutable.Map[Int, String])], useLSH: Boolean, lbsParam: LBSParameters, numNeighbours: Int) {
 
     val metadata = Metadata.getInstance(getSC());
     var totalPublisherPayOff = 0.0;
@@ -180,9 +183,9 @@ object LBS {
       println("final  " + opts.count())
       println(opts.map(_._1).mean() + " " + opts.map(_._2).mean());*/
 
-      // for (i <- 0 to Metadata.getTotalCount(getSC(), linesRDD).value.intValue() - 1) {
+      // for (i <- 0 to Metadata.getTotalCount(getSC()/* , linesRDD */).value.intValue() - 1) {
       val i = 29779;
-      val optimalRecord = findOptimalStrategy(linesRDD.lookup(i.longValue())(0), lbsParam, linesRDD)
+      val optimalRecord = findOptimalStrategy(linesRDD.lookup(i.longValue())(0), lbsParam/* , linesRDD */)
       totalPublisherPayOff += optimalRecord._1;
 
       totalAdvBenefit += optimalRecord._2;
@@ -201,8 +204,8 @@ object LBS {
     rdds = rdds :+ vl;
     new DataWriter(getSC()).writeRDDToAFile(outputFilePath, getSC().union(rdds).sortBy(_._1).map(_._2));
 
-    println("Avg PublisherPayOff found: " + (totalPublisherPayOff / Metadata.getTotalCount(getSC(), linesRDD).value))
-    println("Avg AdversaryBenefit found: " + (totalAdvBenefit / Metadata.getTotalCount(getSC(), linesRDD).value))
+    println("Avg PublisherPayOff found: " + (totalPublisherPayOff / Metadata.getTotalCount(getSC() , linesRDD ).value))
+    println("Avg AdversaryBenefit found: " + (totalAdvBenefit / Metadata.getTotalCount(getSC() , linesRDD ).value))
   }
 
   def lsh(linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], lbsParam: LBSParameters, numNeighbors: Int): (Double, Double, List[RDD[(Int, String)]]) = {
@@ -267,7 +270,7 @@ object LBS {
       val key = keysRemaining.last._1
 
       val currentRecord = linesRDD.lookup(key)(0);
-      val optimalRecord = findOptimalStrategy(currentRecord, lbsParam, linesRDD)
+      val optimalRecord = findOptimalStrategy(currentRecord, lbsParam/*, linesRDD*/)
       predicted = predicted + 1;
       totalPublisherPayOff += optimalRecord._1;
       totalAdvBenefit += optimalRecord._2;
@@ -349,10 +352,10 @@ object LBS {
     return (totalPublisherPayOff, totalAdvBenefit, rdds);
   }
 
-  def getPublishersBenefit(g: scala.collection.mutable.Map[Int, String], lbsParams: LBSParameters, linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])]): Double =
+  def getPublishersBenefit(g: scala.collection.mutable.Map[Int, String], lbsParams: LBSParameters/* , linesRDD : RDD[(Long, scala.collection.mutable.Map[Int, String])]*/): Double =
     {
 
-      //println ("Publisher Benefit" +lbsParams.getMaxPublisherBenefit()+"* ( 1.0 - "+getInformationLoss(g,linesRDD) +"/"+Metadata.getMaximulInformationLoss(getSC(), linesRDD).value +" ="+lbsParams.getMaxPublisherBenefit() * (1.0 - (getInformationLoss(g,  linesRDD) / Metadata.getMaximulInformationLoss(getSC(), linesRDD).value)));
+      println("Publisher Benefit" + lbsParams.getMaxPublisherBenefit() + "* ( 1.0 - " + getInformationLoss(g) + "/" + Metadata.getMaximulInformationLoss(getSC()).value + " =" + lbsParams.getMaxPublisherBenefit() * (1.0 - (getInformationLoss(g) / Metadata.getMaximulInformationLoss(getSC()).value)));
       return lbsParams.getMaxPublisherBenefit() * (1.0 - (getInformationLoss(g) / Metadata.getMaximulInformationLoss(getSC()).value));
     }
 
@@ -365,31 +368,31 @@ object LBS {
         val value = g.get(column.getIndex()).get.trim()
         if (column.getColType() == 's') {
           val children = column.getCategory(value);
-          /* if (children.leaves.length != 0) {
+      /*    if (children.leaves.length != 0) {
             //   println(value + " _ " + (-Math.log(1.0 / children.leaves.length)));
             infoLoss += (-Math.log(1.0 / children.leaves.length));
           }*/
-          if (value != children.value) {
+          /* if (value != children.value) {
             count = linesRDD.filter({ case (x, y) => { children.childrenString.contains(y.get(column.getIndex()).get) } }).count();
             infoLoss += (-Math.log(1.0 / count));
-          }
+          }*/
         } else {
           val minMax = LBSUtil.getMinMax(value);
           /*if (minMax._1 != minMax._2) {
             // println(value + " _ " + (-Math.log(1.0 / (1 + minMax._2 - minMax._1))))
             infoLoss += (-Math.log(1.0 / (1 + minMax._2 - minMax._1)));
           }*/
-          if (minMax._1 != minMax._2) {
+          /*   if (minMax._1 != minMax._2) {
             if ((minMax._1 == column.getMin() && (minMax._2 == column.getMax()))) {
 
-              count = Metadata.getTotalCount(getSC(), linesRDD).value;
+              count = Metadata.getTotalCount(getSC()/* , linesRDD */).value;
               infoLoss += (-Math.log(1.0 / count));
 
             } else {
               count = linesRDD.filter({ case (x, y) => { (y.get(column.getIndex()).get.toDouble >= minMax._1 && y.get(column.getIndex()).get.toDouble <= minMax._2) } }).count();
               infoLoss += (-Math.log(1.0 / count));
             }
-          }
+          }*/
         }
       }
       println("Total infoLoss for " + g + " =" + infoLoss);
@@ -400,7 +403,7 @@ object LBS {
    * Returns probability of adversaries success. Depends on total number of entries that fall in the same category.
    * Should return a number between 0 and 1 - 1 when only single record (self) exists.
    */
-  def getRiskOfStrategy(a: scala.collection.mutable.Map[Int, String], metadata: Broadcast[Metadata], linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])]): Double =
+  def getRiskOfStrategy(a: scala.collection.mutable.Map[Int, String], metadata: Broadcast[Metadata]/* , linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])] */): Double =
     { /*
       val aVal = sc.broadcast(a);
       val matchingPopulationGroupSize = linesRDD.map({
@@ -445,7 +448,7 @@ object LBS {
       return (1.0 / sum);
     }
 
-  def findOptimalStrategy(top: scala.collection.mutable.Map[Int, String], lbsParam: LBSParameters, linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])]): (Double, Double, scala.collection.mutable.Map[Int, String]) = {
+  def findOptimalStrategy(top: scala.collection.mutable.Map[Int, String], lbsParam: LBSParameters/*/* , linesRDD */: RDD[(Long, scala.collection.mutable.Map[Int, String])]*/): (Double, Double, scala.collection.mutable.Map[Int, String]) = {
     //println("starting ::+:")
 
     var publisherPayOff: Double = -1;
@@ -455,10 +458,10 @@ object LBS {
     var genStrategy = top;
     while (!isGLeafNode(genStrategy)) {
       //println(":0::")
-      adversaryBenefit = getRiskOfStrategy(genStrategy, Metadata.getInstance(getSC()), linesRDD) * lbsParam.getPublishersLossOnIdentification(); // adversaryBenefit = publisherLoss.
+      adversaryBenefit = getRiskOfStrategy(genStrategy, Metadata.getInstance(getSC())/* , linesRDD */) * lbsParam.getPublishersLossOnIdentification(); // adversaryBenefit = publisherLoss.
 
       // println(":1::")
-      publisherPayOff = getPublishersBenefit(genStrategy, lbsParam, linesRDD) - adversaryBenefit;
+      publisherPayOff = getPublishersBenefit(genStrategy, lbsParam/* , linesRDD */) - adversaryBenefit;
 
       // println("::2:("+publisherPayOff+")")
       if (adversaryBenefit <= lbsParam.getRecordCost()) {
@@ -471,10 +474,10 @@ object LBS {
 
       for (child <- children) {
         //     println("children:::"+child)
-        val childAdvBenefit = getRiskOfStrategy(child, Metadata.getInstance(getSC()), linesRDD) * lbsParam.getPublishersLossOnIdentification();
-        //         println ("childAdvBenefit"+childAdvBenefit);
-        val childPublisherPayoff = getPublishersBenefit(child, lbsParam, linesRDD) - childAdvBenefit;
-        //   println("Child payoff " + childPublisherPayoff + "->" +  "|"+(childPublisherPayoff >= publisherPayOff)+"___"+child)
+        val childAdvBenefit = getRiskOfStrategy(child, Metadata.getInstance(getSC())/*/* , linesRDD */*/) * lbsParam.getPublishersLossOnIdentification();
+        println("childAdvBenefit" + childAdvBenefit);
+        val childPublisherPayoff = getPublishersBenefit(child, lbsParam/*/* , linesRDD */*/) - childAdvBenefit;
+        println("Child payoff " + childPublisherPayoff + "->" + "|" + (childPublisherPayoff >= publisherPayOff) + "___" + child)
 
         if (childPublisherPayoff >= publisherPayOff) {
           //       println("Assigning values " + childPublisherPayoff + "->" + child)
