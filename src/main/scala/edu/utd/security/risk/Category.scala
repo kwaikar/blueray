@@ -18,7 +18,7 @@ class Category(value: String) extends Serializable {
   var map: scala.collection.mutable.HashMap[String, Int] = null;
   var revMap: scala.collection.mutable.HashMap[Int, String] = null;
   if (value.contains("_")) {
-    val minMax = LBSUtil.getMinMax(value);
+    val minMax = LSHUtil.getMinMax(value);
     min = minMax._1;
     max = minMax._2;
   }

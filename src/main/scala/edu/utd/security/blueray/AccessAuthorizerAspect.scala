@@ -12,6 +12,9 @@ import org.aspectj.lang.annotation.Aspect
 import scala.io.Source
 import edu.utd.security.risk.DataReader
 import edu.utd.security.risk.Metadata
+import edu.utd.security.risk.LBSMetadata
+import edu.utd.security.risk.LBSAlgorithm
+import edu.utd.security.risk.LBSParameters
 
 /**
  * Aspect implementing authorized computation of the RDD
@@ -20,7 +23,8 @@ import edu.utd.security.risk.Metadata
 class AccessAuthorizerAspect {
 
   var dataMetadata: Metadata = null;
-//  @Around(value = "execution(* org.apache.spark.rdd.MapPartitionsRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
+  var algorithm:LBSAlgorithm=null;
+  @Around(value = "execution(* org.apache.spark.rdd.MapPartitionsRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
   def aroundAdvice_spark(jp: ProceedingJoinPoint, theSplit: Partition, context: TaskContext): AnyRef = {
 
     println("----------------------- Going through the Aspect ---------------------------------");
@@ -44,6 +48,14 @@ class AccessAuthorizerAspect {
 
       println("Returning   iterator" + columnBlockingIterator)
       return columnBlockingIterator;
+    }
+    else if (sys.env.contains("LBS")) {
+      if(algorithm==null)
+      {
+      algorithm = new LBSAlgorithm(LBSMetadata.getInstance(), new LBSParameters(4,1200,300,10), LBSMetadata.getPopulation());
+        
+      }
+      return new LBSInterruptibleIterator(context,iterator.asInstanceOf[Iterator[_]],algorithm);
     }
     // if (context.getLocalProperty("PRIVILEDGE") != null) {
     val policy = getPolicy(context, jp, PointCutType.SPARK);

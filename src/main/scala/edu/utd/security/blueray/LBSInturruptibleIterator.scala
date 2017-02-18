@@ -4,17 +4,15 @@ import org.apache.spark.InterruptibleIterator
 import org.apache.spark.TaskContext
 import org.apache.spark.sql.catalyst.expressions.UnsafeRow
 
-import edu.utd.security.risk.Metadata
+import edu.utd.security.risk.LBSAlgorithm
+import edu.utd.security.risk.LBSMetadata
 
 /**
  * Custom Implementation of InteruptibleIterator that blocks the value passed while iterating over the array.
  */
-class ColumnBlockingInterruptibleIterator[T](context: TaskContext, delegate: Iterator[T], val columnsToBeBlocked: String, val dataMetadata: Metadata)
+class LBSInterruptibleIterator[T](context: TaskContext, delegate: Iterator[T], algorithm:LBSAlgorithm)
     extends InterruptibleIterator[T](context, delegate) {
 
-  val numColumns = columnsToBeBlocked.substring(0, columnsToBeBlocked.indexOf('[')).toInt;
-  val blockCols = columnsToBeBlocked.substring(columnsToBeBlocked.indexOf('[') + 1, columnsToBeBlocked.indexOf(']')).split(",").map(_.toInt);
-  val metadataPath = columnsToBeBlocked.substring(columnsToBeBlocked.indexOf(']')+1, columnsToBeBlocked.length());
   /**
    * This method verifies whether next element available through iterator is authorized or not. If authorized, it holds it in the memory for serving via next method.
    */
@@ -47,22 +45,16 @@ class ColumnBlockingInterruptibleIterator[T](context: TaskContext, delegate: Ite
       } else {
         localNextElementStr = nextElement.toString();
       }
-      var split = localNextElementStr.trim().split(",");
-      if (split.length == numColumns) {
-        for (i <- blockCols) {
-          split(i) = getStringOfLength(i, split(i));
-        }
+      if (localNextElementStr.split(",").length == LBSMetadata.getInstance().numColumns()) {
+         
+    val optimalRecord = algorithm.findOptimalStrategy(localNextElementStr)
 
         if (nextElement.getClass == classOf[String]) {
-          return split.mkString(",").asInstanceOf[T];
+          return algorithm.findOptimalStrategy(localNextElementStr.trim()).asInstanceOf[T];
         } else if (nextElement.getClass == classOf[UnsafeRow]) {
-
           val unsafeRow: UnsafeRow = nextElement.asInstanceOf[UnsafeRow];
           var newElement: UnsafeRow = new UnsafeRow(unsafeRow.numFields());
-        println(blockCols.mkString + "============================Class Type Found UnsafeRow : " + unsafeRow.numFields() + " |" + localNextElementStr.trim() + "|")
-          localNextElementStr = localNextElementStr.trim().r.replaceAllIn(localNextElementStr, split.mkString(","));
-          //println("replacing ++" + localNextElementStr.trim() + "|")
-          //println("Returning |" + localNextElementStr.trim() + "|")
+          localNextElementStr = localNextElementStr.trim().r.replaceAllIn(localNextElementStr, algorithm.findOptimalStrategy(localNextElementStr.trim()));
           newElement.pointTo(localNextElementStr.map(_.toByte).toArray, unsafeRow.getBaseOffset, unsafeRow.getSizeInBytes)
           return newElement.asInstanceOf[T];
         } else {
@@ -75,16 +67,4 @@ class ColumnBlockingInterruptibleIterator[T](context: TaskContext, delegate: Ite
       return nextElement;
     }
   }
-
-  def getStringOfLength(index: Int, value: String): String = {
-    if (dataMetadata == null) {
-      var sb: StringBuilder = new StringBuilder();
-      for (c <- 1 to value.length()) {
-        sb.append("-");
-      }
-      sb.toString
-    } else {
-      return dataMetadata.getMetadata(index).get.getParentCategory(value).value();
-    }
-  }
-}
+ }

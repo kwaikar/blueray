@@ -27,8 +27,8 @@ class LBSTest {
     val dataReader = new DataReader();
     linesRDD = dataReader.readDataFile(sc,"hdfs://localhost/user/adult.data2.txt", true);
     linesRDD.cache();
-    metadataVal = LBS.Metadata.getInstance(sc).value;
-    LBS.setup("hdfs://localhost/user/adult.data2.txt", "/home/kanchan/metadata.xml", "/home/kanchan/op.txt", new LBSParameters(4, 1200, 2000, 20),true,50);
+    metadataVal = LBSWithoutAspect.Metadata.getInstance(sc).value;
+    LBSWithoutAspect.setup("hdfs://localhost/user/adult.data2.txt", "/home/kanchan/metadata.xml", "/home/kanchan/op.txt", new LBSParameters(4, 1200, 2000, 20),true,50);
   }
   @After
   def destroy() {
@@ -40,9 +40,9 @@ class LBSTest {
   //@Test
   def testLBSIsLeafNodeFunction() {
 
-    assert(!LBS.isGLeafNode(record._2));
+    assert(!LBSWithoutAspect.isGLeafNode(record._2));
     var newMap = getTopMostGeneralization();
-    assert(LBS.isGLeafNode(newMap));
+    assert(LBSWithoutAspect.isGLeafNode(newMap));
   }
 
   def getTopMostGeneralization() = {
@@ -59,45 +59,45 @@ class LBSTest {
   }
   // @Test
   def testInformationLoss() {
-    assert((41.54091679442631 == LBS.getInformationLoss(record._2)));
+    assert((41.54091679442631 == LBSWithoutAspect.getInformationLoss(record._2)));
   }
 
    //@Test
   def testGetMaximulInformationLoss() {
-    val loss = LBS.Metadata.getMaximulInformationLoss(sc);
+    val loss = LBSWithoutAspect.Metadata.getMaximulInformationLoss(sc);
     println("==>" + loss);
     assert(17.8622848986764 == loss);
   }
  // @Test
   def testPublisherBenefit() {
-    assert(LBS.Metadata.getTotalCount(sc,linesRDD) == 92)
-    var ben = LBS.getPublishersBenefit(record._2, new LBSParameters(4, 1200, 2000, 10) ,linesRDD);
+    assert(LBSWithoutAspect.Metadata.getTotalCount(sc,linesRDD) == 92)
+    var ben = LBSWithoutAspect.getPublishersBenefit(record._2, new LBSParameters(4, 1200, 2000, 10) /*,linesRDD*/);
     println("Record ==>" + ben);
 
-    ben = LBS.getPublishersBenefit(getTopMostGeneralization(), new LBSParameters(4, 1200, 2000, 10) ,linesRDD);
+    ben = LBSWithoutAspect.getPublishersBenefit(getTopMostGeneralization(), new LBSParameters(4, 1200, 2000, 10) /*,linesRDD*/);
     println("Top ==>" + ben);
 
   }
  // @Test
   def testSuperSets()
   {
-      for (child <- LBS.getChildren(record._2)) {
+      for (child <- LBSWithoutAspect.getChildren(record._2)) {
       println(child)
-    //  assert(LBS.isRecordASuperSetOfRecordB( child,record._2));
+    //  assert(LBSWithoutAspect.isRecordASuperSetOfRecordB( child,record._2));
     }
   }
   //@Test
   def testRiskOfStrategy()
   {
-    println(LBS.getRiskOfStrategy(record._2,LBS.Metadata.getInstance(sc),linesRDD));
-    assert (LBS.getRiskOfStrategy(record._2,LBS.Metadata.getInstance(sc),linesRDD) ==1)
-    println(LBS.getRiskOfStrategy(getTopMostGeneralization(),LBS.Metadata.getInstance(sc),linesRDD) +" + "+(1.0/92));
-    assert(LBS.getRiskOfStrategy(getTopMostGeneralization(),LBS.Metadata.getInstance(sc),linesRDD) == (1.0/92))
+    println(LBSWithoutAspect.getRiskOfStrategy(record._2,LBSWithoutAspect.Metadata.getInstance(sc)/*,linesRDD*/));
+    assert (LBSWithoutAspect.getRiskOfStrategy(record._2,LBSWithoutAspect.Metadata.getInstance(sc)/*,linesRDD*/) ==1)
+    println(LBSWithoutAspect.getRiskOfStrategy(getTopMostGeneralization(),LBSWithoutAspect.Metadata.getInstance(sc)/*,linesRDD*/) +" + "+(1.0/92));
+    assert(LBSWithoutAspect.getRiskOfStrategy(getTopMostGeneralization(),LBSWithoutAspect.Metadata.getInstance(sc)/*,linesRDD*/) == (1.0/92))
     
-     for (child <- LBS.getChildren(record._2)) {
+     for (child <- LBSWithoutAspect.getChildren(record._2)) {
       println(child)
-      println("==>"+LBS.getRiskOfStrategy( child,LBS.Metadata.getInstance(sc),linesRDD))
-      assert(LBS.getRiskOfStrategy( child,LBS.Metadata.getInstance(sc),linesRDD)==1);
+      println("==>"+LBSWithoutAspect.getRiskOfStrategy( child,LBSWithoutAspect.Metadata.getInstance(sc)/*,linesRDD*/))
+      assert(LBSWithoutAspect.getRiskOfStrategy( child,LBSWithoutAspect.Metadata.getInstance(sc)/*,linesRDD*/)==1);
     }
     
   }

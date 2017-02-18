@@ -23,16 +23,16 @@ object LSH {
   }
   def lsh(sqlContext: SQLContext, hdfsFilePath: String) {
     val linesRDD = new DataReader().readDataFile(sc,hdfsFilePath, true).cache();
-    val metadata = LBS.Metadata.getInstance(sc);
-    val rows = LBSUtil.getMinimalDataSet(metadata.value, linesRDD, false);
+    val metadata = LBSWithoutAspect.Metadata.getInstance(sc);
+    val rows = LSHUtil.getMinimalDataSet(metadata.value, linesRDD, false);
 
     val linesZipped = linesRDD.map((_._2)).zipWithIndex().map { case (map, index) => (index, map) }.cache();
 
     val op = rows.map({
       case (x, y) => ({
-        val columnStartCounts = LBSUtil.getColumnStartCounts(metadata.value);
-        val row = LBSUtil.extractRow(metadata.value, columnStartCounts, y, true)
-        //println(x.intValue()+"-->"+ Vectors.dense(row)+"=="+LBSUtil.extractReturnObject(metadata.value, columnStartCounts, row))
+        val columnStartCounts = LSHUtil.getColumnStartCounts(metadata.value);
+        val row = LSHUtil.extractRow(metadata.value, columnStartCounts, y, true)
+        //println(x.intValue()+"-->"+ Vectors.dense(row)+"=="+LSHUtil.extractReturnObject(metadata.value, columnStartCounts, row))
         println(x.intValue()+ " :"+row.mkString(","))
         (x.intValue(), Vectors.dense(row))
       })
@@ -51,16 +51,16 @@ object LSH {
     val model = brp.fit(dataFrame)
     val txModel = model.transform(dataFrame)
 
-    val columnStartCounts = LBSUtil.getColumnStartCounts(metadata.value);
+    val columnStartCounts = LSHUtil.getColumnStartCounts(metadata.value);
     val rowsToIterate = rows.take(20);
     for (i <- 0 to 19) {
-      val row = (LBSUtil.extractRow(metadata.value, columnStartCounts, (rowsToIterate(i))._2, true))
+      val row = (LSHUtil.extractRow(metadata.value, columnStartCounts, (rowsToIterate(i))._2, true))
       println("Row: " + rowsToIterate(i))
       val neighbors = model.approxNearestNeighbors(txModel, Vectors.dense(row), 10).collectAsList().asInstanceOf[java.util.List[Row]];
 
       for (i <- 0 to neighbors.size() - 1) {
         val neighbor = neighbors.get(i);
-        val output = LBSUtil.extractReturnObject(metadata.value, columnStartCounts, (neighbor.get(1).asInstanceOf[DenseVector]).values);
+        val output = LSHUtil.extractReturnObject(metadata.value, columnStartCounts, (neighbor.get(1).asInstanceOf[DenseVector]).values);
         println(neighbor.get(0).asInstanceOf[Int]+ " - "+output);
       }
     }

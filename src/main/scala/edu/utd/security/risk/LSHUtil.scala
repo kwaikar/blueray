@@ -8,7 +8,7 @@ import org.apache.spark.sql.DataFrameReader
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.SQLContext
 
-object LBSUtil {
+object LSHUtil {
   def getMinMax(value: String): (Double, Double) = {
     if (value.contains("_")) {
       val range = value.split("_");

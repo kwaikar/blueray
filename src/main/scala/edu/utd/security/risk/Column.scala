@@ -117,7 +117,7 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
             searchChild = true;
           }
         } else {
-          val minMax = LBSUtil.getMinMax(childCategory);
+          val minMax = LSHUtil.getMinMax(childCategory);
 
           if (((minMax._1 == minMax._2) && (minMax._1 >= children(i).getMin() && minMax._2 <= children(i).getMax())) ||
             ((minMax._1 != minMax._2) && (minMax._1 > children(i).getMin() && minMax._2 < children(i).getMax()))) {
@@ -154,7 +154,7 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
             searchChild = true;
           }
         } else {
-          val minMax = LBSUtil.getMinMax(childCategory);
+          val minMax = LSHUtil.getMinMax(childCategory);
           if (minMax._1 > children(i).getMin() && minMax._2 < children(i).getMax()) {
             category = children(i);
             searchChild = true;
