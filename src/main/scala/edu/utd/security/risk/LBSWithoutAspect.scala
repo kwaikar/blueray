@@ -36,7 +36,7 @@ object LBSWithoutAspect {
       println("Program variables expected : <HDFS_Data_file_path> <PREDICT_file_path> <output_file_path> <recordCost> <maxPublisherBenefit> <publishersLoss> <adversaryAttackCost> <USE_LSH(true/false)> <LSH_NUM_NEIGHBORS>")
     } else {
       sc.setLogLevel("ERROR");
-      setup(args(0), args(1), args(2), new LBSParameters(args(3).toDouble, args(4).toDouble, args(5).toDouble, args(6).toDouble), args(7).toBoolean, args(8).toInt)
+      setup(args(0), args(1), args(2), new LBSParameters(args(3).toDouble, args(4).toDouble, args(5).toDouble), args(7).toBoolean, args(8).toInt)
     }
   }
   val sc = SparkSession

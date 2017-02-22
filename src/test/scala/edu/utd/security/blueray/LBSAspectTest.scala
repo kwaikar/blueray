@@ -11,6 +11,11 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.apache.spark.sql.SQLContext
+import org.apache.spark.SparkConf
+import org.apache.spark.SparkContext
+import org.apache.spark.sql.types.StructType;
+import org.apache.spark.sql.types.StringType
+import org.apache.spark.sql.types.StructField
 
 /**
  * Unit Test class for testing AccessAuthorization functionality.
@@ -31,16 +36,29 @@ class LBSAspectTest {
     sc = null;
   }
 
-  
-  
   @Test
   def testGeneralizing() = {
-    val filePath="hdfs://localhost/user/adult.1line.csv";
+    val filePath = "hdfs://localhost/user/adult.1line.csv";
     sc.setLogLevel("ERROR");
     println("Starting")
     var inputFile = sc.textFile(filePath)
     println("Plain =>"+ inputFile.collect().mkString)
+val values = inputFile.flatMap(_.split("\n")).map(_.split(",")).map(x=>((x(2),x(3)),1));
+values.reduceByKey(_+_).take(5).foreach(println);
+    /*
+    sc.setLocalProperty("USER", "kanchan");
+    val customSchema = StructType(Array(
+      StructField("gender", StringType, true),
+      StructField("zip", StringType, true),
+      StructField("age", StringType, true),
+      StructField("race", StringType, true)))
+
     val sqlContext = new SQLContext(sc)
+    val df = sqlContext.read.schema(customSchema).csv(filePath)
+    df.groupBy("age").count().show()*/
+
+    /*    val sqlContext = new SQLContext(sc)
+  
     
     
     val fileName="hdfs://localhost/user/Blocking_Aspect_output";
@@ -50,7 +68,7 @@ class LBSAspectTest {
     val dfs3 = sqlContext.read.json(filePath2)
    inputFile.saveAsTextFile("hdfs://localhost/user/Blocking_Aspect_output");
 
-    /*
+    
     val dfs = sqlContext.read.json(filePath)
     val dfs2 = sqlContext.read.json(filePath)
     
@@ -60,9 +78,8 @@ class LBSAspectTest {
      assert(dfs.collect().mkString.trim().equals("[*,38111.0_38120.0,1][*,37880.0_37890.0,31,Amer-Indian]"));
      assert(dfs2.rdd.collect().mkString.trim().equals("[*,38111.0_38120.0,1][*,37880.0_37890.0,31,Amer-Indian]"));*/
 
-      }
-   
-  
+  }
+
   def splitLine(line: String) = {
     val splits = line.split("\\^");
     if (splits.size == 3)

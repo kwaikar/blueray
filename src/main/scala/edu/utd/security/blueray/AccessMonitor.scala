@@ -22,7 +22,7 @@ object AccessMonitor {
    * Register policy mechanism for enforcing new policy
    */
   def enforcePolicy(policy: Policy) {
-     if (sys.env("POLICYMANAGER_END_POINT")!=null) {
+     if (sys.env.contains("POLICYMANAGER_END_POINT")) {
       enforcePolicyOnRESTEndPoint(policy.resourcePath, policy.priviledge, policy.regex);
      } else {
       policy.priviledge = policy.priviledge
@@ -33,7 +33,7 @@ object AccessMonitor {
     } 
   }
   def deRegisterPolicy(policy: Policy) {
-     if (sys.env("POLICYMANAGER_END_POINT")!=null) {
+     if (sys.env.contains("POLICYMANAGER_END_POINT")) {
       deregisterPolicyOnRESTEndPoint(policy.resourcePath, policy.priviledge, policy.regex);
      } else {
       var policiesSet: Option[HashSet[Policy]] = policies.get(policy.resourcePath)
@@ -75,7 +75,7 @@ object AccessMonitor {
    */
   def getPolicy(path: String, priviledgeRestriction: Option[String]): Option[Policy] =
     {
-       if (sys.env("POLICYMANAGER_END_POINT")!=null) { 
+       if (sys.env.contains("POLICYMANAGER_END_POINT")) { 
         return getPolicyFromEndPoint(path, priviledgeRestriction.get);
 
        } else {

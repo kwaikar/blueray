@@ -32,7 +32,7 @@ class ColumnBlockingInterruptibleIterator[T](context: TaskContext, delegate: Ite
      */
     val nextElement = super.next();
     var cnt = 0;
-   
+    //println("next called")
     if (nextElement != null) {
       var localNextElementStr = "";
       if (nextElement.getClass == classOf[UnsafeRow]) {
@@ -54,15 +54,16 @@ class ColumnBlockingInterruptibleIterator[T](context: TaskContext, delegate: Ite
         }
 
         if (nextElement.getClass == classOf[String]) {
+          //println("returnng "+split.mkString(","))
           return split.mkString(",").asInstanceOf[T];
         } else if (nextElement.getClass == classOf[UnsafeRow]) {
 
           val unsafeRow: UnsafeRow = nextElement.asInstanceOf[UnsafeRow];
           var newElement: UnsafeRow = new UnsafeRow(unsafeRow.numFields());
-        println(blockCols.mkString + "============================Class Type Found UnsafeRow : " + unsafeRow.numFields() + " |" + localNextElementStr.trim() + "|")
+        //println(blockCols.mkString + "============================Class Type Found UnsafeRow : " + unsafeRow.numFields() + " |" + localNextElementStr.trim() + "|")
           localNextElementStr = localNextElementStr.trim().r.replaceAllIn(localNextElementStr, split.mkString(","));
           //println("replacing ++" + localNextElementStr.trim() + "|")
-          //println("Returning |" + localNextElementStr.trim() + "|")
+           println("Returning |" + localNextElementStr.trim() + "|")
           newElement.pointTo(localNextElementStr.map(_.toByte).toArray, unsafeRow.getBaseOffset, unsafeRow.getSizeInBytes)
           return newElement.asInstanceOf[T];
         } else {

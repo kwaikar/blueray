@@ -8,11 +8,15 @@ class LBSAlgorithm(metadata: Metadata, lbsParam: LBSParameters, population: scal
   def getMaximulInformationLoss(): Double =
     {
       if (maximumInfoLoss == 0) {
+        println("Calculating Maximum Information Loss")
         for (column <- metadata.getQuasiColumns()) {
-          maximumInfoLoss += (-Math.log(1.0 / column.getNumUnique()));
+          println(column.getName() + ":[" + column.getNumUnique() + "] => " + (-Math.log(1.0.toFloat / column.getNumUnique().toFloat)));
+          maximumInfoLoss += (-Math.log(1.0.toFloat / column.getNumUnique().toFloat));
         }
+        println("Setting maximumInformationLoss : " + maximumInfoLoss)
+
       }
-      return maximumInfoLoss /* getNumMatches(null).toDoubl*/ ;
+      return maximumInfoLoss;
     }
   def findOptimalStrategy(text: String): String =
     {
@@ -22,54 +26,48 @@ class LBSAlgorithm(metadata: Metadata, lbsParam: LBSParameters, population: scal
         record.put(i, split(i));
       }
       val strategy = findOptimalStrategy(record);
-      println("==>" + strategy)
+      println("Optimal Strategy found ==>" + strategy)
       return strategy._3.toArray.sortBy(_._1).map(_._2).mkString(",");
     }
   def findOptimalStrategy(record: scala.collection.mutable.Map[Int, String]): (Double, Double, scala.collection.mutable.Map[Int, String]) = {
-    //println("starting ::+:")
 
     var publisherPayOff: Double = -1;
     var adversaryBenefit: Double = -1;
 
     var genStrategy = record;
     while (!isGLeafNode(genStrategy)) {
-      //println(":0::")
       adversaryBenefit = getRiskOfStrategy(genStrategy) * lbsParam.getPublishersLossOnIdentification(); // adversaryBenefit = publisherLoss.
 
-      // println(":1::")
       publisherPayOff = getPublishersBenefit(genStrategy) - adversaryBenefit;
 
-      //println("::2:("+publisherPayOff+")"+adversaryBenefit)
       if (adversaryBenefit <= lbsParam.getRecordCost()) {
-        //println("::2:(" + publisherPayOff + ")")
+        println("adversaryBenefit<=lbsParam.getRecordCost() " + publisherPayOff + "_" + adversaryBenefit)
         return (publisherPayOff, adversaryBenefit, genStrategy);
       }
-      //      println("Publisher Payoff " + publisherPayOff + ": " + genStrategy);
+
       var currentStrategy = genStrategy;
       val children = getChildren(genStrategy);
 
       for (child <- children) {
-             //println("-----------------------------------------")
+        println("-----------------------------------------")
         val childAdvBenefit = getRiskOfStrategy(child) * lbsParam.getPublishersLossOnIdentification();
-        //println("childAdvBenefit" + childAdvBenefit);
         val childPublisherPayoff = getPublishersBenefit(child) - childAdvBenefit;
-        //println("Child payoff " + childPublisherPayoff + "->" + "|" + (childPublisherPayoff >= publisherPayOff) + "___" + child)
+        println(child + ": " + childPublisherPayoff + "_" + childAdvBenefit + ": (childPublisherPayoff >= publisherPayOff)=" + (childPublisherPayoff >= publisherPayOff))
 
         if (childPublisherPayoff >= publisherPayOff) {
-          //       println("Assigning values " + childPublisherPayoff + "->" + child)
+          println("Exploring children of child : " + child)
           currentStrategy = child;
           adversaryBenefit = childAdvBenefit;
           publisherPayOff = childPublisherPayoff;
         }
       }
       if (currentStrategy == genStrategy) {
-        //// println("Selected "+currentStrategy);
-        //println("Parent Payoff is better than any of the children payoff" + publisherPayOff);
+        println("Parent Payoff is better than any of the children payoff" + publisherPayOff);
         return (publisherPayOff, adversaryBenefit, genStrategy);
       }
       genStrategy = currentStrategy;
     }
-    //println("Outside return payoff" + publisherPayOff);
+    println("Outside return payoff" + publisherPayOff);
     return (publisherPayOff, adversaryBenefit, genStrategy);
   }
 
@@ -81,7 +79,7 @@ class LBSAlgorithm(metadata: Metadata, lbsParam: LBSParameters, population: scal
     {
 
       val sum = getNumMatches(a);
-      //println("Risk of Strategy: " + sum + " | " + (1.0 / sum))
+      println("Strategy: " + a + " num_entries: " + sum + " Risk=> " + (1.0 / sum))
       if (sum == 0) {
         return 1;
       } else {
@@ -98,37 +96,32 @@ class LBSAlgorithm(metadata: Metadata, lbsParam: LBSParameters, population: scal
         if (column.getColType() == 's') {
           val children = column.getCategory(value);
           if (children.leaves.length != 0) {
-            //   println(value + " _ " + (-Math.log(1.0 / children.leaves.length)));
-            infoLoss += (-Math.log(1.0 / children.leaves.length));
-          }
-          else
-          {
-            infoLoss += (-Math.log(1.0 ));
+            println(value + " _ " + children.leaves + "__" + (-Math.log(1.0.toFloat / children.leaves.length.toFloat)));
+            infoLoss += (-Math.log(1.0.toFloat / children.leaves.length.toFloat));
           }
         } else {
           val minMax = LSHUtil.getMinMax(value);
           if (minMax._1 != minMax._2) {
-            // println(value + " _ " + (-Math.log(1.0 / (1 + minMax._2 - minMax._1))))
-            infoLoss += (-Math.log(1.0 / (1 + minMax._2 - minMax._1)));
-          }
-          else
-          {
-            infoLoss += (-Math.log(1.0 ));
+            println(value + " _ " + (1 + minMax._2 - minMax._1) + " _ " + (-Math.log(1.0.toFloat / (1 + minMax._2 - minMax._1).toFloat)))
+            infoLoss += (-Math.log(1.0.toFloat / (1 + minMax._2 - minMax._1).toFloat));
           }
         }
       }
-      //println("Total infoLoss for " + g + " =" + infoLoss);
+      println("Total infoLoss for " + g + " =" + infoLoss);
       return infoLoss;
     }
 
   def getPublishersBenefit(g: scala.collection.mutable.Map[Int, String]): Double =
     {
-     // println("Publisher Benefit" + lbsParam.getMaxPublisherBenefit() + "* ( 1.0 - " + getInformationLoss(g) + "/" + getMaximulInformationLoss() + " =" + lbsParam.getMaxPublisherBenefit() * (1.0 - (getInformationLoss(g) / getMaximulInformationLoss())));
-      return lbsParam.getMaxPublisherBenefit() * (1.0 - (getInformationLoss(g) / getMaximulInformationLoss()));
+      val infoLoss = getInformationLoss(g);
+      val maxInfoLoss = getMaximulInformationLoss();
+      val loss = lbsParam.getMaxPublisherBenefit() * (1.0 - (infoLoss.toFloat / maxInfoLoss.toFloat));
+      println("Publisher Benefit" + lbsParam.getMaxPublisherBenefit() + "* ( 1.0 - " + infoLoss + "/" + maxInfoLoss + " =" + loss);
+      return loss;
     }
   def getNumMatches(key: scala.collection.mutable.Map[Int, String]): Int =
     {
-    println(key)
+
       val genders = metadata.getMetadata(0).get.getCategory(key.get(0).get).leaves;
       val races = metadata.getMetadata(3).get.getCategory(key.get(3).get).leaves;
       if (key != null) {
@@ -136,18 +129,19 @@ class LBSAlgorithm(metadata: Metadata, lbsParam: LBSParameters, population: scal
         for (genderStr <- genders.+:(key.get(0).get)) //321
         {
           for (raceStr <- races.+:(key.get(3).get)) {
-            
+
             val ageRange = LSHUtil.getMinMax(key.get(2).get);
             for (age <- ageRange._1.toInt to ageRange._2.toInt) {
-              
+
               val zipRange = LSHUtil.getMinMax(key.get(1).get);
               for (zipCode <- zipRange._1.toInt to zipRange._2.toInt) {
-                
-                val gender = genderStr.replaceAll("Male", "0").replaceAll("Female", "1");
+
+                val gender = genderStr.replaceAll("Male", "1").replaceAll("Female", "0");
                 val race = raceStr.replaceAll("White", "0").replaceAll("Asian-Pac-Islander", "2").replaceAll("Amer-Indian-Eskimo", "3").replaceAll("Other", "4").replaceAll("Black", "1");
-                   println(race + " :" + gender + " +" + age + "== " + zipCode + " ==>" + population.get((race, gender, age.toDouble, zipCode.toDouble)));
 
                 if (population.get((race, gender, age.toDouble, zipCode.toDouble)) != None) {
+                  println("(" + race + ", " + gender + ", " + age + " " + zipCode + ") :" + population.get((race, gender, age.toDouble, zipCode.toDouble)));
+
                   numMatches += population.get((race, gender, age.toDouble, zipCode.toDouble)).get;
 
                 }
@@ -155,6 +149,7 @@ class LBSAlgorithm(metadata: Metadata, lbsParam: LBSParameters, population: scal
             }
           }
         }
+        println(key + " Matches : " + numMatches)
         return numMatches.toInt;
       } else {
         return population.size;

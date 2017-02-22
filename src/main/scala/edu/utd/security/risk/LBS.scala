@@ -39,7 +39,7 @@ object LBS {
         .builder.appName("LBS").master("local[4]").getOrCreate().sparkContext;
       var linesRDD = new DataReader().readDataFile(sc, args(0), true).cache();
       val i = 29779;
-      lbs(linesRDD.lookup(i.longValue())(0), new LBSParameters(args(3).toDouble, args(4).toDouble, args(5).toDouble, args(6).toDouble))
+      lbs(linesRDD.lookup(i.longValue())(0), new LBSParameters(args(3).toDouble, args(4).toDouble, args(5).toDouble))
     }
   }
 

@@ -27,7 +27,7 @@ class AccessAuthorizerAspect {
   @Around(value = "execution(* org.apache.spark.rdd.MapPartitionsRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
   def aroundAdvice_spark(jp: ProceedingJoinPoint, theSplit: Partition, context: TaskContext): AnyRef = {
 
-    println("----------------------- Going through the Aspect ---------------------------------");
+  //  println("----------------------- Going through the Aspect ---------------------------------");
 
     val iterator = (jp.proceed(jp.getArgs()));
 
@@ -46,13 +46,13 @@ class AccessAuthorizerAspect {
         }
       val columnBlockingIterator = new ColumnBlockingInterruptibleIterator(context, iterator.asInstanceOf[Iterator[_]], sys.env("BlockColumns"), dataMetadata);
 
-      println("Returning   iterator" + columnBlockingIterator)
+      println("Returning   ColumnBlockingInterruptibleIterator : " + columnBlockingIterator)
       return columnBlockingIterator;
     }
     else if (sys.env.contains("LBS")) {
       if(algorithm==null)
       {
-      algorithm = new LBSAlgorithm(LBSMetadata.getInstance(), new LBSParameters(4,1200,300,10), LBSMetadata.getPopulation());
+      algorithm = new LBSAlgorithm(LBSMetadata.getInstance(), new LBSParameters(4,1200,300), LBSMetadata.getPopulation());
         
       }
       return new LBSInterruptibleIterator(context,iterator.asInstanceOf[Iterator[_]],algorithm);
