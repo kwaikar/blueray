@@ -38,13 +38,13 @@ class LBSAspectTest {
 
   @Test
   def testGeneralizing() = {
-    val filePath = "hdfs://localhost/user/adult.1line.csv";
+    val filePath = "hdfs://localhost/user/adult.1lineGen.csv";
     sc.setLogLevel("ERROR");
     println("Starting")
     var inputFile = sc.textFile(filePath)
     println("Plain =>"+ inputFile.collect().mkString)
-val values = inputFile.flatMap(_.split("\n")).map(_.split(",")).map(x=>((x(2),x(3)),1));
-values.reduceByKey(_+_).take(5).foreach(println);
+/*val values = inputFile.flatMap(_.split("\n")).map(_.split(",")).map(x=>((x(2),x(3)),1));
+values.reduceByKey(_+_).take(5).foreach(println);*/
     /*
     sc.setLocalProperty("USER", "kanchan");
     val customSchema = StructType(Array(

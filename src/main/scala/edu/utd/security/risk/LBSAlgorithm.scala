@@ -2,18 +2,21 @@ package edu.utd.security.risk
 
 import scala.collection.mutable.ListBuffer
 
-class LBSAlgorithm(metadata: Metadata, lbsParam: LBSParameters, population: scala.collection.mutable.Map[(String, String, Double, Double), Double]) {
+class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters, population: scala.collection.mutable.Map[(String, String, Double, Double), Double],zipList:List[Int]) {
   var maximumInfoLoss: Double = 0;
+var V = lbsParameters.V();
+var L = lbsParameters.L();
+var C = lbsParameters.C();
 
   def getMaximulInformationLoss(): Double =
     {
       if (maximumInfoLoss == 0) {
         println("Calculating Maximum Information Loss")
         for (column <- metadata.getQuasiColumns()) {
-          println(column.getName() + ":[" + column.getNumUnique() + "] => " + (-Math.log(1.0.toFloat / column.getNumUnique().toFloat)));
-          maximumInfoLoss += (-Math.log(1.0.toFloat / column.getNumUnique().toFloat));
+          println("Info Loss for column "+column.getName() + ":[" + column.getNumUnique() + " unique values ](-Math.log10(1.0 /"+column.getNumUnique()+") = " + (-Math.log10(1.0 / column.getNumUnique())));
+          maximumInfoLoss += (-Math.log10(1.0 / column.getNumUnique()));
         }
-        println("Setting maximumInformationLoss : " + maximumInfoLoss)
+       println("Setting total maximumInformationLoss : " + maximumInfoLoss)
 
       }
       return maximumInfoLoss;
@@ -26,60 +29,70 @@ class LBSAlgorithm(metadata: Metadata, lbsParam: LBSParameters, population: scal
         record.put(i, split(i));
       }
       val strategy = findOptimalStrategy(record);
-      println("Optimal Strategy found ==>" + strategy)
+      println("Optimal Strategy found with Attack ==>" + strategy)  
       return strategy._3.toArray.sortBy(_._1).map(_._2).mkString(",");
     }
-  def findOptimalStrategy(record: scala.collection.mutable.Map[Int, String]): (Double, Double, scala.collection.mutable.Map[Int, String]) = {
+  def findOptimalStrategy(top: scala.collection.mutable.Map[Int, String]): (Double, Double, scala.collection.mutable.Map[Int, String]) = {
 
-    var publisherPayOff: Double = -1;
-    var adversaryBenefit: Double = -1;
+    var Um: Double = -1;
+    var LPiG: Double = -1;
 
-    var genStrategy = record;
-    while (!isGLeafNode(genStrategy)) {
-      adversaryBenefit = getRiskOfStrategy(genStrategy) * lbsParam.getPublishersLossOnIdentification(); // adversaryBenefit = publisherLoss.
+    var g = top;
+    while (!isGLeafNode(g)) {
 
-      publisherPayOff = getPublishersBenefit(genStrategy) - adversaryBenefit;
-
-      if (adversaryBenefit <= lbsParam.getRecordCost()) {
-        println("adversaryBenefit<=lbsParam.getRecordCost() " + publisherPayOff + "_" + adversaryBenefit)
-        return (publisherPayOff, adversaryBenefit, genStrategy);
+      LPiG = L* Pi(g) ; 
+      Um = Vg(g) - LPiG;
+      println(g+ " "+Um);
+      
+      if (LPiG <= C) {
+        println("adversaryBenefit<=lbsParam.getRecordCost() " + Vg(g) + "_" + LPiG)
+        return (Vg(g), LPiG, g);
       }
 
-      var currentStrategy = genStrategy;
-      val children = getChildren(genStrategy);
+      var Gm = g;
 
-      for (child <- children) {
-        println("-----------------------------------------")
-        val childAdvBenefit = getRiskOfStrategy(child) * lbsParam.getPublishersLossOnIdentification();
-        val childPublisherPayoff = getPublishersBenefit(child) - childAdvBenefit;
-        println(child + ": " + childPublisherPayoff + "_" + childAdvBenefit + ": (childPublisherPayoff >= publisherPayOff)=" + (childPublisherPayoff >= publisherPayOff))
+      for (Gc <-  getChildren(g)) {
+        
+        val LPiGc =  L*Pi(Gc) ;
+        var childPublisherPayoff=0.0;
+        if(LPiGc>C)
+        { 
+          childPublisherPayoff = Vg(Gc) - LPiGc;
+        }
+        else
+        {
+           childPublisherPayoff = Vg(Gc)
+        } 
+         println(Gc+ " "+childPublisherPayoff);
+        
+      //  println(Gc + ": " + childPublisherPayoff + "_" + LPiGc + ": (childPublisherPayoff >= publisherPayOff)=" + (childPublisherPayoff >= Um))
 
-        if (childPublisherPayoff >= publisherPayOff) {
-          println("Exploring children of child : " + child)
-          currentStrategy = child;
-          adversaryBenefit = childAdvBenefit;
-          publisherPayOff = childPublisherPayoff;
+        if (childPublisherPayoff >= Um) {
+          println("Selecting child : " + Gc)
+          Gm = Gc;
+          LPiG = LPiGc;
+          Um = childPublisherPayoff;
         }
       }
-      if (currentStrategy == genStrategy) {
-        println("Parent Payoff is better than any of the children payoff" + publisherPayOff);
-        return (publisherPayOff, adversaryBenefit, genStrategy);
+      if (Gm == g) {
+        println("Parent Payoff is better than any of the children payoff" + Um);
+        return (Um, LPiG, g);
       }
-      genStrategy = currentStrategy;
+      g = Gm;
     }
-    println("Outside return payoff" + publisherPayOff);
-    return (publisherPayOff, adversaryBenefit, genStrategy);
+    println("Outside return payoff" + Um + " : "+g);
+    return (Um, LPiG, g);
   }
 
   /**
    * Returns probability of adversaries success. Depends on total number of entries that fall in the same category.
    * Should return a number between 0 and 1 - 1 when only single record (self) exists.
    */
-  def getRiskOfStrategy(a: scala.collection.mutable.Map[Int, String]): Double =
+  def Pi(g: scala.collection.mutable.Map[Int, String]): Double =
     {
 
-      val sum = getNumMatches(a);
-      println("Strategy: " + a + " num_entries: " + sum + " Risk=> " + (1.0 / sum))
+      val sum = getNumMatches(g);
+     println("Strategy: " + g + " num_entries: " + sum + " Risk=> " + (1.0 / sum))
       if (sum == 0) {
         return 1;
       } else {
@@ -87,36 +100,44 @@ class LBSAlgorithm(metadata: Metadata, lbsParam: LBSParameters, population: scal
       }
     }
 
-  def getInformationLoss(g: scala.collection.mutable.Map[Int, String]): Double =
+  def IL(g: scala.collection.mutable.Map[Int, String]): Double =
     {
       var infoLoss: Double = 0;
+      
       for (column <- metadata.getQuasiColumns()) {
         var count: Long = 0;
         val value = g.get(column.getIndex()).get.trim()
         if (column.getColType() == 's') {
           val children = column.getCategory(value);
           if (children.leaves.length != 0) {
-            println(value + " _ " + children.leaves + "__" + (-Math.log(1.0.toFloat / children.leaves.length.toFloat)));
-            infoLoss += (-Math.log(1.0.toFloat / children.leaves.length.toFloat));
+            println("("+column.getName()+") IL+= "+ (-Math.log10(1.0 / children.leaves.length)));
+            infoLoss += (-Math.log10(1.0 / children.leaves.length));
           }
         } else {
           val minMax = LSHUtil.getMinMax(value);
-          if (minMax._1 != minMax._2) {
-            println(value + " _ " + (1 + minMax._2 - minMax._1) + " _ " + (-Math.log(1.0.toFloat / (1 + minMax._2 - minMax._1).toFloat)))
-            infoLoss += (-Math.log(1.0.toFloat / (1 + minMax._2 - minMax._1).toFloat));
+          if(column.getName().trim().equalsIgnoreCase("age"))
+          {
+            println("("+column.getName()+") IL+="+(-Math.log10(1.0 / (1 + minMax._2 - minMax._1))));
+             infoLoss += (-Math.log10(1.0 / (1 + minMax._2 - minMax._1)));
           }
+          else
+          {   
+             println("("+column.getName()+") IL+=:"+zipList.filter { x => x>= minMax._1 && x<=minMax._2}+ " ===>"+zipList.filter { x => x>= minMax._1 && x<=minMax._2}.size)
+            infoLoss += (-Math.log10(1.0 / (1 + minMax._2 - minMax._1)));
+          }
+          
         }
       }
       println("Total infoLoss for " + g + " =" + infoLoss);
       return infoLoss;
     }
 
-  def getPublishersBenefit(g: scala.collection.mutable.Map[Int, String]): Double =
+  def Vg(g: scala.collection.mutable.Map[Int, String]): Double =
     {
-      val infoLoss = getInformationLoss(g);
+      val infoLoss = IL(g);
       val maxInfoLoss = getMaximulInformationLoss();
-      val loss = lbsParam.getMaxPublisherBenefit() * (1.0 - (infoLoss.toFloat / maxInfoLoss.toFloat));
-      println("Publisher Benefit" + lbsParam.getMaxPublisherBenefit() + "* ( 1.0 - " + infoLoss + "/" + maxInfoLoss + " =" + loss);
+      val loss = V * (1.0 - (infoLoss / maxInfoLoss));
+       println("Publisher Benefit" + V + "* ( 1.0 - " + infoLoss + "/" + maxInfoLoss + " =" + loss);
       return loss;
     }
   def getNumMatches(key: scala.collection.mutable.Map[Int, String]): Int =
@@ -140,16 +161,14 @@ class LBSAlgorithm(metadata: Metadata, lbsParam: LBSParameters, population: scal
                 val race = raceStr.replaceAll("White", "0").replaceAll("Asian-Pac-Islander", "2").replaceAll("Amer-Indian-Eskimo", "3").replaceAll("Other", "4").replaceAll("Black", "1");
 
                 if (population.get((race, gender, age.toDouble, zipCode.toDouble)) != None) {
-                  println("(" + race + ", " + gender + ", " + age + " " + zipCode + ") :" + population.get((race, gender, age.toDouble, zipCode.toDouble)));
-
-                  numMatches += population.get((race, gender, age.toDouble, zipCode.toDouble)).get;
-
+              //   println("(" + race + ", " + gender + ", " + age + " " + zipCode + ") :" + population.get((race, gender, age.toDouble, zipCode.toDouble)));
+                 numMatches += population.get((race, gender, age.toDouble, zipCode.toDouble)).get;
                 }
               }
             }
           }
         }
-        println(key + " Matches : " + numMatches)
+       println(key + " Matches : " + numMatches)
         return numMatches.toInt;
       } else {
         return population.size;

@@ -2,16 +2,16 @@ package edu.utd.security.risk
 
 class LBSParameters (recordCost:Double,maxPublisherBenefit:Double,publishersLoss:Double) extends Serializable{
   
-  def getRecordCost():Double=
+  def C():Double=
   {
     return recordCost;
   }
   
-  def getMaxPublisherBenefit():Double = {
+  def V():Double = {
     return maxPublisherBenefit;
   }
   
-  def getPublishersLossOnIdentification():Double=
+  def L():Double=
   {
     return publishersLoss;
   }

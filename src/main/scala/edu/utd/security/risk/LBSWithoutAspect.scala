@@ -355,8 +355,8 @@ object LBSWithoutAspect {
   def getPublishersBenefit(g: scala.collection.mutable.Map[Int, String], lbsParams: LBSParameters/* , linesRDD : RDD[(Long, scala.collection.mutable.Map[Int, String])]*/): Double =
     {
 
-      println("Publisher Benefit" + lbsParams.getMaxPublisherBenefit() + "* ( 1.0 - " + getInformationLoss(g) + "/" + Metadata.getMaximulInformationLoss(getSC()).value + " =" + lbsParams.getMaxPublisherBenefit() * (1.0 - (getInformationLoss(g) / Metadata.getMaximulInformationLoss(getSC()).value)));
-      return lbsParams.getMaxPublisherBenefit() * (1.0 - (getInformationLoss(g) / Metadata.getMaximulInformationLoss(getSC()).value));
+      println("Publisher Benefit" + lbsParams.V() + "* ( 1.0 - " + getInformationLoss(g) + "/" + Metadata.getMaximulInformationLoss(getSC()).value + " =" + lbsParams.V() * (1.0 - (getInformationLoss(g) / Metadata.getMaximulInformationLoss(getSC()).value)));
+      return lbsParams.V() * (1.0 - (getInformationLoss(g) / Metadata.getMaximulInformationLoss(getSC()).value));
     }
 
   def getInformationLoss(g: scala.collection.mutable.Map[Int, String]): Double =
@@ -458,13 +458,13 @@ object LBSWithoutAspect {
     var genStrategy = top;
     while (!isGLeafNode(genStrategy)) {
       //println(":0::")
-      adversaryBenefit = getRiskOfStrategy(genStrategy, Metadata.getInstance(getSC())/* , linesRDD */) * lbsParam.getPublishersLossOnIdentification(); // adversaryBenefit = publisherLoss.
+      adversaryBenefit = getRiskOfStrategy(genStrategy, Metadata.getInstance(getSC())/* , linesRDD */) * lbsParam.L(); // adversaryBenefit = publisherLoss.
 
       // println(":1::")
       publisherPayOff = getPublishersBenefit(genStrategy, lbsParam/* , linesRDD */) - adversaryBenefit;
 
       // println("::2:("+publisherPayOff+")")
-      if (adversaryBenefit <= lbsParam.getRecordCost()) {
+      if (adversaryBenefit <= lbsParam.C()) {
         println("::2:(" + publisherPayOff + ")")
         return (publisherPayOff, adversaryBenefit, genStrategy);
       }
@@ -474,7 +474,7 @@ object LBSWithoutAspect {
 
       for (child <- children) {
         //     println("children:::"+child)
-        val childAdvBenefit = getRiskOfStrategy(child, Metadata.getInstance(getSC())/*/* , linesRDD */*/) * lbsParam.getPublishersLossOnIdentification();
+        val childAdvBenefit = getRiskOfStrategy(child, Metadata.getInstance(getSC())/*/* , linesRDD */*/) * lbsParam.L();
         println("childAdvBenefit" + childAdvBenefit);
         val childPublisherPayoff = getPublishersBenefit(child, lbsParam/*/* , linesRDD */*/) - childAdvBenefit;
         println("Child payoff " + childPublisherPayoff + "->" + "|" + (childPublisherPayoff >= publisherPayOff) + "___" + child)
