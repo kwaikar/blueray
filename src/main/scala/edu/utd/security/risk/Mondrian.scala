@@ -114,17 +114,12 @@ object Mondrian {
          */
         for (i <- 0 to metadata.numColumns() - 1) {
           if (dataMap.get((metadata.numColumns() + i)) == None) {
-    /*        if (metadata.getMetadata(i).get.getIsQuasiIdentifier()) {
-              *//**
+            if (metadata.getMetadata(i).get.getIsQuasiIdentifier()) {
+              /* 
                * Summary statistic for the quasi-identifier without any cut on current column.
-               *//*
+               */ 
               sb.append(summaryMap.get(i).get);
-            } else {
-              *//**
-               * Default output plain value since it is non-quasi ID field.
-               *//*
-    */          sb.append(dataMap.get(i).get)
-            /*}*/
+            }  
           } else {
             /**
              * Paritioned value
@@ -245,7 +240,7 @@ object Mondrian {
             if (listOfNumbers.min == listOfNumbers.max) {
               (x, listOfNumbers.min.toString);
             } else {
-              (x, listOfNumbers.min + "-" + listOfNumbers.max);
+              (x, listOfNumbers.min + "_" + listOfNumbers.max);
             }
           }
         } else {
