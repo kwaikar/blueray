@@ -1,4 +1,4 @@
-package edu.utd.security.mondrian
+package edu.utd.security.risk
 
  /**
    * class used for sharing output of dimension with the calling method.

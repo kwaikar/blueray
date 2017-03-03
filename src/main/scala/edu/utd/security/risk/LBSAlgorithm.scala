@@ -122,8 +122,9 @@ var C = lbsParameters.C();
           }
           else
           {   
-             println("("+column.getName()+") IL+=:"+zipList.filter { x => x>= minMax._1 && x<=minMax._2}+ " ===>"+zipList.filter { x => x>= minMax._1 && x<=minMax._2}.size)
-            infoLoss += (-Math.log10(1.0 / (1 + minMax._2 - minMax._1)));
+            val zipInfoLoss =zipList.filter { x => x>= minMax._1 && x<=minMax._2}.size;
+             println("("+column.getName()+") IL+=:"+zipList.filter { x => x>= minMax._1 && x<=minMax._2}+ " ===>"+zipInfoLoss)
+            infoLoss += (-Math.log10(1.0 / (zipInfoLoss)));
           }
           
         }

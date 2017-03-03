@@ -7,6 +7,7 @@ import org.apache.spark.SparkContext
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
+import edu.utd.security.risk.Mondrian
 
 class MondrianTest {
   var sc: SparkContext = _;

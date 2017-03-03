@@ -1,4 +1,4 @@
-package edu.utd.security.mondrian
+package edu.utd.security.risk
 
 import org.apache.spark.SparkContext
 import org.apache.spark.broadcast.Broadcast
@@ -6,8 +6,9 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.rdd.RDD.rddToOrderedRDDFunctions
 import org.apache.spark.rdd.RDD.rddToPairRDDFunctions
 import org.apache.spark.sql.SparkSession
-
-import edu.utd.security.common.Metadata
+import edu.utd.security.mondrian.DataWriter
+import edu.utd.security.risk.Dimensions
+ 
 
 
 /**
@@ -50,47 +51,33 @@ object Mondrian {
   var metadataFilePath: String = null;
   var dataReader: DataReader = null;
   var sc: SparkContext = SparkSession
-    .builder.appName("Mondrian").master("spark://cloudmaster3:7077").getOrCreate().sparkContext;
+    .builder.appName("Mondrian").master("local[4]").getOrCreate().sparkContext;
 
   /**
    * Using following singleton to retrieve/broadcast metadata variables.
    */
 
-  object Metadata {
-    @volatile private var metadata: Broadcast[Metadata] = null;
-    def getInstance(sc: SparkContext, dataReader: DataReader, filePath: String): Broadcast[Metadata] = {
-      if (metadata == null) {
-        synchronized {
-          if (metadata == null) {
-
-            val metadataVal = dataReader.readMetadata(filePath);
-            metadata = sc.broadcast(metadataVal)
-          }
-        }
-      }
-      metadata
-    }
-  }
+   
 
   /**
    * This is implementation of k-anonymize function that finds dimension, paritions recursively.
    */
   def kanonymize(hdfsDataFilePath: String, metadataFilePath: String, outputFilePath: String, k: Int) {
 
-    val dataReader = new DataReader(sc);
+    val dataReader = new DataReader();
 
-    val linesRDD = dataReader.readDataFile(hdfsDataFilePath, true);
-    linesRDD.cache();
-    val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
+    val linesRDD = dataReader.readDataFile(sc,hdfsDataFilePath, true);
+   
+    val metadata = LBSMetadata.getInstance();
     /**
      * all column indices that would contain newer values need to be blocked from partitioning logic
      * along with non-QuasiIdentifier fields.
      */
 
     var blockedIndices: scala.collection.mutable.Set[Int] = scala.collection.mutable.Set(); ;
-    for (i <- 0 to metadata.value.numColumns() - 1) {
-      blockedIndices += (metadata.value.numColumns() + i)
-      if (!metadata.value.getMetadata(i).get.getIsQuasiIdentifier()) {
+    for (i <- 0 to metadata.numColumns() - 1) {
+      blockedIndices += (metadata.numColumns() + i)
+      if (!metadata.getMetadata(i).get.getIsQuasiIdentifier()) {
         blockedIndices += i;
       }
     }
@@ -117,7 +104,7 @@ object Mondrian {
     /**
      * Unite rdds with summaryStatistics
      */
-    val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
+    val metadata = LBSMetadata.getInstance();
     val rdd = sc.union(summaryStatistics).join(rddsMerged).map({
       case (rowIndex, (summaryMap, dataMap)) => {
         var sb: StringBuilder = new StringBuilder();
@@ -125,26 +112,26 @@ object Mondrian {
         /**
          * Append column values to sb.
          */
-        for (i <- 0 to metadata.value.numColumns() - 1) {
-          if (dataMap.get((metadata.value.numColumns() + i)) == None) {
-            if (metadata.value.getMetadata(i).get.getIsQuasiIdentifier()) {
-              /**
+        for (i <- 0 to metadata.numColumns() - 1) {
+          if (dataMap.get((metadata.numColumns() + i)) == None) {
+    /*        if (metadata.getMetadata(i).get.getIsQuasiIdentifier()) {
+              *//**
                * Summary statistic for the quasi-identifier without any cut on current column.
-               */
+               *//*
               sb.append(summaryMap.get(i).get);
             } else {
-              /**
+              *//**
                * Default output plain value since it is non-quasi ID field.
-               */
-              sb.append(dataMap.get(i).get)
-            }
+               *//*
+    */          sb.append(dataMap.get(i).get)
+            /*}*/
           } else {
             /**
              * Paritioned value
              */
-            sb.append(dataMap.get((metadata.value.numColumns() + i)).get);
+            sb.append(dataMap.get((metadata.numColumns() + i)).get);
           }
-          if (i != metadata.value.numColumns() - 1) {
+          if (i != metadata.numColumns() - 1) {
             sb.append(",");
           }
         }
@@ -175,38 +162,39 @@ object Mondrian {
    */
   def kanonymize(linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], blockedIndices: scala.collection.mutable.Set[Int], k: Int) {
 
+    linesRDD.cache();
     var leftRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])] = null;
     var rightRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])] = null;
     var leftPartitionedRange: String = null;
     var rightPartitionedRange: String = null;
-    val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
+    val metadata = LBSMetadata.getInstance();
     /**
      * Get the dimension for the cut.
      */
     val dimAndMedian: Dimensions = selectDimension(linesRDD, blockedIndices, k);
-    println("Dimension found for: "+linesRDD.count()+" : " + dimAndMedian.dimension()+" : ");
+    println("Dimension found  "+" : " + dimAndMedian.dimension()+" : ");
     if (dimAndMedian.dimension() >= 0) {
       var blockedIndices1: scala.collection.mutable.Set[Int] = blockedIndices.+(dimAndMedian.dimension()).clone();
       var blockedIndices2: scala.collection.mutable.Set[Int] = blockedIndices.+(dimAndMedian.dimension()).clone();
 
-      val sortedRDD = linesRDD.sortBy({ case (x, y) => y.get(dimAndMedian.dimension()) }, true);
+      //val sortedRDD = linesRDD.sortBy({ case (x, y) => y.get(dimAndMedian.dimension()) }, true);
 
-      if (metadata.value.getMetadata(dimAndMedian.dimension()).get.getColType() == 's') {
+      if (metadata.getMetadata(dimAndMedian.dimension()).get.getColType() == 's') {
         leftRDD = linesRDD.filter({ case (x, y) => { dimAndMedian.leftSet().contains(y.get(dimAndMedian.dimension()).get) } });
         rightRDD = linesRDD.filter({ case (x, y) => { dimAndMedian.rightSet().contains(y.get(dimAndMedian.dimension()).get) } });
-        leftPartitionedRange = metadata.value.getMetadata(dimAndMedian.dimension()).get.findCategory(dimAndMedian.leftSet()).value();
-        rightPartitionedRange = metadata.value.getMetadata(dimAndMedian.dimension()).get.findCategory(dimAndMedian.rightSet()).value();
+        leftPartitionedRange = metadata.getMetadata(dimAndMedian.dimension()).get.findCategory(dimAndMedian.leftSet()).value();
+        rightPartitionedRange = metadata.getMetadata(dimAndMedian.dimension()).get.findCategory(dimAndMedian.rightSet()).value();
       } else {
         leftRDD = linesRDD.filter({ case (x, y) => y.get(dimAndMedian.dimension()).get.toDouble <= dimAndMedian.median().toDouble });
         rightRDD = linesRDD.filter({ case (x, y) => y.get(dimAndMedian.dimension()).get.toDouble > dimAndMedian.median().toDouble });
-        leftPartitionedRange = if (dimAndMedian.min().equals(dimAndMedian.median())) dimAndMedian.min().toString() else dimAndMedian.min() + "-" + dimAndMedian.median();
-        rightPartitionedRange = if (dimAndMedian.median().equals(dimAndMedian.max())) dimAndMedian.median().toString() else dimAndMedian.median() + "-" + dimAndMedian.max();
+        leftPartitionedRange = if (dimAndMedian.min().equals(dimAndMedian.median())) dimAndMedian.min().toString() else dimAndMedian.min() + "_" + dimAndMedian.median();
+        rightPartitionedRange = if (dimAndMedian.median().equals(dimAndMedian.max())) dimAndMedian.median().toString() else dimAndMedian.median() + "_" + dimAndMedian.max();
       }
       val leftSize = leftRDD.count();
       val rightSize = rightRDD.count();
       if (leftSize >= k && rightSize >= k) {
 
-        println("Making the cut on dimension[" + metadata.value.getMetadata(dimAndMedian.dimension()).get.getName() + "](" + leftSize + ") [ " + leftPartitionedRange + "] :::: [" + rightPartitionedRange + "](" + rightSize + ")");
+        println("Making the cut on dimension[" + metadata.getMetadata(dimAndMedian.dimension()).get.getName() + "](" + leftSize + ") [ " + leftPartitionedRange + "] :::: [" + rightPartitionedRange + "](" + rightSize + ")");
 
         val leftRDDWithRange = partitionRDD(leftRDD, dimAndMedian.dimension(), leftPartitionedRange);
         val rightRDDWithRange = partitionRDD(rightRDD, dimAndMedian.dimension(), rightPartitionedRange);
@@ -240,15 +228,15 @@ object Mondrian {
    */
   def assignSummaryStatisticAndAddToList(linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])]) {
 
-    val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
+    val metadata = LBSMetadata.getInstance();
     rdds = rdds :+ linesRDD;
     val indexValuePairs = linesRDD.flatMap({ case (index1, map) => (map) });
 
-    val indexValueGroupedIntermediate = indexValuePairs.groupByKey().map({ case (index, list) => (index, list.toList.distinct) }).filter(_._1 < metadata.value.numColumns())
+    val indexValueGroupedIntermediate = indexValuePairs.groupByKey().map({ case (index, list) => (index, list.toList.distinct) }).filter(_._1 < metadata.numColumns())
 
     val indexValueGrouped = indexValueGroupedIntermediate.map({
       case (x, y) =>
-        val column = metadata.value.getMetadata(x).get;
+        val column = metadata.getMetadata(x).get;
         if (column.getIsQuasiIdentifier()) {
           if (column.getColType() == 's') {
             (x, column.findCategory(y.toArray).value());
@@ -277,10 +265,10 @@ object Mondrian {
    */
   def partitionRDD(inputRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], dimension: Int, newValue: String): RDD[(Long, scala.collection.mutable.Map[Int, String])] =
     {
-      val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
+      val metadata = LBSMetadata.getInstance();
       val newRDD = inputRDD.map({
         case (value, indexMap) => (value, {
-          indexMap.put((metadata.value.numColumns() + dimension), newValue);
+          indexMap.put((metadata.numColumns() + dimension), newValue);
           indexMap
         })
       })
@@ -293,7 +281,7 @@ object Mondrian {
   def selectDimension(linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], blockedIndices: scala.collection.mutable.Set[Int], k: Int): Dimensions = {
 
     try {
-      val metadata = Metadata.getInstance(sc, dataReader, metadataFilePath);
+      val metadata = LBSMetadata.getInstance();
       /**
        * Remove row IDs.
        */
@@ -328,22 +316,39 @@ object Mondrian {
        * Find the exact list for selected dimension, sort list of values, extract middle element
        */
 
-      if (metadata.value.getMetadata(dimToBeReturned).get.getColType() == 's') {
+      if (metadata.getMetadata(dimToBeReturned).get.getColType() == 's') {
         // distribute keys by putting alternate ones in alternate list. This way two partition sizes should roughly be near each other
 
-        val sortedListOfValues = indexValueGrouped.filter(_._1 == dimToBeReturned).flatMap({ case (x, y) => (y) }).map(x => (x, 1)).reduceByKey((a, b) => a + b).sortByKey(false);
-        val firstValue = sortedListOfValues.first();
+        val sortedListOfValues = indexValueGrouped.filter(_._1 == dimToBeReturned).flatMap({ case (x, y) => (y) }).map(x => (x, 1)).reduceByKey((a, b) => a + b).sortByKey(true).collect();
+     
+        /* val firstValue = sortedListOfValues.first();
         if (sortedListOfValues.first()._2 > k) {
           var leftList = Array(firstValue._1);
           var rightList = sortedListOfValues.filter { case (x, y) => !x.equals(firstValue._1) }.keys.collect();
           return new Dimensions(dimToBeReturned, 0, 0, 0, leftList, rightList);
-        } else {
-          val zippedListOfValues = sortedListOfValues.keys.zipWithIndex();
-          var leftList = zippedListOfValues.filter { case (x, y) => y % 2 == 0 }.keys.collect();
-          var rightList = zippedListOfValues.filter { case (x, y) => y % 2 == 1 }.keys.collect();
-          return new Dimensions(dimToBeReturned, 0, 0, 0, leftList, rightList);
-
+        } else {*/
+        val total = sortedListOfValues.map(_._2).sum;
+        var runningSum =0;
+        var leftList =List[String]();
+        var rightList =List[String]();
+        for(pair<-sortedListOfValues)
+        {
+          if(runningSum <=total/2)
+          {
+          leftList=leftList.::( pair._1);
+          runningSum = runningSum+pair._2 
+          }
+          else
+          {
+            rightList=rightList.::( pair._1);
+          } 
         }
+        /*
+          var leftList = zippedListOfValues.filter { case (x, y) => y % 2 == 0 }.keys.collect();
+          var rightList = zippedListOfValues.filter { case (x, y) => y % 2 == 1 }.keys.collect();*/
+          return new Dimensions(dimToBeReturned, 0, 0, 0, leftList.toArray, rightList.toArray);
+
+      /*  }*/
 
       } else {
         val sortedListOfValues = indexValueGrouped.filter(_._1 == dimToBeReturned).flatMap({ case (x, y) => (y) }).sortBy(x => x.toDouble).zipWithIndex();
