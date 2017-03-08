@@ -1,6 +1,7 @@
 package edu.utd.security.risk
 
 import scala.collection.mutable.ListBuffer
+import org.apache.spark.SparkContext
 
 class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters, population: scala.collection.mutable.Map[(String, String, Double, Double), Double], zipList: List[Int]) {
   var maximumInfoLoss: Double = 0;
@@ -36,45 +37,37 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters, population:
 
     var g = top;
     LPiG = L * Pi(g);
-    var Gm=g;
+    var Gm = g;
     while (!isGLeafNode(g)) {
 
-      println(g + " " + Um);
-
       if (LPiG <= C) {
-        println("adversaryBenefit<=lbsParam.getRecordCost() " + Vg(g) + "_" + LPiG)
-        return (Vg(g), 0, g);
+       // println("adversaryBenefit<=lbsParam.getRecordCost() " + Vg(g) + "_" + LPiG)
+        return (Vg(g), 0.0, g);
       }
       Um = Vg(g) - LPiG;
       Gm = g;
-
-      for (Gc <- getChildren(g)) {
-
+      val maxChildren = getChildren(g).map(Gc => {
         var LPiGc = L * Pi(Gc);
-        var childPublisherPayoff = 0.0;
         if (LPiGc > C) {
-          childPublisherPayoff = Vg(Gc) - LPiGc;
+          ((Vg(Gc) - LPiGc), LPiGc, Gc);
         } else {
-          childPublisherPayoff = Vg(Gc)
-          LPiGc = 0;
+          (Vg(Gc), 0.0, Gc);
         }
+      }).filter(_._1 >= Um);
 
-          println(Gc + ": " + childPublisherPayoff + "_" + LPiGc + ": (childPublisherPayoff >= publisherPayOff)=" + (childPublisherPayoff >= Um))
-
-        if (childPublisherPayoff >= Um) {
-          println("Selecting child : "+childPublisherPayoff+ ": " + Gc )
-          Gm = Gc;
-          LPiG = LPiGc;
-          Um = childPublisherPayoff;
-        }
-      }
-      if (Gm == g) {
+      if (maxChildren.isEmpty) {
         println("Parent Payoff is better than any of the children payoff" + Um);
         return (Um, LPiG, g);
+      } else {
+        val child = maxChildren.maxBy(_._1)
+       // println("Selecting child " + child)
+        Um = child._1
+        LPiG = child._2
+        Gm = child._3
       }
       g = Gm;
     }
-    println("Outside return payoff" + Um + " : " + g);
+   // println("Outside return payoff" + Um + " : " + g);
     return (Um, LPiG, g);
   }
 
@@ -129,32 +122,32 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters, population:
   def getNumMatches(key: scala.collection.mutable.Map[Int, String]): Int =
     {
 
-      val genders = metadata.getMetadata(0).get.getCategory(key.get(0).get).leaves;
-      val races = metadata.getMetadata(3).get.getCategory(key.get(3).get).leaves;
       if (key != null) {
-        var numMatches: Double = 0;
-        for (genderStr <- genders.+:(key.get(0).get)) //321
-        {
-          for (raceStr <- races.+:(key.get(3).get)) {
 
-            val ageRange = LSHUtil.getMinMax(key.get(2).get);
-            for (age <- ageRange._1.toInt to ageRange._2.toInt) {
+        val genders = metadata.getMetadata(0).get.getCategory(key.get(0).get).leaves.+:(key.get(0).get).map(_.replaceAll("Male", "1").replaceAll("Female", "0"));
 
-              val zipRange = LSHUtil.getMinMax(key.get(1).get);
-              for (zipCode <- zipRange._1.toInt to zipRange._2.toInt) {
+        val races = metadata.getMetadata(3).get.getCategory(key.get(3).get).leaves.+:(key.get(3).get).map(_.replaceAll("White", "0").replaceAll("Asian-Pac-Islander", "2").replaceAll("Amer-Indian-Eskimo", "3").replaceAll("Other", "4").replaceAll("Black", "1"));
+        val ageRange = LSHUtil.getMinMax(key.get(2).get);
+        val age = (ageRange._1.toInt to ageRange._2.toInt)
+        val zipRange = LSHUtil.getMinMax(key.get(1).get);
+        val zip = (zipRange._1.toInt to zipRange._2.toInt)
 
-                val gender = genderStr.replaceAll("Male", "1").replaceAll("Female", "0");
-                val race = raceStr.replaceAll("White", "0").replaceAll("Asian-Pac-Islander", "2").replaceAll("Amer-Indian-Eskimo", "3").replaceAll("Other", "4").replaceAll("Black", "1");
+        val combinations =  for {
+          a <- races
+          b <- genders
+          c <- age
+          d <- zip
+        } yield (a, b, c, d);
 
-                if (population.get((race, gender, age.toDouble, zipCode.toDouble)) != None) {
-                  //   println("(" + race + ", " + gender + ", " + age + " " + zipCode + ") :" + population.get((race, gender, age.toDouble, zipCode.toDouble)));
-                  numMatches += population.get((race, gender, age.toDouble, zipCode.toDouble)).get;
-                }
-              }
-            }
+        var numMatches = combinations.map(x => {
+          val populationNum = population.get(x._1, x._2, x._3, x._4);
+          if (populationNum != None) {
+            populationNum.get;
+          } else {
+            0;
           }
-        }
-        return numMatches.toInt;
+        }).reduce(_ + _).toInt;
+        return numMatches;
       } else {
         return population.size;
       }

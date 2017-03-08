@@ -37,27 +37,7 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
     else
       return index + ":" + name + "=" + colType + "_" + isQuasiIdentifier + "[" + rootCategory.toString + "]";
   }
-  def height(): Int =
-    {
-      return height(rootCategory);
-    }
-  def height(category: Category): Int = {
-    var depthValue = 0;
-
-    if (category.children != null && category.children.size > 0) {
-
-      for (i <- 0 to category.children.size - 1) {
-        var childDepth = height(category.children(i));
-        if (childDepth > depthValue) {
-          depthValue = childDepth;
-        }
-      }
-      depthValue += 1;
-    } else {
-      return 1;
-    }
-    return depthValue;
-  }
+   
   /**
    * Given list of string values, this method finds the bottom most category that contains all elements containing given set.
    */
@@ -98,8 +78,16 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
     return rootCategory;
   }
 
+  var parentMap =  scala.collection.mutable.Map[String,Category](); 
+  var catMap =  scala.collection.mutable.Map[String,Category](); 
+  
   def getParentCategory(childCategory: String): Category = {
 
+    val parentVal =parentMap.get(childCategory);
+    if(parentVal!=None)
+    {
+      return parentVal.get;
+    }
     var category = rootCategory;
     var searchChild = true;
     var parent = rootCategory;
@@ -129,16 +117,24 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
 
       }
       if (!searchChild) {
+        parentMap.put(childCategory,parent)
      //   println("Parent for"+childCategory+ " : Is "+parent);
         return parent;
       }
     }
+        parentMap.put(childCategory,parent)
    // println("Parent for"+childCategory+ " : Is "+parent);
     return parent;
   }
 
   def getCategory(childCategory: String): Category = {
 
+     val catVal =catMap.get(childCategory);
+    if(catVal!=None)
+    {
+      return catVal.get;
+    }
+    
     var category = rootCategory;
     var searchChild = true;
     /**
@@ -162,11 +158,13 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
         }
       }
       if (!searchChild) {
+        catMap.put(childCategory,category)
        // println("Category for"+childCategory+ " : Is "+category);
         return category;
       }
     }
        // println("Category for"+childCategory+ " : Is "+category);
+        catMap.put(childCategory,category)
     return category;
   }
 

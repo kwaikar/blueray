@@ -49,7 +49,6 @@ class Category(value: String) extends Serializable {
   def getIndexOfColumnValue(key: String): Int =
     {
       populateMapIfRequired();
-     // println("Checking "+key+" in  "+map.mkString(","));
       return map.get(key.trim()).get;
     }
 

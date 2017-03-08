@@ -33,7 +33,6 @@ object LBSMetadata {
           }
         }
       }
-      println(population.size + " " + population.head);
        
       return population;
     }

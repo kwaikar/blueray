@@ -25,7 +25,7 @@ class AccessAuthorizerAspect {
   var dataMetadata: Metadata = null;
   var algorithm:LBSAlgorithm=null;
   @Around(value = "execution(* org.apache.spark.rdd.MapPartitionsRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
-  def aroundAdvice_spark(jp: ProceedingJoinPoint, theSplit: Partition, context: TaskContext): AnyRef = {
+  def aroundAdvice_spark(jp: ProceedingJoinPoint, parition: Partition, context: TaskContext): AnyRef = {
 
   //  println("----------------------- Going through the Aspect ---------------------------------");
 
