@@ -24,8 +24,8 @@ class AccessAuthorizerAspect {
 
   var dataMetadata: Metadata = null;
   var algorithm:LBSAlgorithm=null;
-  @Around(value = "execution(* org.apache.spark.rdd.MapPartitionsRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
-  def aroundAdvice_spark(jp: ProceedingJoinPoint, parition: Partition, context: TaskContext): AnyRef = {
+  //@Around(value = "execution(* org.apache.spark.rdd.MapPartitionsRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
+  def aroundAdvice_spark(jp: ProceedingJoinPoint, theSplit: Partition, context: TaskContext): AnyRef = {
 
   //  println("----------------------- Going through the Aspect ---------------------------------");
 
@@ -52,7 +52,7 @@ class AccessAuthorizerAspect {
     else if (sys.env.contains("LBS")) {
       if(algorithm==null)
       {
-      algorithm = new LBSAlgorithm(LBSMetadata.getInstance(), new LBSParameters(4,1200,300), LBSMetadata.getPopulation(),LBSMetadata.getZip());
+      algorithm = new LBSAlgorithm(LBSMetadata.getInstance(), new LBSParameters(4,1200,300));
         
       }
       return new LBSInterruptibleIterator(context,iterator.asInstanceOf[Iterator[_]],algorithm);

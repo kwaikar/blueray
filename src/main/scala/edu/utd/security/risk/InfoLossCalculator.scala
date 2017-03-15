@@ -58,7 +58,7 @@ object InfoLossCalculator {
 
         }
       }
-      println("Total infoLoss for " + g + " =" + infoLoss);
+     // println("Total infoLoss for " + g + " =" + infoLoss);
       return infoLoss;
     }
 

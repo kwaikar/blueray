@@ -79,11 +79,12 @@ class ColumnBlockingInterruptibleIterator[T](context: TaskContext, delegate: Ite
 
   def getStringOfLength(index: Int, value: String): String = {
     if (dataMetadata == null) {
-      var sb: StringBuilder = new StringBuilder();
+     /* var sb: StringBuilder = new StringBuilder();
       for (c <- 1 to value.length()) {
         sb.append("-");
       }
-      sb.toString
+      sb.toString*/
+      return "-"
     } else {
       return dataMetadata.getMetadata(index).get.getParentCategory(value).value();
     }

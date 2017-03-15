@@ -33,6 +33,6 @@ package edu.utd.security.risk
     
     def tostring():String=
     {
-      dimensionValue+ " ("+min+"|"+median+"|"+max+"): ";
+      dimensionValue+ " ("+min+"|"+median+"|"+max+":"+"|"+leftSet+"|"+rightSet+"): ";
     }
   }

@@ -3,7 +3,7 @@ package edu.utd.security.risk
 import scala.collection.mutable.ListBuffer
 import org.apache.spark.SparkContext
 
-class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters, population: scala.collection.mutable.Map[(String, String, Double, Double), Double], zipList: List[Int]) {
+class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) {
   var maximumInfoLoss: Double = 0;
   var V = lbsParameters.V();
   var L = lbsParameters.L();
@@ -56,7 +56,7 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters, population:
       }).filter(_._1 >= Um);
 
       if (maxChildren.isEmpty) {
-        println("Parent Payoff is better than any of the children payoff" + Um);
+     //   println("Parent Payoff is better than any of the children payoff" + Um);
         return (Um, LPiG, g);
       } else {
         val child = maxChildren.maxBy(_._1)
@@ -103,7 +103,7 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters, population:
           if (column.getName().trim().equalsIgnoreCase("age")) {
             infoLoss += (-Math.log10(1.0 / (1 + minMax._2 - minMax._1)));
           } else {
-            val zipInfoLoss = zipList.filter { x => x >= minMax._1 && x <= minMax._2 }.size;
+            val zipInfoLoss = LBSMetadata.getZip().filter { x => x >= minMax._1 && x <= minMax._2 }.size;
             infoLoss += (-Math.log10(1.0 / (zipInfoLoss)));
           }
 
@@ -140,7 +140,7 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters, population:
         } yield (a, b, c, d);
 
         var numMatches = combinations.map(x => {
-          val populationNum = population.get(x._1, x._2, x._3, x._4);
+          val populationNum = LBSMetadata.getPopulation().get(x._1, x._2, x._3, x._4);
           if (populationNum != None) {
             populationNum.get;
           } else {
@@ -149,7 +149,7 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters, population:
         }).reduce(_ + _).toInt;
         return numMatches;
       } else {
-        return population.size;
+        return  LBSMetadata.getPopulation().size;
       }
     }
 
