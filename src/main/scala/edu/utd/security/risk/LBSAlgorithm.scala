@@ -3,22 +3,11 @@ package edu.utd.security.risk
 import scala.collection.mutable.ListBuffer
 import org.apache.spark.SparkContext
 
-class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) {
-  var maximumInfoLoss: Double = 0;
+class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) extends Serializable{
   var V = lbsParameters.V();
   var L = lbsParameters.L();
   var C = lbsParameters.C();
 
-  def getMaximulInformationLoss(): Double =
-    {
-      if (maximumInfoLoss == 0) {
-        for (column <- metadata.getQuasiColumns()) {
-          maximumInfoLoss += (-Math.log10(1.0 / column.getNumUnique()));
-        }
-
-      }
-      return maximumInfoLoss;
-    }
   def findOptimalStrategy(text: String): String =
     {
       val record = scala.collection.mutable.Map[Int, String]();
@@ -28,9 +17,14 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) {
       }
       val strategy = findOptimalStrategy(record);
       println("Optimal Strategy found with Attack ==>" + strategy)
-      return strategy._3.toArray.sortBy(_._1).map(_._2).mkString(",");
+      return strategy._3;
     }
-  def findOptimalStrategy(top: scala.collection.mutable.Map[Int, String]): (Double, Double, scala.collection.mutable.Map[Int, String]) = {
+  
+  def findOptimalStrategy(top: scala.collection.mutable.Map[Int, String]): (Double, Double, String) = {
+   val strategy =findOriginalOptimalStrategy(top);
+   return (strategy._1,strategy._2,strategy._3.toArray.sortBy(_._1).map(_._2).mkString(","))
+  }
+  def findOriginalOptimalStrategy(top: scala.collection.mutable.Map[Int, String]): (Double, Double, scala.collection.mutable.Map[Int, String]) = {
 
     var Um: Double = -1;
     var LPiG: Double = -1;
@@ -115,7 +109,7 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) {
   def Vg(g: scala.collection.mutable.Map[Int, String]): Double =
     {
       val infoLoss = IL(g);
-      val maxInfoLoss = getMaximulInformationLoss();
+      val maxInfoLoss = metadata.getMaximulInformationLoss();
       val loss = V * (1.0 - (infoLoss / maxInfoLoss));
       return loss;
     }

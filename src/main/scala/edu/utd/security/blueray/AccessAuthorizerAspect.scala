@@ -28,10 +28,9 @@ class AccessAuthorizerAspect {
   def aroundAdvice_spark(jp: ProceedingJoinPoint, theSplit: Partition, context: TaskContext): AnyRef = {
 
   //  println("----------------------- Going through the Aspect ---------------------------------");
-
-    val iterator = (jp.proceed(jp.getArgs()));
-
-    if (sys.env.contains("BlockColumns")) {
+   val iterator = (jp.proceed(jp.getArgs()));
+return iterator;
+    /* if (sys.env.contains("BlockColumns")) {
         val blockCols = sys.env("BlockColumns");
         val metadataPath = blockCols.substring(blockCols.indexOf(']') + 1, blockCols.length());
         if (metadataPath != null && metadataPath.trim().length() > 3 && dataMetadata == null) {
@@ -64,8 +63,8 @@ class AccessAuthorizerAspect {
       println("Returning new iterator")
       // return iterator;
       return authorizedIterator
-    }
-    return iterator
+    }*/
+ //   return iterator
   }
 
   def getPolicy(context: org.apache.spark.TaskContext, jp: org.aspectj.lang.ProceedingJoinPoint, pcType: Any): Option[Policy] = {

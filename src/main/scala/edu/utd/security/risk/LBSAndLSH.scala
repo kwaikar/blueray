@@ -93,7 +93,7 @@ object LBSAndLSH {
 
       println("Avg PublisherPayOff found: " + publisherBenefit)
       println("Avg AdversaryBenefit found: " + advBenefit)
-      new DataWriter(sc).writeRDDToAFile(outputFilePath, records.map(x => x.toSeq.sortBy(_._1).map(_._2).mkString(",")));
+      new DataWriter(sc).writeRDDToAFile(outputFilePath,records);
 
     }
 
@@ -159,7 +159,7 @@ object LBSAndLSH {
       var outputOfRDD = rddPartition.filter({ case (x, y) => (!keysMapped.contains(x)) }).map({
         case (x, y) =>
           {
-            val strategy = new LBSAlgorithmWithSparkContext(zips, population, metadatas.value, lbsParam).findOptimalStrategy(y)
+            val strategy = new LBSAlgorithmWithSparkContext(zips, population, metadatas.value, lbsParam).findOriginalOptimalStrategy(y)
             valuesGeneralized += List(x);
             //  println("strategy:" + x + " ->" + strategy);
             (strategy._1, strategy._2, x, strategy._3, y)

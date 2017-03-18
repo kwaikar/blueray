@@ -14,7 +14,18 @@ class Metadata(columnMetadata: Map[Int, Column]) extends Serializable {
     return columnMetadata.size;
   }
   var columns: Array[Column] = null;
-  
+
+  var maximumInfoLoss: Double = 0;
+
+  def getMaximulInformationLoss(): Double =
+    {
+      if (maximumInfoLoss == 0) {
+        for (column <- getQuasiColumns()) {
+          maximumInfoLoss += (-Math.log10(1.0 / column.getNumUnique()));
+        }
+      }
+      return maximumInfoLoss;
+    }
   def getQuasiColumns(): Array[Column] = {
     if (columns == null) {
       var localColumns = ListBuffer[Column]();
@@ -24,7 +35,7 @@ class Metadata(columnMetadata: Map[Int, Column]) extends Serializable {
           localColumns += column;
         }
       }
-      columns  = localColumns.toArray;
+      columns = localColumns.toArray;
     }
     return columns
   }
