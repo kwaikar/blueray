@@ -29,27 +29,23 @@ import edu.utd.security.mondrian.DataWriter
  * year = {2015}
  */
 object LBS {
-
+  var sc: SparkContext = null;
   def main(args: Array[String]): Unit = {
 
-    if (args.length < 9) {
-      println("Program variables expected : <HDFS_Data_file_path> <PREDICT_file_path> <output_file_path> <recordCost> <maxPublisherBenefit> <publishersLoss> <adversaryAttackCost> <USE_LSH(true/false)> <LSH_NUM_NEIGHBORS>")
-    } else {
-      val sc = SparkSession
-        .builder.appName("LBS").master("local[4]").getOrCreate().sparkContext;
-      var linesRDD = new DataReader().readDataFile(sc, args(0), true).cache();
-      val i = 29779;
-      lbs(linesRDD.lookup(i.longValue())(0), new LBSParameters(args(3).toDouble, args(4).toDouble, args(5).toDouble))
-    }
+    sc = SparkSession
+      .builder.appName("LBS").master("local[4]").getOrCreate().sparkContext;
+    var linesRDD = new DataReader().readDataFile(sc, "hdfs://localhost/user/adult_zip2.csv", true).cache();
+    val i = 29779;
+    lbs(linesRDD.lookup(i.longValue())(0), new LBSParameters(4, 1200, 300))
   }
 
   /**
    * Using following singleton to retrieve/broadcast metadata variables.
    */
- 
+
   def lbs(record: scala.collection.mutable.Map[Int, String], lbsParam: LBSParameters) {
 
-    val algo = new LBSAlgorithm(LBSMetadata.getInstance(), lbsParam);
+    val algo = new LBSAlgorithm(LBSMetadataWithSparkContext.getInstance(sc), lbsParam);
     val optimalRecord = algo.findOptimalStrategy(record)
     println(optimalRecord._1 + " " + optimalRecord._2 + " =>" + optimalRecord._3);
   }

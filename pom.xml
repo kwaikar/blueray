@@ -35,12 +35,6 @@
 			<scope>provided</scope>
 		</dependency>
 		<dependency>
-			<groupId>org.apache.spark</groupId>
-			<artifactId>spark-sql_${scala.tools.version}</artifactId>
-			<version>${spark.version}</version>
-			<scope>provided</scope>
-		</dependency>
-		<dependency>
 			<groupId>org.aspectj</groupId>
 			<artifactId>aspectjweaver</artifactId>
 			<version>${aspectj.runtime.version}</version>
@@ -57,7 +51,7 @@
 		</dependency>
 		<dependency>
 			<groupId>org.apache.spark</groupId>
-			<artifactId>spark-mllib_2.10</artifactId>
+			<artifactId>spark-mllib_2.11</artifactId>
 			<version>${spark.version}</version>
 		</dependency>
 		<dependency>
@@ -71,6 +65,7 @@
 			<artifactId>scala-reflect</artifactId>
 			<version>${scala.version}</version>
 		</dependency>
+		
 
 		<!-- Test -->
 		<dependency>

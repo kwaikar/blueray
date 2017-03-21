@@ -2,8 +2,9 @@ package edu.utd.security.risk
 
 import scala.collection.mutable.ListBuffer
 import org.apache.spark.SparkContext
+import org.apache.spark.broadcast.Broadcast
 
-class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) extends Serializable{
+class LBSAlgorithm(metadata: Broadcast[Metadata], lbsParameters: LBSParameters) extends Serializable{
   var V = lbsParameters.V();
   var L = lbsParameters.L();
   var C = lbsParameters.C();
@@ -84,7 +85,7 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) extends Ser
     {
       var infoLoss: Double = 0;
 
-      for (column <- metadata.getQuasiColumns()) {
+      for (column <- metadata.value.getQuasiColumns()) {
         var count: Long = 0;
         val value = g.get(column.getIndex()).get.trim()
         if (column.getColType() == 's') {
@@ -109,7 +110,7 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) extends Ser
   def Vg(g: scala.collection.mutable.Map[Int, String]): Double =
     {
       val infoLoss = IL(g);
-      val maxInfoLoss = metadata.getMaximulInformationLoss();
+      val maxInfoLoss = metadata.value.getMaximulInformationLoss();
       val loss = V * (1.0 - (infoLoss / maxInfoLoss));
       return loss;
     }
@@ -118,9 +119,9 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) extends Ser
 
       if (key != null) {
 
-        val genders = metadata.getMetadata(0).get.getCategory(key.get(0).get).leaves.+:(key.get(0).get).map(_.replaceAll("Male", "1").replaceAll("Female", "0"));
+        val genders = metadata.value.getMetadata(0).get.getCategory(key.get(0).get).leaves.+:(key.get(0).get).map(_.replaceAll("Male", "1").replaceAll("Female", "0"));
 
-        val races = metadata.getMetadata(3).get.getCategory(key.get(3).get).leaves.+:(key.get(3).get).map(_.replaceAll("White", "0").replaceAll("Asian-Pac-Islander", "2").replaceAll("Amer-Indian-Eskimo", "3").replaceAll("Other", "4").replaceAll("Black", "1"));
+        val races = metadata.value.getMetadata(3).get.getCategory(key.get(3).get).leaves.+:(key.get(3).get).map(_.replaceAll("White", "0").replaceAll("Asian-Pac-Islander", "2").replaceAll("Amer-Indian-Eskimo", "3").replaceAll("Other", "4").replaceAll("Black", "1"));
         val ageRange = LSHUtil.getMinMax(key.get(2).get);
         val age = (ageRange._1.toInt to ageRange._2.toInt)
         val zipRange = LSHUtil.getMinMax(key.get(1).get);
@@ -159,7 +160,7 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) extends Ser
       /**
        * Create child for lattice on each column one at a time.
        */
-      for (column <- metadata.getQuasiColumns()) {
+      for (column <- metadata.value.getQuasiColumns()) {
         var copyOfG = g.clone();
         val value = g.get(column.getIndex()).get.trim()
         val parent = column.getParentCategory(value).value();
@@ -176,7 +177,7 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) extends Ser
    */
   def isGLeafNode(map: scala.collection.mutable.Map[Int, String]): Boolean =
     {
-      for (column <- metadata.getQuasiColumns()) {
+      for (column <- metadata.value.getQuasiColumns()) {
         val value = map.get(column.getIndex()).get.trim()
         if (!value.equalsIgnoreCase("*")) {
           if (column.getColType() == 's') {

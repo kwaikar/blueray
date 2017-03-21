@@ -1,19 +1,16 @@
 package edu.utd.security.risk
 
-import scala.collection.mutable.ListBuffer
-import org.apache.spark.SparkContext
-import org.apache.spark.broadcast.Broadcast
 import java.util.Collection
-import java.util.Arrays
-import scala.io.Source
 
-class LBSAlgorithmWithSparkContext(zips: Broadcast[List[Int]], population: Broadcast[scala.collection.mutable.Map[(String, String), java.util.TreeMap[Double, java.util.TreeMap[Double, Double]]]], metadata: Metadata, lbsParameters: LBSParameters) extends LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) {
+import org.apache.spark.broadcast.Broadcast
+
+class LBSAlgorithmWithSparkContext(zips: Broadcast[List[Int]], population: Broadcast[scala.collection.mutable.Map[(String, String), java.util.TreeMap[Double, java.util.TreeMap[Double, Double]]]], metadata: Broadcast[Metadata], lbsParameters: LBSParameters) extends LBSAlgorithm(metadata: Broadcast[Metadata], lbsParameters: LBSParameters) {
 
   override def IL(g: scala.collection.mutable.Map[Int, String]): Double =
     {
       var infoLoss: Double = 0;
 
-      for (column <- metadata.getQuasiColumns()) {
+      for (column <- metadata.value.getQuasiColumns()) {
         var count: Long = 0;
         val value = g.get(column.getIndex()).get.trim()
         if (column.getColType() == 's') {
@@ -42,14 +39,14 @@ class LBSAlgorithmWithSparkContext(zips: Broadcast[List[Int]], population: Broad
 
         var genders = List[String]();
         var races = List[String]();
-        val gendersPar = metadata.getMetadata(0).get.getCategory(key.get(0).get).leaves;
+        val gendersPar = metadata.value.getMetadata(0).get.getCategory(key.get(0).get).leaves;
         if (gendersPar == None || gendersPar.size == 0) {
           genders = genders.+:(key.get(0).get.replaceAll("Male", "1").replaceAll("Female", "0"));
         } else {
           genders = gendersPar.map(_.replaceAll("Male", "1").replaceAll("Female", "0"));
         }
 
-        val racesPar = metadata.getMetadata(3).get.getCategory(key.get(3).get).leaves;
+        val racesPar = metadata.value.getMetadata(3).get.getCategory(key.get(3).get).leaves;
         if (racesPar == None || racesPar.size == 0) {
           races = races.+:(key.get(3).get.replaceAll("White", "0").replaceAll("Asian-Pac-Islander", "2").replaceAll("Amer-Indian-Eskimo", "3").replaceAll("Other", "4").replaceAll("Black", "1"));
         } else {

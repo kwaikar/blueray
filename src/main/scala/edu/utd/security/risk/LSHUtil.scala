@@ -23,23 +23,14 @@ object LSHUtil {
     var nextStartCount = 0;
     var columnStartCounts = ListBuffer[Int]();
     var index = 0;
+   
     for (column <- metadata.getQuasiColumns()) {
-      //println("->" + column.getIndex() + " " + column.getName());
-
-    }
-    //println("-->Size " + columnStartCounts.size+"-"+metadata.getQuasiColumns().size);
-    for (column <- metadata.getQuasiColumns()) {
-      //println("==>" + ":" + nextStartCount)
       columnStartCounts += nextStartCount;
       if (column.getColType() == 's') {
-
         nextStartCount = nextStartCount + column.getNumUnique();
-
       } else {
-
         nextStartCount = nextStartCount + 1;
       }
-      //println("New NextStartCound" + nextStartCount + " index " + index +"="+ columnStartCounts(index))
       index = index + 1;
     }
     return columnStartCounts.toArray;

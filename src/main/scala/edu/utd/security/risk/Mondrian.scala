@@ -33,11 +33,18 @@ object Mondrian {
   def main(args: Array[String]): Unit = {
 
     val t0 = System.nanoTime()
-    kanonymize(args(0), args(1), args(2), args(3).toInt);
 
+    sc = SparkSession
+      .builder.appName("Mondrian").master(args(1)).getOrCreate().sparkContext;
+    kanonymize(args(0), args(1), args(2), args(3).toInt);
     val t1 = System.nanoTime()
 
     println("Time Taken: " + ((t1 - t0) / 1000000));
+    
+     val linesRDDOP = new DataReader().readDataFile(sc, args(2), true).cache();
+    val totalIL = linesRDDOP.map(_._2).map(x => InfoLossCalculator.IL(x)).mean();
+    println("Total IL " + 100 * (totalIL / InfoLossCalculator.getMaximulInformationLoss()) + " Benefit with no attack: " + 100 * (1 - (totalIL / InfoLossCalculator.getMaximulInformationLoss())));
+
   }
   /**
    * Program invariants
@@ -66,8 +73,6 @@ object Mondrian {
   def kanonymize(hdfsDataFilePath: String, scPath: String, outputFilePath: String, k: Int) {
 
     val dataReader = new DataReader();
-    sc = SparkSession
-      .builder.appName("Mondrian").master(scPath).getOrCreate().sparkContext;
     sc.setLogLevel("ERROR");
     val linesRDD = dataReader.readDataFile(sc, hdfsDataFilePath, true);
 
@@ -140,7 +145,7 @@ object Mondrian {
      * Get the dimension for the cut.
      */
     val dimAndMedian: Dimensions = selectDimension(linesRDD, blockedIndices, k);
-      println("Dimension found  " + " : " + dimAndMedian.dimension() + " : "+dimAndMedian.tostring);
+    //  println("Dimension found  " + " : " + dimAndMedian.dimension() + " : "+dimAndMedian.tostring);
     if (dimAndMedian.dimension() >= 0) {
       var blockedIndices1: scala.collection.mutable.Set[Int] = blockedIndices.+(dimAndMedian.dimension()).clone();
       var blockedIndices2: scala.collection.mutable.Set[Int] = blockedIndices.+(dimAndMedian.dimension()).clone();
@@ -162,7 +167,7 @@ object Mondrian {
       val rightSize = rightRDD.count();
       if (leftSize >= k && rightSize >= k) {
 
-         println("Making the cut on dimension[" + metadata.getMetadata(dimAndMedian.dimension()).get.getName() + "](" + leftSize + ") [ " + leftPartitionedRange + "] :::: [" + rightPartitionedRange + "](" + rightSize + ")");
+         //println("Making the cut on dimension[" + metadata.getMetadata(dimAndMedian.dimension()).get.getName() + "](" + leftSize + ") [ " + leftPartitionedRange + "] :::: [" + rightPartitionedRange + "](" + rightSize + ")");
 
         val leftRDDWithRange = partitionRDD(leftRDD, dimAndMedian.dimension(), leftPartitionedRange);
         val rightRDDWithRange = partitionRDD(rightRDD, dimAndMedian.dimension(), rightPartitionedRange);
@@ -181,7 +186,7 @@ object Mondrian {
           kanonymize(rightRDDWithRange, blockedIndices2, k);
         }
       } else {
-          println("No cut [" + "](" + leftSize + ") : : (" + rightSize + ")");
+          //println("No cut [" + "](" + leftSize + ") : : (" + rightSize + ")");
         assignSummaryStatisticAndAddToList(linesRDD);
       }
     } else {
@@ -222,7 +227,7 @@ object Mondrian {
     });
 
     var map: scala.collection.Map[Int, String] = indexValueGrouped.collectAsMap();
-    println("Before" +linesRDD.collect().mkString(","))
+    //println("Before" +linesRDD.collect().mkString(","))
     val rdd = linesRDD.map({
       case (x, y) =>
 
@@ -248,7 +253,7 @@ object Mondrian {
         }
         (x, y)
     });
-     println("After" +rdd.collect().mkString(","))
+     //println("After" +rdd.collect().mkString(","))
     rdds = rdds :+ sc.parallelize(rdd.collect());
 
     val keys = linesRDD.keys;
