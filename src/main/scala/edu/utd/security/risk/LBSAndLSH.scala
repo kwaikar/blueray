@@ -86,7 +86,7 @@ object LBSAndLSH {
       val optimalRecord = algorithm.findOptimalStrategy(linesRDD.lookup(i.longValue())(0));
       println(optimalRecord);
 */
-      val output = linesRDD.map({ case (x, y) => (x, new LBSAlgorithmWithSparkContext(zips, population, metadata, lbsParam).findOptimalStrategy(y)) }).sortByKey().values;
+      val output = linesRDD.map({ case (x, y) => (x, new LBSAlgorithmWithSparkContext(zips, population, metadata, lbsParam).findOptimalStrategy(y)) }).sortByKey().values.cache();
       val publisherBenefit = output.map({ case (x, y, z) => (x) }).mean();
       val advBenefit = output.map({ case (x, y, z) => (y) }).mean();
       val records = output.map({ case (x, y, z) => (z) });
