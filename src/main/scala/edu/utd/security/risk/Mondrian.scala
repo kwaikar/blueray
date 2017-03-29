@@ -40,8 +40,8 @@ object Mondrian {
     val t1 = System.nanoTime()
 
     println("Time Taken: " + ((t1 - t0) / 1000000));
-    
-     val linesRDDOP = new DataReader().readDataFile(sc, args(2), true).cache();
+
+    val linesRDDOP = new DataReader().readDataFile(sc, args(2), true).cache();
     val totalIL = linesRDDOP.map(_._2).map(x => InfoLossCalculator.IL(x)).mean();
     println("Total IL " + 100 * (totalIL / InfoLossCalculator.getMaximulInformationLoss()) + " Benefit with no attack: " + 100 * (1 - (totalIL / InfoLossCalculator.getMaximulInformationLoss())));
 
@@ -136,6 +136,7 @@ object Mondrian {
    */
   def kanonymize(linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], blockedIndices: scala.collection.mutable.Set[Int], k: Int) {
 
+    linesRDD.cache();
     var leftRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])] = null;
     var rightRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])] = null;
     var leftPartitionedRange: String = null;
@@ -165,28 +166,27 @@ object Mondrian {
       }
       val leftSize = leftRDD.count();
       val rightSize = rightRDD.count();
+      linesRDD.unpersist();
       if (leftSize >= k && rightSize >= k) {
 
-         //println("Making the cut on dimension[" + metadata.getMetadata(dimAndMedian.dimension()).get.getName() + "](" + leftSize + ") [ " + leftPartitionedRange + "] :::: [" + rightPartitionedRange + "](" + rightSize + ")");
+        //println("Making the cut on dimension[" + metadata.getMetadata(dimAndMedian.dimension()).get.getName() + "](" + leftSize + ") [ " + leftPartitionedRange + "] :::: [" + rightPartitionedRange + "](" + rightSize + ")");
 
-        val leftRDDWithRange = partitionRDD(leftRDD, dimAndMedian.dimension(), leftPartitionedRange);
-        val rightRDDWithRange = partitionRDD(rightRDD, dimAndMedian.dimension(), rightPartitionedRange);
         /**
          * Add the range value applicable to all left set elements
          */
         if (leftSize == k) {
-          assignSummaryStatisticAndAddToList(leftRDDWithRange);
+          assignSummaryStatisticAndAddToList(leftRDD);
         } else {
-          kanonymize(leftRDDWithRange, blockedIndices1, k);
+          kanonymize(leftRDD, blockedIndices1, k);
+        }
+        if (rightSize == k) {
+          assignSummaryStatisticAndAddToList(rightRDD);
+        } else {
+          kanonymize(rightRDD, blockedIndices2, k);
         }
 
-        if (rightSize == k) {
-          assignSummaryStatisticAndAddToList(rightRDDWithRange);
-        } else {
-          kanonymize(rightRDDWithRange, blockedIndices2, k);
-        }
       } else {
-          //println("No cut [" + "](" + leftSize + ") : : (" + rightSize + ")");
+        //println("No cut [" + "](" + leftSize + ") : : (" + rightSize + ")");
         assignSummaryStatisticAndAddToList(linesRDD);
       }
     } else {
@@ -240,20 +240,13 @@ object Mondrian {
             /* 
                * Summary statistic for the quasi-identifier without any cut on current column.
                */
-
-            if (y.get((metadata.numColumns() + i)) == None) {
-              y.remove(i);
-              y.put(i, map.get(i).get);
-            } else {
-              y.remove(i);
-              y.put(i, y.get(metadata.numColumns() + i).get);
-              y.remove(metadata.numColumns() + i);
-            }
+            y.remove(i);
+            y.put(i, map.get(i).get);
           }
         }
         (x, y)
     });
-     //println("After" +rdd.collect().mkString(","))
+    //println("After" +rdd.collect().mkString(","))
     rdds = rdds :+ sc.parallelize(rdd.collect());
 
     val keys = linesRDD.keys;
@@ -262,26 +255,12 @@ object Mondrian {
   }
 
   /**
-   * This function updates RDD value at given index in entire RDD with the newValue.
-   */
-  def partitionRDD(inputRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], dimension: Int, newValue: String): RDD[(Long, scala.collection.mutable.Map[Int, String])] =
-    {
-      val metadata = LBSMetadata.getInstance();
-      val newRDD = inputRDD.map({
-        case (value, indexMap) => (value, {
-          indexMap.put((metadata.numColumns() + dimension), newValue);
-          indexMap
-        })
-      })
-      return newRDD;
-    }
-
-  /**
    * Accept RDD containing row numbers and column values along with their index.
    */
   def selectDimension(linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], blockedIndices: scala.collection.mutable.Set[Int], k: Int): Dimensions = {
 
     try {
+      linesRDD.cache();
       val metadata = LBSMetadata.getInstance();
       /**
        * Remove row IDs.
@@ -322,12 +301,6 @@ object Mondrian {
 
         val sortedListOfValues = indexValueGrouped.filter(_._1 == dimToBeReturned).flatMap({ case (x, y) => (y) }).map(x => (x, 1)).reduceByKey((a, b) => a + b).sortByKey(true).collect();
 
-        /* val firstValue = sortedListOfValues.first();
-        if (sortedListOfValues.first()._2 > k) {
-          var leftList = Array(firstValue._1);
-          var rightList = sortedListOfValues.filter { case (x, y) => !x.equals(firstValue._1) }.keys.collect();
-          return new Dimensions(dimToBeReturned, 0, 0, 0, leftList, rightList);
-        } else {*/
         val total = sortedListOfValues.map(_._2).sum;
         var runningSum = 0;
         var leftList = List[String]();
@@ -340,12 +313,8 @@ object Mondrian {
             rightList = rightList.::(pair._1);
           }
         }
-        /*
-          var leftList = zippedListOfValues.filter { case (x, y) => y % 2 == 0 }.keys.collect();
-          var rightList = zippedListOfValues.filter { case (x, y) => y % 2 == 1 }.keys.collect();*/
+        linesRDD.unpersist(false);
         return new Dimensions(dimToBeReturned, 0, 0, 0, leftList.toArray, rightList.toArray);
-
-        /*  }*/
 
       } else {
         val sortedListOfValues = indexValueGrouped.filter(_._1 == dimToBeReturned).flatMap({ case (x, y) => (y) }).sortBy(x => x.toDouble).zipWithIndex();
@@ -361,6 +330,8 @@ object Mondrian {
         /**
          * return the tuple.
          */
+        
+        linesRDD.unpersist(false);
         return new Dimensions(dimToBeReturned, min, median, max, null, null);
       }
     } catch {
