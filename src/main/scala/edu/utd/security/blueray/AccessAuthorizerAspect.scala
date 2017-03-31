@@ -1,5 +1,6 @@
 package edu.utd.security.blueray
 
+import scala.io.Source
 import scala.util.control.Breaks.break
 import scala.util.control.Breaks.breakable
 
@@ -9,12 +10,12 @@ import org.apache.spark.TaskContext
 import org.aspectj.lang.ProceedingJoinPoint
 import org.aspectj.lang.annotation.Around
 import org.aspectj.lang.annotation.Aspect
-import scala.io.Source
+
 import edu.utd.security.risk.DataReader
-import edu.utd.security.risk.Metadata
-import edu.utd.security.risk.LBSMetadata
 import edu.utd.security.risk.LBSAlgorithm
 import edu.utd.security.risk.LBSParameters
+import edu.utd.security.risk.Metadata
+import edu.utd.security.risk.LBSMetadata
 
 /**
  * Aspect implementing authorized computation of the RDD
@@ -23,48 +24,44 @@ import edu.utd.security.risk.LBSParameters
 class AccessAuthorizerAspect {
 
   var dataMetadata: Metadata = null;
-  var algorithm:LBSAlgorithm=null;
-  //@Around(value = "execution(* org.apache.spark.rdd.MapPartitionsRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
+  var algorithm: LBSAlgorithm = null;
+  // @Around(value = "execution(* org.apache.spark.rdd.MapPartitionsRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
   def aroundAdvice_spark(jp: ProceedingJoinPoint, theSplit: Partition, context: TaskContext): AnyRef = {
 
-  //  println("----------------------- Going through the Aspect ---------------------------------");
-   val iterator = (jp.proceed(jp.getArgs()));
-return iterator;
-    /* if (sys.env.contains("BlockColumns")) {
-        val blockCols = sys.env("BlockColumns");
-        val metadataPath = blockCols.substring(blockCols.indexOf(']') + 1, blockCols.length());
-        if (metadataPath != null && metadataPath.trim().length() > 3 && dataMetadata == null) {
-          synchronized {
-            if (dataMetadata == null) {
-              val data = Source.fromFile(metadataPath).getLines().mkString("\n");
-              if (data != null && data.trim().length() > 0) {
-                dataMetadata = new DataReader().readMetadata(data);
-              }
+    val iterator = (jp.proceed(jp.getArgs()));
+    return iterator;
+    if (sys.env.contains("BlockColumns")) {
+      val blockCols = sys.env("BlockColumns");
+      val metadataPath = blockCols.substring(blockCols.indexOf(']') + 1, blockCols.length());
+      if (metadataPath != null && metadataPath.trim().length() > 3 && dataMetadata == null) {
+        synchronized {
+          if (dataMetadata == null) {
+            val data = Source.fromFile(metadataPath).getLines().mkString("\n");
+            if (data != null && data.trim().length() > 0) {
+              dataMetadata = new DataReader().readMetadata(data);
             }
           }
         }
+      }
       val columnBlockingIterator = new ColumnBlockingInterruptibleIterator(context, iterator.asInstanceOf[Iterator[_]], sys.env("BlockColumns"), dataMetadata);
 
       println("Returning   ColumnBlockingInterruptibleIterator : " + columnBlockingIterator)
       return columnBlockingIterator;
-    }
-    else if (sys.env.contains("LBS")) {
-      if(algorithm==null)
-      {
-      algorithm = new LBSAlgorithm(LBSMetadata.getInstance(), new LBSParameters(4,1200,300));
-        
+    } else if (sys.env.contains("LBS")) {
+      if (algorithm == null) {
+        algorithm = new LBSAlgorithm(LBSMetadata.getInstance(), new LBSParameters(4, 1200, 300));
+
       }
-      return new LBSInterruptibleIterator(context,iterator.asInstanceOf[Iterator[_]],algorithm);
+      return new LBSInterruptibleIterator(context, iterator.asInstanceOf[Iterator[_]], algorithm);
     }
-    // if (context.getLocalProperty("PRIVILEDGE") != null) {
     val policy = getPolicy(context, jp, PointCutType.SPARK);
     if (policy != None) {
       val authorizedIterator = new AuthorizedInterruptibleIterator(context, iterator.asInstanceOf[Iterator[_]], policy.get.regex);
       println("Returning new iterator")
       // return iterator;
       return authorizedIterator
-    }*/
- //   return iterator
+    }
+    return iterator
   }
 
   def getPolicy(context: org.apache.spark.TaskContext, jp: org.aspectj.lang.ProceedingJoinPoint, pcType: Any): Option[Policy] = {

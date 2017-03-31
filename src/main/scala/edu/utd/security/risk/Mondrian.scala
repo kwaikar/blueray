@@ -81,18 +81,11 @@ object Mondrian {
      * all column indices that would contain newer values need to be blocked from partitioning logic
      * along with non-QuasiIdentifier fields.
      */
-
-    var blockedIndices: scala.collection.mutable.Set[Int] = scala.collection.mutable.Set(); ;
-    for (i <- 0 to metadata.numColumns() - 1) {
-      blockedIndices += (metadata.numColumns() + i)
-      if (!metadata.getMetadata(i).get.getIsQuasiIdentifier()) {
-        blockedIndices += i;
-      }
-    }
+ 
     /**
      * First k-anonymity call.
      */
-    kanonymize(linesRDD, blockedIndices, k)
+    kanonymize(linesRDD, k)
 
     println("Lines(with no missing values) Found: " + linesRDD.count());
     println("Cavg found: " + getNormalizedAverageEquiValenceClassSizeMetric(linesRDD, k));
@@ -134,7 +127,7 @@ object Mondrian {
   /**
    * This function finds dimension, performs cut based on the median value and
    */
-  def kanonymize(linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], blockedIndices: scala.collection.mutable.Set[Int], k: Int) {
+  def kanonymize(linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])],  k: Int) {
 
     linesRDD.cache();
     var leftRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])] = null;
@@ -145,44 +138,34 @@ object Mondrian {
     /**
      * Get the dimension for the cut.
      */
-    val dimAndMedian: Dimensions = selectDimension(linesRDD, blockedIndices, k);
+    val dimAndMedian: Dimensions = selectDimension(linesRDD, k);
     //  println("Dimension found  " + " : " + dimAndMedian.dimension() + " : "+dimAndMedian.tostring);
     if (dimAndMedian.dimension() >= 0) {
-      var blockedIndices1: scala.collection.mutable.Set[Int] = blockedIndices.+(dimAndMedian.dimension()).clone();
-      var blockedIndices2: scala.collection.mutable.Set[Int] = blockedIndices.+(dimAndMedian.dimension()).clone();
-
-      //val sortedRDD = linesRDD.sortBy({ case (x, y) => y.get(dimAndMedian.dimension()) }, true);
 
       if (metadata.getMetadata(dimAndMedian.dimension()).get.getColType() == 's') {
         leftRDD = linesRDD.filter({ case (x, y) => { dimAndMedian.leftSet().contains(y.get(dimAndMedian.dimension()).get) } });
         rightRDD = linesRDD.filter({ case (x, y) => { dimAndMedian.rightSet().contains(y.get(dimAndMedian.dimension()).get) } });
-        leftPartitionedRange = metadata.getMetadata(dimAndMedian.dimension()).get.findCategory(dimAndMedian.leftSet()).value();
-        rightPartitionedRange = metadata.getMetadata(dimAndMedian.dimension()).get.findCategory(dimAndMedian.rightSet()).value();
       } else {
         leftRDD = linesRDD.filter({ case (x, y) => y.get(dimAndMedian.dimension()).get.toDouble <= dimAndMedian.median().toDouble });
         rightRDD = linesRDD.filter({ case (x, y) => y.get(dimAndMedian.dimension()).get.toDouble > dimAndMedian.median().toDouble });
-        leftPartitionedRange = if (dimAndMedian.min().equals(dimAndMedian.median())) dimAndMedian.min().toString() else dimAndMedian.min() + "_" + dimAndMedian.median();
-        rightPartitionedRange = if (dimAndMedian.median().equals(dimAndMedian.max())) dimAndMedian.median().toString() else dimAndMedian.median() + "_" + dimAndMedian.max();
       }
       val leftSize = leftRDD.count();
       val rightSize = rightRDD.count();
       linesRDD.unpersist();
       if (leftSize >= k && rightSize >= k) {
-
         //println("Making the cut on dimension[" + metadata.getMetadata(dimAndMedian.dimension()).get.getName() + "](" + leftSize + ") [ " + leftPartitionedRange + "] :::: [" + rightPartitionedRange + "](" + rightSize + ")");
-
         /**
          * Add the range value applicable to all left set elements
          */
         if (leftSize == k) {
           assignSummaryStatisticAndAddToList(leftRDD);
         } else {
-          kanonymize(leftRDD, blockedIndices1, k);
+          kanonymize(leftRDD,  k);
         }
         if (rightSize == k) {
           assignSummaryStatisticAndAddToList(rightRDD);
         } else {
-          kanonymize(rightRDD, blockedIndices2, k);
+          kanonymize(rightRDD, k);
         }
 
       } else {
@@ -257,7 +240,7 @@ object Mondrian {
   /**
    * Accept RDD containing row numbers and column values along with their index.
    */
-  def selectDimension(linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], blockedIndices: scala.collection.mutable.Set[Int], k: Int): Dimensions = {
+  def selectDimension(linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], k: Int): Dimensions = {
 
     try {
       linesRDD.cache();
