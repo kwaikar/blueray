@@ -2,25 +2,28 @@ package edu.utd.security.risk
 
 import scala.collection.mutable.ListBuffer
 import scala.reflect.runtime.universe
+import scala.util.Random
 import scala.util.control.Breaks.break
 import scala.util.control.Breaks.breakable
 
+import org.apache.spark.Accumulator
 import org.apache.spark.AccumulatorParam
 import org.apache.spark.HashPartitioner
 import org.apache.spark.SparkContext
+import org.apache.spark.SparkContext
 import org.apache.spark.ml.feature.BucketedRandomProjectionLSH
+import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.rdd.RDD
 import org.apache.spark.rdd.RDD.rddToPairRDDFunctions
+import org.apache.spark.sql.Row
+import org.apache.spark.sql.Row
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.SparkSession
 
 import edu.utd.security.mondrian.DataWriter
-import org.apache.spark.sql.Row
-import org.apache.spark.ml.linalg.DenseVector
-import org.apache.spark.sql.Row
-import org.apache.spark.SparkContext
-import org.apache.spark.Accumulator
+import breeze.linalg.normalize
+import org.apache.spark.broadcast.Broadcast
 
 /**
  * This is implementation of paper called "A Game Theoretic Framework for Analyzing Re-Identification Risk"
@@ -93,7 +96,7 @@ object LBSAndLSH {
 
       println("Avg PublisherPayOff found: " + publisherBenefit)
       println("Avg AdversaryBenefit found: " + advBenefit)
-      new DataWriter(sc).writeRDDToAFile(outputFilePath,records);
+      new DataWriter(sc).writeRDDToAFile(outputFilePath, records);
 
     }
 
@@ -109,6 +112,50 @@ object LBSAndLSH {
       l1 ::: l2
     }
   }
+
+  val numHashFunctions: Int = 5;
+
+  val w: Double =30.0;
+  val b = 25.0; 
+
+  def getBuckets(metadata: Broadcast[Metadata], normalizedLinesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])]): RDD[(String, Iterable[(Long, scala.collection.mutable.Map[Int, String])])] =
+    {
+      val columnStartCounts = sc.broadcast(LSHUtil.getColumnStartCounts(metadata.value));
+
+      val columnCounts = LSHUtil.getTotalNewColumns(metadata.value);
+      val rand = new Random();
+      val unitVectors: ListBuffer[Array[Double]] = ListBuffer();
+      for (i <- 0 to numHashFunctions - 1) {
+        {
+          val value = Array.fill(columnCounts)(rand.nextGaussian());
+          val total =1// Math.sqrt(value.reduce(Math.pow(_, 2) + Math.pow(_, 2)));
+          unitVectors.append(value.map(x => x / total));
+        }
+      }
+      println("NUMUnitVectors " + unitVectors.length);
+      val buckets = normalizedLinesRDD.map({
+        case (x, y) => {
+          var bucket: StringBuilder = new StringBuilder();
+          var mappedY = LSHUtil.extractRow(metadata.value, columnStartCounts.value, y, true);
+          for (i <- 0 to numHashFunctions - 1) {
+            var totalSum = 0.0;
+            for (j <- 0 to columnCounts - 1) {
+              totalSum = totalSum + unitVectors(i)(j) * mappedY(j);
+            }
+            var bucketId = 0;
+            if (totalSum >= 0) {
+              bucketId = 1;
+            }
+           // println(i + "|--|" + bucketId + " =" + totalSum + " " + numBuckets);
+            bucket.append( Math.floor((totalSum+b)/w));
+          }
+          (bucket.toString().trim(),(x, y))
+        }
+      }).groupByKey();
+      println(buckets.keys.collect().mkString("_"))
+      buckets;
+    }
+
   def lsh(linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], lbsParam: LBSParameters, numNeighbors: Int, outputFilePath: String): (Double, Double, List[RDD[(Int, String)]]) = {
 
     var list: ListBuffer[(Int, String)] = ListBuffer();
@@ -118,133 +165,61 @@ object LBSAndLSH {
     var totalAdvBenefit = 0.0;
     var counter = 0;
     var predicted = 0;
-
+    val metadata = LBSMetadataWithSparkContext.getInstance(sc);
     /**
      * Build LSHmodel
      */
-    val metadata = LBSMetadata.getInstance();
-    val columnStartCounts = sc.broadcast(LSHUtil.getColumnStartCounts(metadata));
+    val buckets = getBuckets(metadata, linesRDD).cache();
+    println("Total count found: " + buckets.values.count());
+    val op = buckets.values.flatMap(x => assignSummaryStatistic(x.toArray)).sortBy(_._1).map(_._2)
 
-    val inputToModel = linesRDD.map({
-      case (x, y) => ({
-        // println("YY=>"+y+"|");
-        val row = LSHUtil.extractRow(metadata, columnStartCounts.value, y, true)
-        (x.intValue(), Vectors.dense(row))
-      })
-    }).collect().toSeq
+    new DataWriter(sc).writeRDDToAFile(outputFilePath, op);
 
-    val dataFrame = new SQLContext(sc).createDataFrame(inputToModel).toDF("id", "keys");
-    val key = Vectors.dense(1.0, 0.0)
-    val brp = new BucketedRandomProjectionLSH()
-      .setBucketLength(30.0)
-      .setNumHashTables(5)
-      .setInputCol("keys")
-      .setOutputCol("values")
+    val linesRDDOP = new DataReader().readDataFile(sc, outputFilePath, true).cache();
+    val totalIL = linesRDDOP.map(_._2).map(x => InfoLossCalculator.IL(x)).mean();
+    println("Total IL " + 100 * (totalIL / InfoLossCalculator.getMaximulInformationLoss()) + " Benefit with no attack: " + 100 * (1 - (totalIL / InfoLossCalculator.getMaximulInformationLoss())));
 
-    val model = brp.fit(dataFrame)
-    val txModel = model.transform(dataFrame)
-
-    val valuesGeneralized = sc.accumulator(List[Long]())(ListAccumulator);
-    val neighbourlist = sc.accumulator(List[Long]())(ListAccumulator);
-
-    var outputMap: ListBuffer[RDD[(Long, (Double, Double, String))]] = ListBuffer();
-    var originalPreds: ListBuffer[RDD[(Double, Double, Long, String)]] = ListBuffer();
-    val rddsPartitioned = linesRDD.randomSplit((List.fill((linesRDD.count / 10).toInt)(1.0)).toArray, 0);
-    val metadatas = LBSMetadataWithSparkContext.getInstance(sc);
-    val zips = LBSMetadataWithSparkContext.getZip(sc);
-    val population = LBSMetadataWithSparkContext.getPopulation(sc);
-
-    for (rddPartition <- rddsPartitioned) {
-      var keysMapped = valuesGeneralized.value;
-      var outputOfRDD = rddPartition.filter({ case (x, y) => (!keysMapped.contains(x)) }).map({
-        case (x, y) =>
-          {
-            val strategy = new LBSAlgorithmWithSparkContext(zips, population, metadatas, lbsParam).findOriginalOptimalStrategy(y)
-            valuesGeneralized += List(x);
-            //  println("strategy:" + x + " ->" + strategy);
-            (strategy._1, strategy._2, x, strategy._3, y)
-          }
-      });
-
-      for (singleOutput <- outputOfRDD.collect()) {
-
-        keysMapped = valuesGeneralized.value;
-        var neighborsRow = model.approxNearestNeighbors(txModel, Vectors.dense(LSHUtil.extractRow(LBSMetadata.getInstance(), columnStartCounts.value, singleOutput._5, true)), numNeighborsVal.value).collectAsList().asInstanceOf[java.util.List[Row]]
-        var nebMap = neighborsRow.toArray.asInstanceOf[Array[Row]].map({ case (row) => (row(0).asInstanceOf[Int].longValue(), (row(1).asInstanceOf[DenseVector]).values) });
-        var quasiGeneralizedMap = scala.collection.mutable.Map[Int, String]();
-        for (column <- metadata.getQuasiColumns()) {
-          quasiGeneralizedMap.put(column.getIndex(), singleOutput._4.get(column.getIndex()).get.trim());
-        }
-        // println("Checking: "+singleOutput._4.toArray.sortBy(_._1).map(_._2).mkString(","));
-        var neighbors = sc.parallelize(nebMap).filter({ case (x, y) => (!keysMapped.contains(x)) }).map({ case (x, y) => (x, LSHUtil.extractReturnObject(metadata, columnStartCounts.value, y)) }).filter({
-          case (x, y) => {
-            var neighborIsSubSet = true;
-
-            breakable {
-              for (column <- metadata.getQuasiColumns()) {
-
-                val genHierarchyValue = singleOutput._4.get(column.getIndex()).get.trim()
-                val neighborValue = y.get(column.getIndex()).get.trim();
-
-                if (genHierarchyValue != neighborValue) {
-                  if (column.getColType() == 's') {
-                    val genCategory = column.getCategory(genHierarchyValue);
-                    if (!genCategory.children.contains(neighborValue)) {
-                      neighborIsSubSet = false;
-                      break;
-                    }
-                  } else {
-                    val minMax1 = LSHUtil.getMinMax(genHierarchyValue);
-                    val minMax2 = LSHUtil.getMinMax(neighborValue);
-                    if (minMax1._1 > minMax2._1 || minMax1._2 < minMax2._2) {
-                      neighborIsSubSet = false;
-                      break;
-                    }
-                  }
-                }
-              }
-              if (neighborIsSubSet) {
-
-                valuesGeneralized += List(x);
-                neighbourlist += List(x);
-              }
-            }
-            neighborIsSubSet;
-          }
-        });
-
-        var op: ListBuffer[(Long, (Double, Double, String))] = ListBuffer();
-        op.append((singleOutput._3, (singleOutput._1, singleOutput._2, singleOutput._4.toArray.sortBy(_._1).map(_._2).mkString(","))));
-        op.appendAll(neighbors.map({ case (x, y) => (x, y, singleOutput, quasiGeneralizedMap) }).map({
-          case (z, t, singleOutput, quasiGeneralizedMap) => {
-
-            for (i <- metadata.getQuasiColumns()) {
-              t.remove(i.getIndex())
-            }
-            t ++= quasiGeneralizedMap;
-            (z, (singleOutput._1, singleOutput._2, t.toArray.sortBy(_._1).map(_._2).mkString(",")));
-          }
-        }).collect());
-        //println("Number of Algorithm executions:" + valuesGeneralized.value.size + " numNeighbours: " + neighbourlist.value.size);
-
-        outputMap.+=:(sc.parallelize(op))
-      }
-
-      //      println("Number of Algorithm executions:" + valuesGeneralized.value.size + " numNeighbours: " + neighbourlist.value.size);
-
-    }
-    val output = sc.union(outputMap).sortByKey().values
-    val publisherBenefit = output.map({ case (x, y, z) => (x) }).mean();
+    /* val publisherBenefit = output.map({ case (x, y, z) => (x) }).mean();
     val advBenefit = output.map({ case (x, y, z) => (y) }).mean();
     val records = output.map({ case (x, y, z) => (z) });
 
     println("Avg PublisherPayOff found: " + publisherBenefit)
     println("Avg AdversaryBenefit found: " + advBenefit)
-    new DataWriter(sc).writeRDDToAFile(outputFilePath, records);
+    new DataWriter(sc).writeRDDToAFile(outputFilePath, records);*/
 
     return (totalPublisherPayOff, totalAdvBenefit, rdds);
   }
 
+  def isNeighbourSubset(metadata: Metadata, generalizedParent: scala.collection.mutable.Map[Int, String], neighbour: scala.collection.mutable.Map[Int, String]): Boolean =
+    {
+      var neighborIsSubSet = true;
+
+      breakable {
+        for (column <- metadata.getQuasiColumns()) {
+
+          val genHierarchyValue = generalizedParent.get(column.getIndex()).get.trim()
+          val neighborValue = neighbour.get(column.getIndex()).get.trim();
+
+          if (genHierarchyValue != neighborValue) {
+            if (column.getColType() == 's') {
+              val genCategory = column.getCategory(genHierarchyValue);
+              if (!genCategory.children.contains(neighborValue)) {
+                neighborIsSubSet = false;
+                break;
+              }
+            } else {
+              val minMax1 = LSHUtil.getMinMax(genHierarchyValue);
+              val minMax2 = LSHUtil.getMinMax(neighborValue);
+              if (minMax1._1 > minMax2._1 || minMax1._2 < minMax2._2) {
+                neighborIsSubSet = false;
+                break;
+              }
+            }
+          }
+        }
+      }
+      neighborIsSubSet;
+    }
   def plainlsh(linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], lbsParam: LBSParameters, numNeighbors: Int, outputFilePath: String) {
 
     val numNeighborsVal = sc.broadcast(numNeighbors);
@@ -301,7 +276,7 @@ object LBSAndLSH {
           var nebMap = sc.parallelize(neighborsRow.toArray.asInstanceOf[Array[Row]]).map({ case (row) => (row(0).asInstanceOf[Int].longValue(), LSHUtil.extractReturnObject(metadata, columnStartCounts.value, (row(1).asInstanceOf[DenseVector]).values)) }).filter({ case (x, y) => (!keysMapped.contains(x)) }).take(numNeighborsVal.value);
           if (nebMap.size >= numNeighborsVal.value) {
 
-            rdds.++=(assignSummaryStatistic(nebMap, valuesGeneralized));
+            rdds.++=(assignSummaryStatistic(nebMap));
 
           } else {
 
@@ -310,7 +285,7 @@ object LBSAndLSH {
               for (key <- listOfNoNeighbours.keys.toArray) {
                 valuesGeneralized += List(key);
               }
-              rdds.++=(assignSummaryStatistic(listOfNoNeighbours.toArray, valuesGeneralized));
+              rdds.++=(assignSummaryStatistic(listOfNoNeighbours.toArray));
               listOfNoNeighbours = scala.collection.mutable.Map();
             }
           }
@@ -332,8 +307,9 @@ object LBSAndLSH {
     return (totalPublisherPayOff, totalAdvBenefit, output);
   }
 
-  def assignSummaryStatistic(nebMapArr: Array[(Long, scala.collection.mutable.Map[Int, String])], valuesGeneralized: Accumulator[List[Long]]): Map[Long, String] =
+  def assignSummaryStatistic(nebMapArr: Array[(Long, scala.collection.mutable.Map[Int, String])]): Map[Long, String] =
     {
+      println("Array size found " + nebMapArr.size);
       val metadata = LBSMetadata.getInstance();
 
       val nebMap = sc.parallelize(nebMapArr);
@@ -365,7 +341,6 @@ object LBSAndLSH {
           /**
            * Append column values to sb.
            */
-          valuesGeneralized += List(x);
 
           for (i <- 0 to metadata.numColumns() - 1) {
 

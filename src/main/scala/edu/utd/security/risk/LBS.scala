@@ -45,7 +45,7 @@ object LBS {
 
   def lbs(record: scala.collection.mutable.Map[Int, String], lbsParam: LBSParameters) {
 
-    val algo = new LBSAlgorithm(LBSMetadataWithSparkContext.getInstance(sc), lbsParam);
+    val algo = new LBSAlgorithm(LBSMetadataWithSparkContext.getInstance(sc).value, lbsParam);
     val optimalRecord = algo.findOptimalStrategy(record)
     println(optimalRecord._1 + " " + optimalRecord._2 + " =>" + optimalRecord._3);
   }

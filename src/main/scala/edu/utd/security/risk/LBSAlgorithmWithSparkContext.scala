@@ -4,7 +4,7 @@ import java.util.Collection
 
 import org.apache.spark.broadcast.Broadcast
 
-class LBSAlgorithmWithSparkContext(zips: Broadcast[List[Int]], population: Broadcast[scala.collection.mutable.Map[(String, String), java.util.TreeMap[Double, java.util.TreeMap[Double, Double]]]], metadata: Broadcast[Metadata], lbsParameters: LBSParameters) extends LBSAlgorithm(metadata: Broadcast[Metadata], lbsParameters: LBSParameters) {
+class LBSAlgorithmWithSparkContext(zips: Broadcast[List[Int]], population: Broadcast[scala.collection.mutable.Map[(String, String), java.util.TreeMap[Double, java.util.TreeMap[Double, Double]]]], metadata: Broadcast[Metadata], lbsParameters: LBSParameters) extends LBSAlgorithm(metadata.value: Metadata, lbsParameters: LBSParameters) {
 
   override def IL(g: scala.collection.mutable.Map[Int, String]): Double =
     {
