@@ -24,7 +24,23 @@ import org.apache.spark.sql.SparkSession
 import edu.utd.security.mondrian.DataWriter
 import breeze.linalg.normalize
 import org.apache.spark.broadcast.Broadcast
+import org.apache.spark.ml.linalg._
+import org.apache.spark.ml.param._
+import org.apache.spark.ml.util._
 
+import scala.util.Random
+
+import breeze.linalg.normalize
+import org.apache.hadoop.fs.Path
+
+import org.apache.spark.annotation.{ Experimental, Since }
+import org.apache.spark.ml.linalg._
+import org.apache.spark.ml.param._
+import org.apache.spark.ml.param.shared.HasSeed
+import org.apache.spark.ml.util._
+import org.apache.spark.mllib.util.MLUtils
+import org.apache.spark.sql.Row
+import org.apache.spark.sql.types.StructType
 /**
  * This is implementation of paper called "A Game Theoretic Framework for Analyzing Re-Identification Risk"
  * Paper authors = {Zhiyu Wan,  Yevgeniy Vorobeychik,  Weiyi Xia,  Ellen Wright Clayton,  Murat Kantarcioglu,  Ranjit Ganta,  Raymond Heatherly,  Bradley A. Malin},
@@ -66,11 +82,8 @@ object LBSAndLSH {
     var rdds: List[RDD[(Int, String)]] = List();
     if (useLSH.equalsIgnoreCase("true")) {
       val output = lsh(linesRDD, lbsParam, numNeighbours, outputFilePath)
-      rdds = output._3
-      totalPublisherPayOff = output._1
-      totalAdvBenefit = output._2
     } else if (useLSH.equalsIgnoreCase("plain")) {
-      val output = plainlsh(linesRDD, lbsParam, numNeighbours, outputFilePath);
+      //  val output = plainlsh(linesRDD, lbsParam, numNeighbours, outputFilePath);
     } else {
 
       val metadata = LBSMetadataWithSparkContext.getInstance(sc);
@@ -102,78 +115,84 @@ object LBSAndLSH {
 
   }
 
-  object ListAccumulator extends AccumulatorParam[List[Long]] {
+  val numHashFunctions: Int = 10;
 
-    def zero(init: List[Long]): List[Long] = {
-      return init
-    }
+  val r: Double = 30.0;
+  val b: ListBuffer[Double] = ListBuffer();
 
-    def addInPlace(l1: List[Long], l2: List[Long]): List[Long] = {
-      l1 ::: l2
-    }
-  }
-
-  val numHashFunctions: Int = 5;
-
-  val w: Double =30.0;
-  val b = 25.0; 
-
-  def getBuckets(metadata: Broadcast[Metadata], normalizedLinesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])]): RDD[(String, Iterable[(Long, scala.collection.mutable.Map[Int, String])])] =
+  def getBuckets(metadata: Broadcast[Metadata], normalizedLinesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], tuneDownFactor: Double): RDD[(String, Array[(Long, scala.collection.mutable.Map[Int, String])])] =
     {
       val columnStartCounts = sc.broadcast(LSHUtil.getColumnStartCounts(metadata.value));
 
       val columnCounts = LSHUtil.getTotalNewColumns(metadata.value);
       val rand = new Random();
-      val unitVectors: ListBuffer[Array[Double]] = ListBuffer();
+      /*  val unitVectors: ListBuffer[Array[Double]] = ListBuffer();
       for (i <- 0 to numHashFunctions - 1) {
         {
           val value = Array.fill(columnCounts)(rand.nextGaussian());
-          val total =1// Math.sqrt(value.reduce(Math.pow(_, 2) + Math.pow(_, 2)));
-          unitVectors.append(value.map(x => x / total));
+          val total = Math.sqrt(value.map(x => (x * x)).sum);
+          val op = value.map(x => x / total)
+          unitVectors.append(op);
+          b.append(Math.random() * r);
+        }
+      }*/
+
+      val randUnitVectors: Array[Array[Double]] = {
+        Array.fill(numHashFunctions) {
+          val randArray = Array.fill(columnCounts)(rand.nextGaussian())
+          normalize(breeze.linalg.Vector(randArray)).toArray
         }
       }
-      println("NUMUnitVectors " + unitVectors.length);
+
+      /*println("NUMUnitVectors " + unitVectors.length);*/
       val buckets = normalizedLinesRDD.map({
         case (x, y) => {
-          var bucket: StringBuilder = new StringBuilder();
+          var bucket: ListBuffer[Double] = new ListBuffer();
           var mappedY = LSHUtil.extractRow(metadata.value, columnStartCounts.value, y, true);
-          for (i <- 0 to numHashFunctions - 1) {
+          val hashValues: Array[Double] = randUnitVectors.map(unitVec => {
             var totalSum = 0.0;
             for (j <- 0 to columnCounts - 1) {
-              totalSum = totalSum + unitVectors(i)(j) * mappedY(j);
+              totalSum = totalSum + unitVec(j) * mappedY(j);
             }
-            var bucketId = 0;
-            if (totalSum >= 0) {
-              bucketId = 1;
-            }
-           // println(i + "|--|" + bucketId + " =" + totalSum + " " + numBuckets);
-            bucket.append( Math.floor((totalSum+b)/w));
-          }
-          (bucket.toString().trim(),(x, y))
+            val op = Math.round((totalSum / r) * tuneDownFactor) / tuneDownFactor
+            op
+          })
+          // TODO: Output vectors of dimension numHashFunctions in SPARK-18450
+
+          (hashValues.mkString(","), (x, y))
         }
-      }).groupByKey();
-      println(buckets.keys.collect().mkString("_"))
+      }).groupByKey().map(x => (x._1, x._2.toArray));
       buckets;
     }
 
-  def lsh(linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], lbsParam: LBSParameters, numNeighbors: Int, outputFilePath: String): (Double, Double, List[RDD[(Int, String)]]) = {
+  def lsh(linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], lbsParam: LBSParameters, numNeighbors: Int, outputFilePath: String)= {
 
-    var list: ListBuffer[(Int, String)] = ListBuffer();
-    var rdds: List[RDD[(Int, String)]] = List();
+    var rdds: ListBuffer[RDD[(Long, String)]] = ListBuffer();
     val numNeighborsVal = sc.broadcast(numNeighbors);
-    var totalPublisherPayOff = 0.0;
-    var totalAdvBenefit = 0.0;
-    var counter = 0;
-    var predicted = 0;
     val metadata = LBSMetadataWithSparkContext.getInstance(sc);
-    /**
-     * Build LSHmodel
-     */
-    val buckets = getBuckets(metadata, linesRDD).cache();
-    println("Total count found: " + buckets.values.count());
-    val op = buckets.values.flatMap(x => assignSummaryStatistic(x.toArray)).sortBy(_._1).map(_._2)
+    //  sc.setLogLevel("DEBUG");
 
-    new DataWriter(sc).writeRDDToAFile(outputFilePath, op);
+    var inputData = linesRDD;
+    var numBuckets = 100000.0;
+    while (numBuckets > 1) {
+      println("NumBuckets: "+numBuckets +" : "+inputData.count());
+      var buckets = getBuckets(metadata, inputData,numBuckets);
+      buckets.cache();
+      var neighbours = buckets.filter({ case (x, y) => y.size >= numNeighborsVal.value });
+      var op = neighbours.map(x => (x._2)).flatMap(x => assignSummaryStatistic(x));
+      var remaining = buckets.filter({ case (x, y) => y.size < numNeighborsVal.value });
+      inputData = remaining.flatMap(_._2)
+      rdds.append(op);
+      buckets.unpersist();
+
+      numBuckets = numBuckets / 10.0;
+    }
+    val finalStep =inputData.collect();
+    println("Final step size"+finalStep.size)
+    var op = sc.parallelize(assignSummaryStatistic(finalStep).toSeq);
+    rdds.append(op);
+
+    new DataWriter(sc).writeRDDToAFile(outputFilePath, sc.union(rdds).sortByKey().map(_._2));
 
     val linesRDDOP = new DataReader().readDataFile(sc, outputFilePath, true).cache();
     val totalIL = linesRDDOP.map(_._2).map(x => InfoLossCalculator.IL(x)).mean();
@@ -187,7 +206,6 @@ object LBSAndLSH {
     println("Avg AdversaryBenefit found: " + advBenefit)
     new DataWriter(sc).writeRDDToAFile(outputFilePath, records);*/
 
-    return (totalPublisherPayOff, totalAdvBenefit, rdds);
   }
 
   def isNeighbourSubset(metadata: Metadata, generalizedParent: scala.collection.mutable.Map[Int, String], neighbour: scala.collection.mutable.Map[Int, String]): Boolean =
@@ -220,102 +238,15 @@ object LBSAndLSH {
       }
       neighborIsSubSet;
     }
-  def plainlsh(linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], lbsParam: LBSParameters, numNeighbors: Int, outputFilePath: String) {
-
-    val numNeighborsVal = sc.broadcast(numNeighbors);
-    var totalPublisherPayOff = 0.0;
-    var totalAdvBenefit = 0.0;
-    var counter = 0;
-    var predicted = 0;
-
-    var rdds: scala.collection.mutable.Map[Long, String] = scala.collection.mutable.Map();
-    /**
-     * Build LSHmodel
-     */
-    val metadata = LBSMetadata.getInstance();
-    val columnStartCounts = sc.broadcast(LSHUtil.getColumnStartCounts(metadata));
-
-    val inputToModel = linesRDD.map({
-      case (x, y) => ({
-        // println("YY=>"+y+"|");
-        val row = LSHUtil.extractRow(metadata, columnStartCounts.value, y, true)
-        (x.intValue(), Vectors.dense(row))
-      })
-    }).collect().toSeq
-
-    val dataFrame = new SQLContext(sc).createDataFrame(inputToModel).toDF("id", "keys");
-    val key = Vectors.dense(1.0, 0.0)
-    val brp = new BucketedRandomProjectionLSH()
-      .setBucketLength(30.0)
-      .setNumHashTables(5)
-      .setInputCol("keys")
-      .setOutputCol("values")
-
-    val model = brp.fit(dataFrame)
-    val txModel = model.transform(dataFrame)
-
-    val valuesGeneralized = sc.accumulator(List[Long]())(ListAccumulator);
-
-    var outputMap: ListBuffer[RDD[(Long, (Double, Double, String))]] = ListBuffer();
-    var originalPreds: ListBuffer[RDD[(Double, Double, Long, String)]] = ListBuffer();
-    val rddsPartitioned = linesRDD.randomSplit((List.fill((linesRDD.count / 1000).toInt)(1.0)).toArray, 0);
-    val metadatas = LBSMetadataWithSparkContext.getInstance(sc);
-    val zips = LBSMetadataWithSparkContext.getZip(sc);
-    val population = LBSMetadataWithSparkContext.getPopulation(sc);
-    val count = linesRDD.count();
-
-    var listOfNoNeighbours: scala.collection.mutable.Map[Long, scala.collection.mutable.Map[Int, String]] = scala.collection.mutable.Map();
-    var i: Int = 0;
-    for (rddPartition <- rddsPartitioned) {
-      var keysMapped = valuesGeneralized.value;
-      var filteredRDD = rddPartition.filter({ case (x, y) => (!keysMapped.contains(x)) }).collect();
-      for (singleOutput <- filteredRDD) {
-
-        if (!keysMapped.contains(singleOutput._1) && count > valuesGeneralized.value.size) {
-          var neighborsRow = model.approxNearestNeighbors(txModel, Vectors.dense(LSHUtil.extractRow(LBSMetadata.getInstance(), columnStartCounts.value, singleOutput._2, true)), 2 * numNeighborsVal.value).collectAsList().asInstanceOf[java.util.List[Row]]
-          var nebMap = sc.parallelize(neighborsRow.toArray.asInstanceOf[Array[Row]]).map({ case (row) => (row(0).asInstanceOf[Int].longValue(), LSHUtil.extractReturnObject(metadata, columnStartCounts.value, (row(1).asInstanceOf[DenseVector]).values)) }).filter({ case (x, y) => (!keysMapped.contains(x)) }).take(numNeighborsVal.value);
-          if (nebMap.size >= numNeighborsVal.value) {
-
-            rdds.++=(assignSummaryStatistic(nebMap));
-
-          } else {
-
-            listOfNoNeighbours.++=(nebMap);
-            if (listOfNoNeighbours.size >= numNeighborsVal.value) {
-              for (key <- listOfNoNeighbours.keys.toArray) {
-                valuesGeneralized += List(key);
-              }
-              rdds.++=(assignSummaryStatistic(listOfNoNeighbours.toArray));
-              listOfNoNeighbours = scala.collection.mutable.Map();
-            }
-          }
-          keysMapped = valuesGeneralized.value;
-        }
-        //  println("Current Count of Generalized records:" + valuesGeneralized.value.size );
-      }
-      //  println("Current Count of Generalized records:" + valuesGeneralized.value.size + "  Original RDD:"+filteredRDD.size);
-    }
-    rdds.++=(listOfNoNeighbours.map(x => (x._1, "*,37010.0_72338.0,0_120,*")));
-    val output = sc.parallelize(rdds.toSeq.sortBy(_._1)).map(_._2)
-
-    new DataWriter(sc).writeRDDToAFile(outputFilePath, output);
-
-    val linesRDDOP = new DataReader().readDataFile(sc, outputFilePath, true).cache();
-    val totalIL = linesRDDOP.map(_._2).map(x => InfoLossCalculator.IL(x)).mean();
-    println("Total IL " + 100 * (totalIL / InfoLossCalculator.getMaximulInformationLoss()) + " Benefit with no attack: " + 100 * (1 - (totalIL / InfoLossCalculator.getMaximulInformationLoss())));
-
-    return (totalPublisherPayOff, totalAdvBenefit, output);
-  }
 
   def assignSummaryStatistic(nebMapArr: Array[(Long, scala.collection.mutable.Map[Int, String])]): Map[Long, String] =
     {
-      println("Array size found " + nebMapArr.size);
       val metadata = LBSMetadata.getInstance();
 
-      val nebMap = sc.parallelize(nebMapArr);
-      var indexValueGroupedIntermediate = nebMap.flatMap({ case (x, y) => y }).groupByKey().map({ case (index, list) => (index, list.toList.distinct) })
+      var indexValueGroupedIntermediate = nebMapArr.flatMap({ case (x, y) => y }).groupBy(_._1).map(x => (x._1, x._2.map(_._2)));
+      var int2 = indexValueGroupedIntermediate.map({ case (index, list) => (index, list.toList.distinct) })
 
-      val indexValueGrouped = indexValueGroupedIntermediate.map({
+      var indexValueGrouped = indexValueGroupedIntermediate.map({
         case (x, y) =>
           val column = metadata.getMetadata(x).get;
           if (column.getIsQuasiIdentifier()) {
@@ -333,14 +264,9 @@ object LBSAndLSH {
             (-1, "")
           }
       });
-
-      var map: scala.collection.Map[Int, String] = indexValueGrouped.collectAsMap();
-      return nebMap.map({
+      var map: scala.collection.Map[Int, String] = indexValueGrouped;
+      return nebMapArr.clone().map({
         case (x, y) =>
-
-          /**
-           * Append column values to sb.
-           */
 
           for (i <- 0 to metadata.numColumns() - 1) {
 
@@ -348,19 +274,12 @@ object LBSAndLSH {
               /* 
                * Summary statistic for the quasi-identifier without any cut on current column.
                */
-
-              if (y.get((metadata.numColumns() + i)) == None) {
-                y.remove(i);
-                y.put(i, map.get(i).get);
-              } else {
-                y.remove(i);
-                y.put(i, y.get(metadata.numColumns() + i).get);
-                y.remove(metadata.numColumns() + i);
-              }
+              y.remove(i);
+              y.put(i, map.get(i).get);
             }
           }
           (x, y.toArray.sortBy(_._1).map(_._2).mkString(","))
-      }).collect().toMap;
+      }).toMap;
     }
 
 }
