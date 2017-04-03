@@ -1,13 +1,13 @@
 package edu.utd.security.risk
 
 import org.apache.spark.SparkContext
-import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
+import org.apache.spark.rdd.RDD.doubleRDDToDoubleRDDFunctions
 import org.apache.spark.rdd.RDD.rddToOrderedRDDFunctions
 import org.apache.spark.rdd.RDD.rddToPairRDDFunctions
 import org.apache.spark.sql.SparkSession
+
 import edu.utd.security.mondrian.DataWriter
-import edu.utd.security.risk.Dimensions
 
 /**
  * This is implementation of paper on Mondrian multi-dimensional paritioning for K-Anonymity
@@ -25,19 +25,15 @@ object Mondrian {
    * 3. Output File path
    * 4. value of k
    */
-
   
   def main(args: Array[String]): Unit = {
 
     val t0 = System.nanoTime()
-
     sc = SparkSession
       .builder.appName("Mondrian").master(args(1)).getOrCreate().sparkContext;
     kanonymize(args(0), args(1), args(2), args(3).toInt);
     val t1 = System.nanoTime()
-
     println("Time Taken: " + ((t1 - t0) / 1000000));
-
     val linesRDDOP = new DataReader().readDataFile(sc, args(2), 40).cache();
     val totalIL = linesRDDOP.map(_._2).map(x => InfoLossCalculator.IL(x)).mean();
     println("Total IL " + 100 * (totalIL / InfoLossCalculator.getMaximulInformationLoss()) + " Benefit with no attack: " + 100 * (1 - (totalIL / InfoLossCalculator.getMaximulInformationLoss())));
@@ -55,7 +51,7 @@ object Mondrian {
    */
 
   /**
-   * This is implementation of k-anonymize function that finds dimension, paritions recursively.
+   * This is implementation of k-anonymize function that finds dimension, partitions recursively.
    */
   def kanonymize(hdfsDataFilePath: String, scPath: String, outputFilePath: String, k: Int) {
 
@@ -87,15 +83,10 @@ object Mondrian {
 
   }
 
+ 
   /**
-   * Cdm = Sum(|E|*|E|)
-   */
-  def getDiscernabilityMetric(): Double = {
-    return discernabilityMetric;
-  }
-
-  /**
-   * This function finds dimension, performs cut based on the median value and
+   * This function finds dimension, performs cut based on the median value and in turn calls Kanonymize on both sides of the 
+   * cut.
    */
   def kanonymize(linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], k: Int) {
 

@@ -3,12 +3,21 @@ package edu.utd.security.risk
 import scala.collection.mutable.ListBuffer
 import org.apache.spark.SparkContext
 import org.apache.spark.broadcast.Broadcast
-
-class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) extends Serializable{
+/**
+ * This class implements algorithm from following paper
+ * Title = "A Game Theoretic Framework for Analyzing Re-Identification Risk"
+ * Paper authors = {Zhiyu Wan,  Yevgeniy Vorobeychik,  Weiyi Xia,  Ellen Wright Clayton,  Murat Kantarcioglu,  Ranjit Ganta,  Raymond Heatherly,  Bradley A. Malin},
+ * booktitle = {In ICDE},
+ * year = {2015}
+ */
+class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) extends Serializable {
   var V = lbsParameters.V();
   var L = lbsParameters.L();
   var C = lbsParameters.C();
 
+  /**
+   * Helper method which converts input row into Map of Index,Value and executes the findOriginalOptimalStrategy method.
+   */
   def findOptimalStrategy(text: String): String =
     {
       val record = scala.collection.mutable.Map[Int, String]();
@@ -20,11 +29,19 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) extends Ser
       println("Optimal Strategy found with Attack ==>" + strategy)
       return strategy._3;
     }
-  
+
+  /**
+   * Helper method which executes the findOriginalOptimalStrategy method and returns the output in
+   * String format.
+   */
   def findOptimalStrategy(top: scala.collection.mutable.Map[Int, String]): (Double, Double, String) = {
-   val strategy =findOriginalOptimalStrategy(top);
-   return (strategy._1,strategy._2,strategy._3.toArray.sortBy(_._1).map(_._2).mkString(","))
+    val strategy = findOriginalOptimalStrategy(top);
+    return (strategy._1, strategy._2, strategy._3.toArray.sortBy(_._1).map(_._2).mkString(","))
   }
+  /**
+   * This method takes the top of the lattice as the entry point and executes LAttice-Based-Search algorithm
+   * until ideal generalization level is found.
+   */
   def findOriginalOptimalStrategy(top: scala.collection.mutable.Map[Int, String]): (Double, Double, scala.collection.mutable.Map[Int, String]) = {
 
     var Um: Double = -1;
@@ -36,11 +53,17 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) extends Ser
     while (!isGLeafNode(g)) {
 
       if (LPiG <= C) {
-       // println("adversaryBenefit<=lbsParam.getRecordCost() " + Vg(g) + "_" + LPiG)
+        /**
+         * Because of extremely low risk, adversary has no monetary incentive, hence wont attack.
+         */
         return (Vg(g), 0.0, g);
       }
+
       Um = Vg(g) - LPiG;
       Gm = g;
+      /**
+       * Compute Publisher benefit for each of the child.
+       */
       val maxChildren = getChildren(g).map(Gc => {
         var LPiGc = L * Pi(Gc);
         if (LPiGc > C) {
@@ -50,19 +73,23 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) extends Ser
         }
       }).filter(_._1 >= Um);
 
+      /**
+       * Parent payoff is better than any of the child's payoff, Return parent.
+       */
       if (maxChildren.isEmpty) {
-     //   println("Parent Payoff is better than any of the children payoff" + Um);
         return (Um, LPiG, g);
       } else {
+        /**
+         * Select most optimal child, explore child's descendants.
+         */
         val child = maxChildren.maxBy(_._1)
-       // println("Selecting child " + child)
         Um = child._1
         LPiG = child._2
         Gm = child._3
       }
       g = Gm;
     }
-   // println("Outside return payoff" + Um + " : " + g);
+    // println("Outside return payoff" + Um + " : " + g);
     return (Um, LPiG, g);
   }
 
@@ -72,7 +99,6 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) extends Ser
    */
   def Pi(g: scala.collection.mutable.Map[Int, String]): Double =
     {
-
       val sum = getNumMatches(g);
       if (sum == 0) {
         return 1;
@@ -80,8 +106,11 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) extends Ser
         return (1.0 / sum);
       }
     }
-
-    def IL(g: scala.collection.mutable.Map[Int, String]): Double =
+  /**
+   * This method calculates the Information loss. The information loss is calculated by individually calculating
+   * loss for each of the attribute and then adding all of them
+   */
+  def IL(g: scala.collection.mutable.Map[Int, String]): Double =
     {
       var infoLoss: Double = 0;
 
@@ -101,11 +130,13 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) extends Ser
             val zipInfoLoss = LBSMetadata.getZip().filter { x => x >= minMax._1 && x <= minMax._2 }.size;
             infoLoss += (-Math.log10(1.0 / (zipInfoLoss)));
           }
-
         }
       }
       return infoLoss;
     }
+  /**
+   * Calculate Publisher benefit.
+   */
   def Vg(g: scala.collection.mutable.Map[Int, String]): Double =
     {
       val infoLoss = IL(g);
@@ -113,10 +144,13 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) extends Ser
       val loss = V * (1.0 - (infoLoss / maxInfoLoss));
       return loss;
     }
- 
-    def getNumMatches(key: scala.collection.mutable.Map[Int, String]): Int =
-    {
 
+  /**
+   * In order to calculate risk of the record, we need to know total population size within the dataset
+   * This function returns total count of entries found in the population.
+   */
+  def getNumMatches(key: scala.collection.mutable.Map[Int, String]): Int =
+    {
       if (key != null) {
 
         var genders = List[String]();
@@ -127,7 +161,6 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) extends Ser
         } else {
           genders = gendersPar.map(_.replaceAll("Male", "1").replaceAll("Female", "0"));
         }
-
         val racesPar = metadata.getMetadata(3).get.getCategory(key.get(3).get).leaves;
         if (racesPar == None || racesPar.size == 0) {
           races = races.+:(key.get(3).get.replaceAll("White", "0").replaceAll("Asian-Pac-Islander", "2").replaceAll("Amer-Indian-Eskimo", "3").replaceAll("Other", "4").replaceAll("Black", "1"));
@@ -137,6 +170,9 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) extends Ser
         val ageRange = LSHUtil.getMinMax(key.get(2).get);
         val zipRange = LSHUtil.getMinMax(key.get(1).get);
         val keyForMap = races.mkString(",").trim() + "|" + genders.mkString(",").trim() + "|" + ageRange._1 + "_" + ageRange._2 + "|" + zipRange._1 + "_" + zipRange._2;
+        /**
+         * Once keys have been identified, check map in order to retrieve population size.
+         */
         val numMatches = (for {
           a <- races
           b <- genders
@@ -160,7 +196,7 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) extends Ser
         }).reduce(_ + _).toInt;
         return numMatches;
       } else {
-        return  LBSMetadata.getPopulation().size;
+        return LBSMetadata.getPopulation().size;
       }
     }
   /**
