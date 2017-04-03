@@ -13,8 +13,8 @@ class DataReader() extends Serializable {
   /**
    * This method reads input Data file and returns the linesRDD.
    */
-  def readDataFile(sc: SparkContext,hdfsDataPath: String, skipMissingRecords: Boolean): RDD[(Long, scala.collection.mutable.Map[Int, String])] = {
-    val file = sc.textFile(hdfsDataPath, 8)
+  def readDataFile(sc: SparkContext,hdfsDataPath: String, numPartitions:Int): RDD[(Long, scala.collection.mutable.Map[Int, String])] = {
+    val file = sc.textFile(hdfsDataPath ,numPartitions)
     /**
      * Split by new line, filter lines containing missing data.
      */
@@ -24,7 +24,7 @@ class DataReader() extends Serializable {
     /**
      * Retain indices of lines
      */
-    if (skipMissingRecords) {
+    if (true) {
       linesWithIndex = lines.filter { !_.contains("?") }.zipWithIndex;
     }  
 

@@ -15,7 +15,7 @@ object InfoLossCalculator {
       println("Program variables expected :<SPARK_MASTER_URL> <HDFS_Data_file_path> <PUBLISHER_BENEFIT>")
     } else {
       sc.setLogLevel("ERROR");
-      val linesRDD = new DataReader().readDataFile(sc, args(1), true).cache();
+      val linesRDD = new DataReader().readDataFile(sc, args(1), 40).cache();
       val totalIL = linesRDD.map(_._2).map(x=>IL(x)).mean();
       println("Total IL "+100*(totalIL/getMaximulInformationLoss())+ " Benefit with no attack: "+ args(2).toInt*(1-(totalIL/getMaximulInformationLoss())));
     }

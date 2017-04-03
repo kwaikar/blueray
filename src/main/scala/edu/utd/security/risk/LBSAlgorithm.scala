@@ -81,7 +81,7 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) extends Ser
       }
     }
 
-  def IL(g: scala.collection.mutable.Map[Int, String]): Double =
+    def IL(g: scala.collection.mutable.Map[Int, String]): Double =
     {
       var infoLoss: Double = 0;
 
@@ -106,7 +106,6 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) extends Ser
       }
       return infoLoss;
     }
-
   def Vg(g: scala.collection.mutable.Map[Int, String]): Double =
     {
       val infoLoss = IL(g);
@@ -114,30 +113,47 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) extends Ser
       val loss = V * (1.0 - (infoLoss / maxInfoLoss));
       return loss;
     }
-  def getNumMatches(key: scala.collection.mutable.Map[Int, String]): Int =
+ 
+    def getNumMatches(key: scala.collection.mutable.Map[Int, String]): Int =
     {
 
       if (key != null) {
 
-        val genders = metadata.getMetadata(0).get.getCategory(key.get(0).get).leaves.+:(key.get(0).get).map(_.replaceAll("Male", "1").replaceAll("Female", "0"));
+        var genders = List[String]();
+        var races = List[String]();
+        val gendersPar = metadata.getMetadata(0).get.getCategory(key.get(0).get).leaves;
+        if (gendersPar == None || gendersPar.size == 0) {
+          genders = genders.+:(key.get(0).get.replaceAll("Male", "1").replaceAll("Female", "0"));
+        } else {
+          genders = gendersPar.map(_.replaceAll("Male", "1").replaceAll("Female", "0"));
+        }
 
-        val races = metadata.getMetadata(3).get.getCategory(key.get(3).get).leaves.+:(key.get(3).get).map(_.replaceAll("White", "0").replaceAll("Asian-Pac-Islander", "2").replaceAll("Amer-Indian-Eskimo", "3").replaceAll("Other", "4").replaceAll("Black", "1"));
+        val racesPar = metadata.getMetadata(3).get.getCategory(key.get(3).get).leaves;
+        if (racesPar == None || racesPar.size == 0) {
+          races = races.+:(key.get(3).get.replaceAll("White", "0").replaceAll("Asian-Pac-Islander", "2").replaceAll("Amer-Indian-Eskimo", "3").replaceAll("Other", "4").replaceAll("Black", "1"));
+        } else {
+          races = racesPar.map(_.replaceAll("White", "0").replaceAll("Asian-Pac-Islander", "2").replaceAll("Amer-Indian-Eskimo", "3").replaceAll("Other", "4").replaceAll("Black", "1"));
+        }
         val ageRange = LSHUtil.getMinMax(key.get(2).get);
-        val age = (ageRange._1.toInt to ageRange._2.toInt)
         val zipRange = LSHUtil.getMinMax(key.get(1).get);
-        val zip = (zipRange._1.toInt to zipRange._2.toInt)
-
-        val combinations =  for {
+        val keyForMap = races.mkString(",").trim() + "|" + genders.mkString(",").trim() + "|" + ageRange._1 + "_" + ageRange._2 + "|" + zipRange._1 + "_" + zipRange._2;
+        val numMatches = (for {
           a <- races
           b <- genders
-          c <- age
-          d <- zip
-        } yield (a, b, c, d);
-
-        var numMatches = combinations.map(x => {
-          val populationNum = LBSMetadata.getPopulation().get(x._1, x._2, x._3, x._4);
+        } yield (a, b)).map(x => {
+          val populationNum = LBSMetadata.getPopulation().get(x._1, x._2);
           if (populationNum != None) {
-            populationNum.get;
+            var sum = 0.0;
+            var itr = populationNum.get.subMap(ageRange._1.toInt, true, ageRange._2.toInt, true).values().iterator();
+            while (itr.hasNext()) {
+              var itr2 = itr.next().subMap(zipRange._1.toInt, true, zipRange._2.toInt, true).values().iterator();
+              while (itr2.hasNext()) {
+                sum += itr2.next();
+              }
+              itr2 = null;
+            }
+            itr = null;
+            sum
           } else {
             0;
           }
@@ -147,7 +163,6 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) extends Ser
         return  LBSMetadata.getPopulation().size;
       }
     }
-
   /**
    * This method returns the list of immediate children from lattice for the given entry.
    */

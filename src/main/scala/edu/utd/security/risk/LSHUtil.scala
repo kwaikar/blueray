@@ -19,32 +19,42 @@ object LSHUtil {
       (value.toDouble, value.toDouble)
     }
   }
+  var columnStartCounts = Array[Int]();
+  var totalCounts = 0;
+
   def getColumnStartCounts(metadata: Metadata): Array[Int] = {
     var nextStartCount = 0;
-    var columnStartCounts = ListBuffer[Int]();
     var index = 0;
-   
-    for (column <- metadata.getQuasiColumns()) {
-      columnStartCounts += nextStartCount;
-      if (column.getColType() == 's') {
-        nextStartCount = nextStartCount + column.getNumUnique();
-      } else {
-        nextStartCount = nextStartCount + 1;
+    val counts = ListBuffer[Int]();
+    if (columnStartCounts.size == 0) {
+      for (column <- metadata.getQuasiColumns()) {
+        counts += nextStartCount;
+        if (column.getColType() == 's') {
+          nextStartCount = nextStartCount + column.getNumUnique();
+        } else {
+          nextStartCount = nextStartCount + 1;
+        }
+        index = index + 1;
       }
-      index = index + 1;
+      columnStartCounts = counts.toArray;
+    getTotalNewColumns(metadata);
     }
-    return columnStartCounts.toArray;
+    return columnStartCounts;
   }
-
+    var emptyRow: Array[Double] =Array[Double](); 
   def getTotalNewColumns(metadata: Metadata): Int = {
-    var totalCounts = 0;
-    for (column <- metadata.getQuasiColumns()) {
-      if (column.getColType() == 's') {
-        totalCounts = totalCounts + column.getNumUnique();
-      } else {
-        totalCounts = totalCounts + 1;
+    if (totalCounts == 0) {
+      
+      for (column <- metadata.getQuasiColumns()) {
+        if (column.getColType() == 's') {
+          totalCounts = totalCounts + column.getNumUnique();
+        } else {
+          totalCounts = totalCounts + 1;
+        }
       }
     }
+    
+   emptyRow = Array.fill(totalCounts)(0.0);
     return totalCounts;
   }
   def getMinimalDataSet(metadata: Metadata, linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], quasiIdentifier: Boolean): RDD[(Long, scala.collection.mutable.Map[Int, String])] = {
@@ -66,9 +76,9 @@ object LSHUtil {
       }
 
     }
- val map =    linesRDD.map({
+    val map = linesRDD.map({
       case (x, y) => ({
-        var newY :scala.collection.mutable.Map[Int,String]= new scala.collection.mutable.HashMap[Int,String]();
+        var newY: scala.collection.mutable.Map[Int, String] = new scala.collection.mutable.HashMap[Int, String]();
         newY ++= y;
         for (i <- columns) {
           newY.remove(i)
@@ -78,36 +88,35 @@ object LSHUtil {
     });
     return map;
   }
+  val ONE=1.0;
 
-  def extractRow(metadata: Metadata, columnStartCounts: Array[Int], values: scala.collection.mutable.Map[Int, String], normalize: Boolean): Array[Double] = {
-    var row: Array[Double] = Array.fill(getTotalNewColumns(metadata))(0.0);
+  def extractRow(metadata: Metadata, values: scala.collection.mutable.Map[Int, String]): Array[Double] = {
+    columnStartCounts = getColumnStartCounts(metadata);
     var index = 0;
-
+    var row=emptyRow.clone();
     for (column <- metadata.getQuasiColumns()) {
       if (column.getColType() == 's') {
-        row((columnStartCounts(index) + column.getRootCategory().getIndexOfColumnValue(values.get(column.getIndex()).get))) = 1.0;
+        row((columnStartCounts(index) + column.getRootCategory().getIndexOfColumnValue(values.get(column.getIndex()).get))) = ONE;
       } else {
         row(columnStartCounts(index)) = ((values.get(column.getIndex()).get.toDouble) - column.getMin()) / (column.getMax() - column.getMin());
       }
       index = index + 1;
-
     }
     return row;
   }
 
-  def extractReturnObject(metadata: Metadata, columnStartCounts: Array[Int], data: Array[Double]): scala.collection.mutable.Map[Int, String] =
+  def extractReturnObject(metadata: Metadata, data: Array[Double]): scala.collection.mutable.Map[Int, String] =
     {
       var index: Int = 0;
+      columnStartCounts = getColumnStartCounts(metadata);
+
       var map = scala.collection.mutable.Map[Int, String]();
       for (column <- metadata.getQuasiColumns()) {
-        //println("column "+column.getName()+" :"+column.getIndex());
         if (column.getColType() == 's') {
           var position = columnStartCounts(index);
           var max = data(position);
           var maxPosition = position;
-          //println(position+" : "+(position + column.getNumUnique()))
           for (pos <- position to (position + column.getNumUnique() - 1)) {
-            //println("Looping: "+pos)
             if (max < data(pos)) {
               max = data(pos);
               maxPosition = pos;
