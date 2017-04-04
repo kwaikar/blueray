@@ -52,14 +52,17 @@ object LBSAndLSH {
 
   var sc: SparkContext = null;
 
+  var numHashFunctions: Int = 10;
+  var r: Double = 2.5;
   def main(args: Array[String]): Unit = {
 
-    if (args.length < 9) {
-      println("Program variables expected : <SPARK_MASTER> <HDFS_Data_file_path> <output_file_path> <recordCost> <maxPublisherBenefit> <publishersLoss> <numPartitions> <Algorithm(lbs/lbslsh/lsh)> <LSH_NUM_NEIGHBORS>")
+    if (args.length < 10) {
+      println("Program variables expected : <SPARK_MASTER> <HDFS_Data_file_path> <output_file_path> <recordCost> <maxPublisherBenefit> <publishersLoss> <numPartitions> <Algorithm(lbs/lbslsh/lsh)> <LSH_NUM_NEIGHBORS> <LSH_NUM_HASH_FUNCTIONS>")
     } else {
       sc = SparkSession
         .builder.appName("LBS").master(args(0)).getOrCreate().sparkContext;
       sc.setLogLevel("ERROR");
+      numHashFunctions = args(9).toInt
       setup(args(1), args(2), new LBSParameters(args(3).toDouble, args(4).toDouble, args(5).toDouble), args(7), args(8).toInt, args(6).toInt)
 
     }
@@ -67,9 +70,11 @@ object LBSAndLSH {
 
   def setup(hdfsFilePath: String, outputFilePath: String, lbsParam: LBSParameters, useLSH: String, numNeighbours: Int, numParitions: Int) {
     var linesRDD = new DataReader().readDataFile(sc, hdfsFilePath, numParitions).cache();
-    lbs(outputFilePath, linesRDD, useLSH, lbsParam, numNeighbours, numParitions);
+    executeAlgorithm(outputFilePath, linesRDD, useLSH, lbsParam, numNeighbours, numParitions);
   }
-  def lbs(outputFilePath: String, linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], useLSH: String, lbsParam: LBSParameters, numNeighbours: Int, numPartitons: Int) {
+
+
+  def executeAlgorithm(outputFilePath: String, linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], useLSH: String, lbsParam: LBSParameters, numNeighbours: Int, numPartitons: Int) {
 
     var totalPublisherPayOff = 0.0;
     var totalAdvBenefit = 0.0;
@@ -77,9 +82,10 @@ object LBSAndLSH {
     var list: ListBuffer[(Int, String)] = ListBuffer();
     var rdds: List[RDD[(Int, String)]] = List();
     if (useLSH.equalsIgnoreCase("lsh")) {
-      val output = lsh(linesRDD, lbsParam, numNeighbours, outputFilePath, numPartitons)
+       lsh(linesRDD, lbsParam, numNeighbours, outputFilePath, numPartitons)
+
     } else if (useLSH.equalsIgnoreCase("lbslsh")) {
-      lbslsh(linesRDD, lbsParam, numNeighbours, outputFilePath);
+      lbslsh(linesRDD, lbsParam,  outputFilePath);
     } else {
       /**
        * Execute LBS algorithm based on following paper.
@@ -88,7 +94,7 @@ object LBSAndLSH {
        * booktitle = {In ICDE},
        * year = {2015}
        */
-      
+
       val t0 = System.nanoTime()
       val metadata = LBSMetadataWithSparkContext.getInstance(sc);
       val zips = LBSMetadataWithSparkContext.getZip(sc);
@@ -109,18 +115,15 @@ object LBSAndLSH {
       println("Avg PublisherPayOff found: " + publisherBenefit)
       println("Avg AdversaryBenefit found: " + advBenefit)
       val fileName = outputFilePath + "/LBS_" + lbsParam.V() + "_" + lbsParam.L() + "_" + lbsParam.C() + ".csv";
-      
+
       new DataWriter(sc).writeRDDToAFile(fileName, records);
-      
+
       val t1 = System.nanoTime()
       println("Time Taken: " + ((t1 - t0) / 1000000));
       output.unpersist(true);
     }
 
   }
-
-  val numHashFunctions: Int = 3;
-  val r: Double = 2.5;
 
   /**
    * This method returns Random Unit vectors
@@ -186,11 +189,11 @@ object LBSAndLSH {
   /**
    * This method is used for using LSH bucketing feature for improving performance of LBS algorithm.
    */
-  def lbslsh(linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], lbsParam: LBSParameters, numNeighbors: Int, outputFilePath: String) = {
+  def lbslsh(linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], lbsParam: LBSParameters,   outputFilePath: String) = {
 
     val t0 = System.nanoTime()
     var rdds: ListBuffer[RDD[(Long, String)]] = ListBuffer();
-    val numNeighborsVal = sc.broadcast(numNeighbors);
+ 
     val metadata = LBSMetadataWithSparkContext.getInstance(sc);
 
     /**
@@ -241,7 +244,7 @@ object LBSAndLSH {
     println("Avg PublisherPayOff found: " + publisherBenefit)
     println("Avg AdversaryBenefit found: " + advBenefit)
 
-    val fileName = outputFilePath + "/LBSLSH_" + numNeighborsVal.value + "_" + numHashFunctions + "_" + r + ".csv";
+    val fileName = outputFilePath + "/LBSLSH_" + numHashFunctions + "_" + r + ".csv";
     new DataWriter(sc).writeRDDToAFile(fileName, sc.union(rdds).sortByKey().map(_._2));
 
     val t1 = System.nanoTime()
@@ -266,12 +269,11 @@ object LBSAndLSH {
 
     var inputData = linesRDD;
     /**
-     * WE start with 100000 as precision factor - which means bucket hash-value would be preserved upto 5 decimal places.
+     * We start with 100000 as precision factor - which means bucket hash-value would be preserved upto 5 decimal places.
      * and hash all elements by calling getBuckets() function.
      */
     var precisionFactor = 100000.0;
     while (precisionFactor > 1) {
-      println("NumBuckets: " + precisionFactor + " : ");
       var buckets = getBuckets(metadata, inputData, precisionFactor);
       buckets.cache();
       /**

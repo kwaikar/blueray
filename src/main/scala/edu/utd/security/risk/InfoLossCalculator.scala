@@ -25,13 +25,9 @@ object InfoLossCalculator {
     {
      var maximumInfoLoss = 0.0;
       val metadata = LBSMetadata.getInstance();
-        println("Calculating Maximum Information Loss")
         for (column <- metadata.getQuasiColumns()) {
-          println("Info Loss for column "+column.getName() + ":[" + column.getNumUnique() + " unique values ](-Math.log10(1.0 /"+column.getNumUnique()+") = " + (-Math.log10(1.0 / column.getNumUnique())));
           maximumInfoLoss += (-Math.log10(1.0 / column.getNumUnique()));
         }
-       println("Setting total maximumInformationLoss : " + maximumInfoLoss)
-
       return maximumInfoLoss;
     }
   def IL(g: scala.collection.mutable.Map[Int, String]): Double =

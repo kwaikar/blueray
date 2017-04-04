@@ -65,7 +65,7 @@ object Mondrian {
      */
     kanonymize(linesRDD, k)
     writeOutputToFile(rdds, outputFilePath);
-    sc.stop();
+    
   }
   /**
    * This method unites summary statistic and equivalence class and outputs the csv file on given path.
