@@ -37,7 +37,6 @@ class MondrianTest {
     val outputString = try outputFile.mkString finally outputFile.close()
     println("|"+expectedString.trim()+"|")
     println("=|"+outputString.trim()+"|=")
-    assert(Mondrian.getDiscernabilityMetric().equals(434.0));
     assert(expectedString.trim().equals(outputString.trim()))
 
   }

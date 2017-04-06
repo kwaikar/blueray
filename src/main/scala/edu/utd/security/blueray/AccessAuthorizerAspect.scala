@@ -25,11 +25,10 @@ class AccessAuthorizerAspect {
 
   var dataMetadata: Metadata = null;
   var algorithm: LBSAlgorithm = null;
-  // @Around(value = "execution(* org.apache.spark.rdd.MapPartitionsRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
+  @Around(value = "execution(* org.apache.spark.rdd.MapPartitionsRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
   def aroundAdvice_spark(jp: ProceedingJoinPoint, theSplit: Partition, context: TaskContext): AnyRef = {
 
     val iterator = (jp.proceed(jp.getArgs()));
-    return iterator;
     if (sys.env.contains("BlockColumns")) {
       val blockCols = sys.env("BlockColumns");
       val metadataPath = blockCols.substring(blockCols.indexOf(']') + 1, blockCols.length());
@@ -49,12 +48,13 @@ class AccessAuthorizerAspect {
       return columnBlockingIterator;
     } else if (sys.env.contains("LBS")) {
       if (algorithm == null) {
-        algorithm = new LBSAlgorithm(LBSMetadata.getInstance(), new LBSParameters(4, 1200, 300));
+        algorithm = new LBSAlgorithm(LBSMetadata.getInstance(), new LBSParameters(4, 1200, 300),LBSMetadata.getPopulation(),LBSMetadata.getZip());
 
       }
       return new LBSInterruptibleIterator(context, iterator.asInstanceOf[Iterator[_]], algorithm);
     }
     val policy = getPolicy(context, jp, PointCutType.SPARK);
+    println("Policy L "+policy)
     if (policy != None) {
       val authorizedIterator = new AuthorizedInterruptibleIterator(context, iterator.asInstanceOf[Iterator[_]], policy.get.regex);
       println("Returning new iterator")

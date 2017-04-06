@@ -10,7 +10,7 @@ import org.apache.spark.broadcast.Broadcast
  * booktitle = {In ICDE},
  * year = {2015}
  */
-class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) extends Serializable {
+class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters, population : scala.collection.immutable.Map[(String, String), java.util.TreeMap[Double, java.util.TreeMap[Double, Double]]],zip:List[Int] ) extends Serializable {
   var V = lbsParameters.V();
   var L = lbsParameters.L();
   var C = lbsParameters.C();
@@ -127,7 +127,7 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) extends Ser
           if (column.getName().trim().equalsIgnoreCase("age")) {
             infoLoss += (-Math.log10(1.0 / (1 + minMax._2 - minMax._1)));
           } else {
-            val zipInfoLoss = LBSMetadata.getZip().filter { x => x >= minMax._1 && x <= minMax._2 }.size;
+            val zipInfoLoss = zip.filter { x => x >= minMax._1 && x <= minMax._2 }.size;
             infoLoss += (-Math.log10(1.0 / (zipInfoLoss)));
           }
         }
@@ -177,7 +177,7 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) extends Ser
           a <- races
           b <- genders
         } yield (a, b)).map(x => {
-          val populationNum = LBSMetadata.getPopulation().get(x._1, x._2);
+          val populationNum = population.get(x._1, x._2);
           if (populationNum != None) {
             var sum = 0.0;
             var itr = populationNum.get.subMap(ageRange._1.toInt, true, ageRange._2.toInt, true).values().iterator();
@@ -196,7 +196,7 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters) extends Ser
         }).reduce(_ + _).toInt;
         return numMatches;
       } else {
-        return LBSMetadata.getPopulation().size;
+        return population.size;
       }
     }
   /**

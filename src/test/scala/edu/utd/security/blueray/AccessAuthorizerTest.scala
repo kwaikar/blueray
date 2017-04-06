@@ -33,7 +33,7 @@ class AccessAuthorizerTest {
     sc = null;
   }
 
- // @Test
+  @Test
   def testUtil() = {
     assert(Util.decrypt(Util.encrypt("Hello")) == "Hello");
     val sb = "00460-027-0120";
@@ -67,7 +67,7 @@ class AccessAuthorizerTest {
   }
   
 
- //@Test
+ @Test
   def executeSimpleBlockTestCase() {
     val valueToBlock = "Lii";
     val valueNotBlocked = "saki U.";
@@ -76,8 +76,7 @@ class AccessAuthorizerTest {
      new SQLTest().testSparkSQL(sc, "hdfs://localhost/user/user.json", valueToBlock, newValue, valueNotBlocked);
   //  new StreamingTest().testSparkStreaming(sc,"hdfs://localhost/user/user_small.csv",valueToBlock, newValue,valueNotBlocked);
   }
-
- // @Test
+  @Test
   def executePhoneNumberBlockTestCase() {
     val valueToBlock = "460-027-0120";
     val valueNotBlocked = "460-028-0120";
@@ -87,7 +86,7 @@ class AccessAuthorizerTest {
      // new StreamingTest().testSparkStreaming(sc,"hdfs://localhost/user/user_phone.csv",valueToBlock, newValue,valueNotBlocked);
   }
 
-// @Test
+ @Test
   def executeAllPhoneNumberBlockTestCase() {
     val valueToBlock = """(\d{3}-\d{3}-\d{4})""";
     val valueNotBlocked = "460-0a8-0120";

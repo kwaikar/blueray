@@ -17,9 +17,9 @@ object LBSMetadata {
     }
     metadata
   }
-  @volatile private var population: scala.collection.mutable.Map[(String, String), java.util.TreeMap[Double, java.util.TreeMap[Double, Double]]] = null;
+  @volatile private var population: scala.collection.immutable.Map[(String, String), java.util.TreeMap[Double, java.util.TreeMap[Double, Double]]] = null;
   @volatile private var zipList: List[Int] = null;
-  def getPopulation(): scala.collection.mutable.Map[(String, String), java.util.TreeMap[Double, java.util.TreeMap[Double, Double]]] = {
+  def getPopulation(): scala.collection.immutable.Map[(String, String), java.util.TreeMap[Double, java.util.TreeMap[Double, Double]]] = {
     if (population == null) {
       synchronized {
         if (population == null) {
@@ -44,7 +44,7 @@ object LBSMetadata {
             pop.put((split(0).trim(), split(1).trim()), mapOfKeys.get);
           }
           if (population == null) {
-            population = pop;
+            population = pop.toMap;
           }
         }
 
