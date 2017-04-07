@@ -48,7 +48,7 @@ class AccessAuthorizerAspect {
       return columnBlockingIterator;
     } else if (sys.env.contains("LBS")) {
       if (algorithm == null) {
-        algorithm = new LBSAlgorithm(LBSMetadata.getInstance(), new LBSParameters(4, 1200, 300),LBSMetadata.getPopulation(),LBSMetadata.getZip());
+        algorithm = new LBSAlgorithm(LBSMetadata.getInstance(), new LBSParameters(4, 1200, 300),LBSMetadata.getPopulation(),LBSMetadata.getZip(),LBSMetadata.getHashedPopulation());
 
       }
       return new LBSInterruptibleIterator(context, iterator.asInstanceOf[Iterator[_]], algorithm);

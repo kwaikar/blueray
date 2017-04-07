@@ -13,7 +13,7 @@ class DataReader() extends Serializable {
   /**
    * This method reads input Data file and returns the linesRDD.
    */
-  def readDataFile(sc: SparkContext,hdfsDataPath: String, numPartitions:Int): RDD[(Long, scala.collection.mutable.Map[Int, String])] = {
+  def readDataFile(sc: SparkContext,hdfsDataPath: String, numPartitions:Int): RDD[(Long, Map[Int, String])] = {
     val file = sc.textFile(hdfsDataPath ,numPartitions)
     /**
      * Split by new line, filter lines containing missing data.
@@ -37,7 +37,7 @@ class DataReader() extends Serializable {
         data.foreach(columnIndexValuePair => {
           map += ((columnIndexValuePair._2, columnIndexValuePair._1.trim()));
         })
-        (index, map);
+        (index, map.toMap);
     })
     return linesRDD;
   }

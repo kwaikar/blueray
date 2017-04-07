@@ -17,44 +17,57 @@ object LBSMetadata {
     }
     metadata
   }
-  @volatile private var population: scala.collection.immutable.Map[(String, String), java.util.TreeMap[Double, java.util.TreeMap[Double, Double]]] = null;
+  @volatile private var population: Map[(String, String), java.util.TreeMap[Double, java.util.TreeMap[Double, Int]]] = null;
+  @volatile private var hashedPopulation: Map[(String, String, Double, Double), Int] = null;
+
   @volatile private var zipList: List[Int] = null;
-  def getPopulation(): scala.collection.immutable.Map[(String, String), java.util.TreeMap[Double, java.util.TreeMap[Double, Double]]] = {
+  def getPopulation(): Map[(String, String), java.util.TreeMap[Double, java.util.TreeMap[Double, Int]]] = {
     if (population == null) {
       synchronized {
         if (population == null) {
           val data = Source.fromFile("/data/kanchan/dict.csv").getLines();
           val sortedZipList = Source.fromFile("/data/kanchan/sortedziplist").getLines().map(x => (x.split(",")(0).trim(), x.split(",")(1).trim())).toMap;
           zipList = sortedZipList.values.map(x => x.trim().toInt).toList;
-          val pop = scala.collection.mutable.Map[(String, String), java.util.TreeMap[Double, java.util.TreeMap[Double, Double]]]();
+          val pop = scala.collection.mutable.Map[(String, String), java.util.TreeMap[Double, java.util.TreeMap[Double, Int]]]();
+          val hashedPop = scala.collection.mutable.Map[(String, String, Double, Double), Int]();
+
           for (line <- data) {
             val split = line.split(",");
-            var mapOfKeys = pop.get((split(0).trim(), split(1).trim()));
+            val race = split(0).trim().replaceAll("0", "White").replaceAll("2", "Asian-Pac-Islander").replaceAll("3", "Amer-Indian-Eskimo").replaceAll("4", "Other").replaceAll("1", "Black");
+            val gender = split(1).trim().replaceAll("1", "Male").replaceAll("0", "Female");
+            val age = split(2).trim().toDouble;
+            val zip = sortedZipList.get(split(3).trim()).get.toDouble;
+            val population = split(4).trim().toDouble.intValue();
+            hashedPop.put((race, gender, age, zip), population);
+            var mapOfKeys = pop.get((race, gender));
             if (mapOfKeys == None) {
-              mapOfKeys = Some(new java.util.TreeMap[Double, java.util.TreeMap[Double, Double]]());
+              mapOfKeys = Some(new java.util.TreeMap[Double, java.util.TreeMap[Double, Int]]());
             }
 
-            var mapOfAges: TreeMap[Double, Double] = mapOfKeys.get.get(split(2).trim().toDouble);
+            var mapOfAges: TreeMap[Double, Int] = mapOfKeys.get.get(age);
             if (mapOfAges == null) {
-              mapOfAges = new java.util.TreeMap[Double, Double]();
+              mapOfAges = new java.util.TreeMap[Double, Int]();
             }
-            mapOfAges.put(sortedZipList.get(split(3).trim()).get.toDouble, split(4).trim().toDouble);
+            mapOfAges.put(zip, population);
 
-            mapOfKeys.get.put(split(2).trim().toDouble, mapOfAges);
-            pop.put((split(0).trim(), split(1).trim()), mapOfKeys.get);
+            mapOfKeys.get.put(age, mapOfAges);
+            pop.put((race, gender), mapOfKeys.get);
           }
           if (population == null) {
             population = pop.toMap;
+            hashedPopulation = hashedPop.toMap;
           }
         }
-
-        return population;
       }
-    } else {
-
-      return population;
     }
+
+    return population;
   }
+  def getHashedPopulation(): Map[(String, String, Double, Double), Int] =
+    {
+      getPopulation();
+      return hashedPopulation;
+    }
   def getZip(): List[Int] =
     {
       getPopulation();

@@ -30,7 +30,7 @@ object InfoLossCalculator {
         }
       return maximumInfoLoss;
     }
-  def IL(g: scala.collection.mutable.Map[Int, String]): Double =
+  def IL(g: Map[Int, String]): Double =
     {
       var infoLoss: Double = 0;
       val metadata = LBSMetadata.getInstance();

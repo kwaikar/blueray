@@ -10,7 +10,7 @@ import org.apache.spark.broadcast.Broadcast
  * booktitle = {In ICDE},
  * year = {2015}
  */
-class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters, population : scala.collection.immutable.Map[(String, String), java.util.TreeMap[Double, java.util.TreeMap[Double, Double]]],zip:List[Int] ) extends Serializable {
+class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters, population: Map[(String, String), java.util.TreeMap[Double, java.util.TreeMap[Double, Int]]], zip: List[Int], hashedPopulation: Map[(String, String,Double,Double), Int] ) extends Serializable {
   var V = lbsParameters.V();
   var L = lbsParameters.L();
   var C = lbsParameters.C();
@@ -25,7 +25,7 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters, population 
       for (i <- 0 to split.length - 1) {
         record.put(i, split(i));
       }
-      val strategy = findOptimalStrategy(record);
+      val strategy = findOptimalStrategy(record.toMap);
       println("Optimal Strategy found with Attack ==>" + strategy)
       return strategy._3;
     }
@@ -34,7 +34,7 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters, population 
    * Helper method which executes the findOriginalOptimalStrategy method and returns the output in
    * String format.
    */
-  def findOptimalStrategy(top: scala.collection.mutable.Map[Int, String]): (Double, Double, String) = {
+  def findOptimalStrategy(top:  Map[Int, String]): (Double, Double, String) = {
     val strategy = findOriginalOptimalStrategy(top);
     return (strategy._1, strategy._2, strategy._3.toArray.sortBy(_._1).map(_._2).mkString(","))
   }
@@ -42,7 +42,7 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters, population 
    * This method takes the top of the lattice as the entry point and executes LAttice-Based-Search algorithm
    * until ideal generalization level is found.
    */
-  def findOriginalOptimalStrategy(top: scala.collection.mutable.Map[Int, String]): (Double, Double, scala.collection.mutable.Map[Int, String]) = {
+  def findOriginalOptimalStrategy(top: Map[Int, String]): (Double, Double, Map[Int, String]) = {
 
     var Um: Double = -1;
     var LPiG: Double = -1;
@@ -97,7 +97,7 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters, population 
    * Returns probability of adversaries success. Depends on total number of entries that fall in the same category.
    * Should return a number between 0 and 1 - 1 when only single record (self) exists.
    */
-  def Pi(g: scala.collection.mutable.Map[Int, String]): Double =
+  def Pi(g: Map[Int, String]): Double =
     {
       val sum = getNumMatches(g);
       if (sum == 0) {
@@ -110,7 +110,7 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters, population 
    * This method calculates the Information loss. The information loss is calculated by individually calculating
    * loss for each of the attribute and then adding all of them
    */
-  def IL(g: scala.collection.mutable.Map[Int, String]): Double =
+  def IL(g: Map[Int, String]): Double =
     {
       var infoLoss: Double = 0;
 
@@ -137,35 +137,39 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters, population 
   /**
    * Calculate Publisher benefit.
    */
-  def Vg(g: scala.collection.mutable.Map[Int, String]): Double =
+  def Vg(g: Map[Int, String]): Double =
     {
       val infoLoss = IL(g);
       val maxInfoLoss = metadata.getMaximulInformationLoss();
       val loss = V * (1.0 - (infoLoss / maxInfoLoss));
       return loss;
     }
-
+  val map = scala.collection.mutable.Map[String, Int]();
   /**
    * In order to calculate risk of the record, we need to know total population size within the dataset
    * This function returns total count of entries found in the population.
    */
-  def getNumMatches(key: scala.collection.mutable.Map[Int, String]): Int =
+  def getNumMatches(key: Map[Int, String]): Int =
     {
       if (key != null) {
-
-        var genders = List[String]();
-        var races = List[String]();
-        val gendersPar = metadata.getMetadata(0).get.getCategory(key.get(0).get).leaves;
-        if (gendersPar == None || gendersPar.size == 0) {
-          genders = genders.+:(key.get(0).get.replaceAll("Male", "1").replaceAll("Female", "0"));
-        } else {
-          genders = gendersPar.map(_.replaceAll("Male", "1").replaceAll("Female", "0"));
-        }
-        val racesPar = metadata.getMetadata(3).get.getCategory(key.get(3).get).leaves;
-        if (racesPar == None || racesPar.size == 0) {
-          races = races.+:(key.get(3).get.replaceAll("White", "0").replaceAll("Asian-Pac-Islander", "2").replaceAll("Amer-Indian-Eskimo", "3").replaceAll("Other", "4").replaceAll("Black", "1"));
-        } else {
-          races = racesPar.map(_.replaceAll("White", "0").replaceAll("Asian-Pac-Islander", "2").replaceAll("Amer-Indian-Eskimo", "3").replaceAll("Other", "4").replaceAll("Black", "1"));
+        var i:Int=0;
+        var genders = metadata.getMetadata(0).get.getCategory(key.get(0).get).leaves;
+        if (genders == None || genders.size == 0) {
+          genders = genders.+:(key.get(0).get);
+          i=i+1;
+        }  
+        var races = metadata.getMetadata(3).get.getCategory(key.get(3).get).leaves;
+        if (races == None || races.size == 0) {
+          races = races.+:(key.get(3).get);
+          i=i+1;
+        } 
+        if(i==2 && !key.get(2).get.contains("_") && !key.get(1).get.contains("_") )
+        {
+          val value = hashedPopulation.get((key.get(3).get,key.get(0).get,key.get(2).get.toDouble,key.get(1).get.toDouble));
+          if(value!=None)
+          {
+            return value.get;
+          }
         }
         val ageRange = LSHUtil.getMinMax(key.get(2).get);
         val zipRange = LSHUtil.getMinMax(key.get(1).get);
@@ -173,28 +177,35 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters, population 
         /**
          * Once keys have been identified, check map in order to retrieve population size.
          */
-        val numMatches = (for {
-          a <- races
-          b <- genders
-        } yield (a, b)).map(x => {
-          val populationNum = population.get(x._1, x._2);
-          if (populationNum != None) {
-            var sum = 0.0;
-            var itr = populationNum.get.subMap(ageRange._1.toInt, true, ageRange._2.toInt, true).values().iterator();
-            while (itr.hasNext()) {
-              var itr2 = itr.next().subMap(zipRange._1.toInt, true, zipRange._2.toInt, true).values().iterator();
-              while (itr2.hasNext()) {
-                sum += itr2.next();
+        var valueFromMap = map.get(keyForMap);
+        if (valueFromMap == None) {
+          val numMatches = (for {
+            a <- races
+            b <- genders
+          } yield (a, b)).map(x => {
+            val populationNum = population.get(x._1, x._2);
+            
+            if (populationNum != None) {
+              var sum = 0.0;
+              var itr = populationNum.get.subMap(ageRange._1.toInt, true, ageRange._2.toInt, true).values().iterator();
+              while (itr.hasNext()) {
+                var itr2 = itr.next().subMap(zipRange._1.toInt, true, zipRange._2.toInt, true).values().iterator();
+                while (itr2.hasNext()) {
+                  sum += itr2.next();
+                }
+                itr2 = null;
               }
-              itr2 = null;
+              itr = null;
+              sum
+            } else {
+              0;
             }
-            itr = null;
-            sum
-          } else {
-            0;
-          }
-        }).reduce(_ + _).toInt;
-        return numMatches;
+          }).reduce(_ + _).toInt;
+          map.put(keyForMap, numMatches);
+          return numMatches;
+        } else {
+          return valueFromMap.get;
+        }
       } else {
         return population.size;
       }
@@ -202,22 +213,23 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters, population 
   /**
    * This method returns the list of immediate children from lattice for the given entry.
    */
-  def getChildren(g: scala.collection.mutable.Map[Int, String]): List[scala.collection.mutable.Map[Int, String]] =
+  def getChildren(g: Map[Int, String]): List[Map[Int, String]] =
     {
       /**
        * Iterate over each attribute, generalize the value one step up at a time, accumulate and return the list.
        */
-      val list = ListBuffer[scala.collection.mutable.Map[Int, String]]();
+      val list = ListBuffer[Map[Int, String]]();
       /**
        * Create child for lattice on each column one at a time.
        */
       for (column <- metadata.getQuasiColumns()) {
-        var copyOfG = g.clone();
+        val copyOfG = collection.mutable.Map[Int,String]() ++= g
+
         val value = g.get(column.getIndex()).get.trim()
         val parent = column.getParentCategory(value).value();
         if (parent != value) {
           copyOfG.put(column.getIndex(), column.getParentCategory(value).value().trim());
-          list += copyOfG;
+          list += copyOfG.toMap;
         }
       }
       return list.toList;
@@ -226,7 +238,7 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters, population 
   /**
    * This method returns true of input map corresponds to the bottommost level in lattice.
    */
-  def isGLeafNode(map: scala.collection.mutable.Map[Int, String]): Boolean =
+  def isGLeafNode(map: Map[Int, String]): Boolean =
     {
       for (column <- metadata.getQuasiColumns()) {
         val value = map.get(column.getIndex()).get.trim()
@@ -236,12 +248,7 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters, population 
               return false;
             }
           } else {
-            if (value.contains("_")) {
-              val range = value.split("_");
-              if (!(range(0).toDouble == column.getMin() && (range(1).toDouble == column.getMax()))) {
-                return false;
-              }
-            } else {
+            if (!value.contains("_") || (value.contains("_") && !value.equalsIgnoreCase(column.MINMAX))) {
               return false;
             }
           }

@@ -1,5 +1,7 @@
 package edu.utd.security.risk
 
+import java.util.concurrent.ConcurrentHashMap
+
 /**
  * Class responsible for holding hierarchy for categorical values.
  */
@@ -15,8 +17,8 @@ class Category(value: String) extends Serializable {
   var min: Double = -1;
   var max: Double = -1;
 
-  var map: scala.collection.mutable.HashMap[String, Int] = null;
-  var revMap: scala.collection.mutable.HashMap[Int, String] = null;
+  var map: ConcurrentHashMap [String, Int] = null;
+  var revMap: ConcurrentHashMap[Int, String] = null;
   if (value.contains("_")) {
     val minMax = LSHUtil.getMinMax(value);
     min = minMax._1;
@@ -44,20 +46,20 @@ class Category(value: String) extends Serializable {
   def getValueAtIndex(key: Int): String =
     {
       populateMapIfRequired();
-      return revMap.get(key).get;
+      return revMap.get(key);
     }
   def getIndexOfColumnValue(key: String): Int =
     {
       populateMapIfRequired();
      // println("Looking for |"+key.trim()+"|")
-      return map.get(key.trim()).get;
+      return map.get(key.trim());
     }
 
   def populateMapIfRequired() = {
     if (map == null || map.size == 0) {
       var index = 0;
-      map = new scala.collection.mutable.HashMap();
-      revMap = new scala.collection.mutable.HashMap();
+      map = new ConcurrentHashMap();
+      revMap = new ConcurrentHashMap();
       var queue = scala.collection.mutable.Queue[Category]();
       queue.enqueue(this);
       while (!queue.isEmpty) {

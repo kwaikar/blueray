@@ -69,12 +69,12 @@ object LBSAndLSH {
   }
 
   def setup(hdfsFilePath: String, outputFilePath: String, lbsParam: LBSParameters, useLSH: String, numNeighbours: Int, numParitions: Int) {
-    var linesRDD = new DataReader().readDataFile(sc, hdfsFilePath, numParitions).persist(StorageLevel.MEMORY_AND_DISK);
+    var linesRDD = new DataReader().readDataFile(sc, hdfsFilePath, numParitions);
+    linesRDD.persist(StorageLevel.MEMORY_AND_DISK)
     executeAlgorithm(outputFilePath, linesRDD, useLSH, lbsParam, numNeighbours, numParitions);
   }
 
-
-  def executeAlgorithm(outputFilePath: String, linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], useLSH: String, lbsParam: LBSParameters, numNeighbours: Int, numPartitons: Int) {
+  def executeAlgorithm(outputFilePath: String, linesRDD: RDD[(Long, Map[Int, String])], useLSH: String, lbsParam: LBSParameters, numNeighbours: Int, numPartitons: Int) {
 
     var totalPublisherPayOff = 0.0;
     var totalAdvBenefit = 0.0;
@@ -82,10 +82,10 @@ object LBSAndLSH {
     var list: ListBuffer[(Int, String)] = ListBuffer();
     var rdds: List[RDD[(Int, String)]] = List();
     if (useLSH.equalsIgnoreCase("lsh")) {
-       lsh(linesRDD, lbsParam, numNeighbours, outputFilePath, numPartitons)
+      lsh(linesRDD, lbsParam, numNeighbours, outputFilePath, numPartitons)
 
     } else if (useLSH.equalsIgnoreCase("lbslsh")) {
-      lbslsh(linesRDD, lbsParam,  outputFilePath);
+      lbslsh(linesRDD, lbsParam, outputFilePath);
     } else {
       /**
        * Execute LBS algorithm based on following paper.
@@ -99,18 +99,31 @@ object LBSAndLSH {
       val metadata = LBSMetadataWithSparkContext.getInstance(sc);
       val zips = LBSMetadataWithSparkContext.getZip(sc);
       val population = LBSMetadataWithSparkContext.getPopulation(sc);
+      val hashedPopulation = LBSMetadataWithSparkContext.getHashedPopulation(sc);
+      val params = sc.broadcast(lbsParam);
+      /*
+       val i = 29779;
+      val algorithm = new LBSAlgorithm(metadata.value, lbsParam,population.value,zips.value,hashedPopulation.value);
+      val optimalRecord = algorithm.findOptimalStrategy(linesRDD.lookup(i.longValue())(0));
+      println(optimalRecord);*/
 
       /**
        * Here, we calculate the optimal Generalizaiton level for entire RDD.
        */
-      val output = linesRDD.map({ case (x, y) => (x, new LBSAlgorithm(metadata.value, lbsParam,population.value,zips.value).findOptimalStrategy(y)) });
+      val output = linesRDD.mapPartitions(partition =>
+        {
+          val algo = new LBSAlgorithm(metadata.value, params.value, population.value, zips.value, hashedPopulation.value);
+          partition.map { case (x, y) => (x, algo.findOptimalStrategy(y)) }
+        });
       output.persist(StorageLevel.MEMORY_AND_DISK);
+
       /**
        * We cache RDD as we do not want to be recomputed for each of the following three actions.
        */
-      val publisherBenefit = output.map({ case (x,( y, z,t)) => (y) }).mean();
-      val advBenefit = output.map({ case (x,( y, z,t)) => (z) }).mean();
-      val records = output.map({ case (x,( y, z,t)) => (x,t) });
+      val publisherBenefit = output.map({ case (x, (y, z, t)) => (y) }).mean();
+      linesRDD.unpersist(false);
+      val advBenefit = output.map({ case (x, (y, z, t)) => (z) }).mean();
+      val records = output.map({ case (x, (y, z, t)) => (x, t) });
 
       println("Avg PublisherPayOff found: " + publisherBenefit)
       println("Avg AdversaryBenefit found: " + advBenefit)
@@ -158,7 +171,7 @@ object LBSAndLSH {
    * 			X -> Row vector
    * 			r -> Fixed divisor.
    */
-  def getBuckets(metadata: Broadcast[Metadata], normalizedLinesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], tuneDownFactor: Double): RDD[(Array[(Long, scala.collection.mutable.Map[Int, String])])] =
+  def getBuckets(metadata: Broadcast[Metadata], normalizedLinesRDD: RDD[(Long, Map[Int, String])], tuneDownFactor: Double): RDD[(Iterable[(Long, Map[Int, String])])] =
     {
       val columnStartCounts = sc.broadcast(LSHUtil.getColumnStartCounts(metadata.value));
       val columnCounts = LSHUtil.getTotalNewColumns(metadata.value);
@@ -174,26 +187,23 @@ object LBSAndLSH {
           })
       }).map({
         case (x, y, mappedY) => {
-          var hashValues: java.lang.StringBuilder = new java.lang.StringBuilder();
-          var totalSum = 0.0
-          for (unitVec <- unitVectors) {
-            totalSum = unitVec.zip(mappedY).map({ case (x, y) => x * y }).sum;
-            hashValues.append(Math.round((totalSum / r) * tuneDownFactor) / tuneDownFactor + "|")
-          }
-          (hashValues.toString(), Seq[(Long, scala.collection.mutable.Map[Int, String])]((x, y)))
+          val op = unitVectors.map(unitVect => {
+            (Math.round(((unitVect.zip(mappedY).map({ case (x, y) => x * y }).sum) / r) * tuneDownFactor) / tuneDownFactor)
+          });
+          (op.mkString(","), /*Seq[(Long, scala.collection.immutable.Map[Int, String])]*/ /*(*/ (x, y) /*)*/ )
         }
-      }).reduceByKey(_ ++ _).map(x => (x._2.toArray)); /* Group values by Concatenated Hash key.*/
+      }).groupByKey().values; /*reduceByKey(_ ++ _)*/ /*.map(x => (x._2.toArray));*/ /* Group values by Concatenated Hash key.*/
       buckets;
     }
 
   /**
    * This method is used for using LSH bucketing feature for improving performance of LBS algorithm.
    */
-  def lbslsh(linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], lbsParam: LBSParameters,   outputFilePath: String) = {
+  def lbslsh(linesRDD: RDD[(Long, scala.collection.immutable.Map[Int, String])], lbsParam: LBSParameters, outputFilePath: String) = {
 
     val t0 = System.nanoTime()
     var rdds: ListBuffer[RDD[(Long, String)]] = ListBuffer();
- 
+
     val metadata = LBSMetadataWithSparkContext.getInstance(sc);
 
     /**
@@ -201,43 +211,58 @@ object LBSAndLSH {
      * false positives.
      */
     var inputData = linesRDD;
-    var precisionFactor = 40000;
+    var precisionFactor = 10000;
     /**
      * We hash entire dataset - this should lead to hashing of almost-duplicate entries into same bucket.
      */
     var buckets = getBuckets(metadata, inputData, precisionFactor);
     buckets.persist(StorageLevel.MEMORY_AND_DISK);
     val population = LBSMetadataWithSparkContext.getPopulation(sc);
-    val zips =LBSMetadataWithSparkContext.getZip(sc);
-    val outputs = buckets.flatMap(bucket =>
+    val zips = LBSMetadataWithSparkContext.getZip(sc);
+    val hashedPopulation = LBSMetadataWithSparkContext.getHashedPopulation(sc);
+      val params = sc.broadcast(lbsParam);
+    val outputs = buckets.mapPartitions(partition =>
       {
-        /**
-         * We loop on each bucket in order to identify the ideal generalization level.
-         * We take first entry, find out generalization level.
-         */
-        var list = ListBuffer[(Double, Double, Long, String)]();
-        
-        var strategy = new LBSAlgorithm(metadata.value, lbsParam,population.value,zips.value).findOriginalOptimalStrategy(bucket(0)._2);
-        var stringRepresentation = strategy._3.toArray.sortBy(_._1).map(_._2).mkString(",");
-        list.append((strategy._1, strategy._2, bucket(0)._1, stringRepresentation));
-        /**
-         * We loop on rest of the entries from the bucket and see if generalization level can be
-         * applied or not. If not possible, it computes generalization for the same by invoking LBS algorithm.
-         */
-        for (i <- 1 to bucket.length - 1) {
-          var entry = bucket(i);
-          if (isNeighbourSubset(metadata.value, strategy._3, entry._2)) {
+        val algo = new LBSAlgorithm(metadata.value, params.value, population.value, zips.value, hashedPopulation.value);
+        partition.flatMap(bucket =>
+          {
+            /**
+             * We loop on each bucket in order to identify the ideal generalization level.
+             * We take first entry, find out generalization level.
+             */
+            val itr = bucket.iterator;
+            var list = ListBuffer[(Double, Double, Long, String)]();
+            if (itr.hasNext) {
+              var current = itr.next();
+              var strategy = algo.findOriginalOptimalStrategy(current._2);
 
-            list.append((strategy._1, strategy._2, entry._1, stringRepresentation));
-          } else {
-            var childStrategy = new LBSAlgorithm(metadata.value, lbsParam,population.value,zips.value).findOptimalStrategy(entry._2);
-            list.append((childStrategy._1, childStrategy._2, entry._1, childStrategy._3));
-          }
-        }
-        list
+              var stringRepresentation = strategy._3.toArray.sortBy(_._1).map(_._2).mkString(",");
+              list.append((strategy._1, strategy._2, current._1, stringRepresentation));
+              /**
+               * We loop on rest of the entries from the bucket and see if generalization level can be
+               * applied or not. If not possible, it computes generalization for the same by invoking LBS algorithm.
+               */
+
+              while (itr.hasNext) {
+                current = itr.next();
+                if (isNeighbourSubset(metadata.value, strategy._3, current._2)) {
+
+                  list.append((strategy._1, strategy._2, current._1, stringRepresentation));
+                } else {
+                  var childStrategy = algo.findOptimalStrategy(current._2);
+                  list.append((childStrategy._1, childStrategy._2, current._1, childStrategy._3));
+                }
+              }
+
+            }
+            list
+          });
+
       });
+
     outputs.persist(StorageLevel.MEMORY_AND_DISK);
     println("Checking pub benefit")
+    buckets.unpersist(true)
     val publisherBenefit = outputs.map({ case (x, y, z, t) => (x) }).mean();
 
     println("Checking adv benefit")
@@ -254,7 +279,6 @@ object LBSAndLSH {
 
     println("Time Taken: " + ((t1 - t0) / 1000000));
     outputs.unpersist(true)
-    buckets.unpersist(true)
   }
 
   /**
@@ -264,7 +288,7 @@ object LBSAndLSH {
    * It then reduces precision factor by  1/10'th of its original value and performs second
    * pass. It continues until precision factor size reaches 1.
    */
-  def lsh(linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], lbsParam: LBSParameters, numNeighbors: Int, outputFilePath: String, numPartitons: Int) = {
+  def lsh(linesRDD: RDD[(Long, scala.collection.immutable.Map[Int, String])], lbsParam: LBSParameters, numNeighbors: Int, outputFilePath: String, numPartitons: Int) = {
     val t0 = System.nanoTime()
     var rdds: ListBuffer[RDD[(Long, String)]] = ListBuffer();
     val numNeighborsVal = sc.broadcast(numNeighbors);
@@ -282,12 +306,12 @@ object LBSAndLSH {
       /**
        * We pickup buckets with size greater than or equal to "k" or number of neighbours
        */
-      var neighbours = buckets.filter({ case (y) => y.size >= numNeighborsVal.value });
+      var neighbours = buckets.filter({ case (y) => y.size >= numNeighbors});
       /**
        * We assign summary statistic to all elements and then filter these elements.
        */
-      var op = neighbours.map(x => (x)).flatMap(x => assignSummaryStatistic(metadata, x));
-      var remaining = buckets.filter({ case (y) => y.size < numNeighborsVal.value });
+      var op = neighbours.flatMap(x => LSHUtil.assignSummaryStatistic(metadata, x.toArray));
+      var remaining = buckets.filter({ case (y) => y.size < numNeighbors});
       /**
        * The remaining values are re-grouped in next iteration.
        */
@@ -302,7 +326,7 @@ object LBSAndLSH {
     /**
      * We assign the final summary statistic to all remaining entries.
      */
-    var op = sc.parallelize(assignSummaryStatistic(metadata, finalStep).toSeq);
+    var op = sc.parallelize(LSHUtil.assignSummaryStatistic(metadata, finalStep).toSeq);
     rdds.append(op);
 
     val fileName = outputFilePath + "/LSH_" + numNeighborsVal.value + "_" + numHashFunctions + "_" + r + ".csv";
@@ -321,7 +345,7 @@ object LBSAndLSH {
   /**
    * This method checks whether generalizedParent is valid parent of "neighbour"
    */
-  def isNeighbourSubset(metadata: Metadata, generalizedParent: scala.collection.mutable.Map[Int, String], neighbour: scala.collection.mutable.Map[Int, String]): Boolean =
+  def isNeighbourSubset(metadata: Metadata, generalizedParent: scala.collection.immutable.Map[Int, String], neighbour: scala.collection.immutable.Map[Int, String]): Boolean =
     {
       var neighborIsSubSet = true;
 
@@ -353,38 +377,6 @@ object LBSAndLSH {
         }
       }
       neighborIsSubSet;
-    }
-  /**
-   * This method calculates summary statitic for the Array of lines received.
-   * Assumption is that input dataset contains only attributes of our interest. i.e. quasiIdentifier fields.
-   * This assumption was made in order to get accurate statistics of the algorithm.
-   */
-  def assignSummaryStatistic(metadata: Broadcast[Metadata], lines: Array[(Long, scala.collection.mutable.Map[Int, String])]): Map[Long, String] =
-    {
-      var indexValueGroupedIntermediate = lines.flatMap({ case (x, y) => y }).groupBy(_._1).map(x => (x._1, x._2.map(_._2)));
-      var int2 = indexValueGroupedIntermediate.map({ case (index, list) => (index, list.toList.distinct) })
-      var map = indexValueGroupedIntermediate.map({
-        case (x, y) =>
-          val column = metadata.value.getMetadata(x).get;
-          if (column.getColType() == 's') {
-            (x, column.findCategory(y.toArray).value());
-          } else {
-            val listOfNumbers = y.map(_.toDouble);
-            if (listOfNumbers.min == listOfNumbers.max) {
-              (x, listOfNumbers.min.toString);
-            } else {
-              (x, listOfNumbers.min + "_" + listOfNumbers.max);
-            }
-          }
-      });
-      /**
-       * Once we have found the generalization hierarchy,map it to all lines and return the same.
-       */
-      val generalization = map.toArray.sortBy(_._1).map(_._2).mkString(",");
-      return lines.map({
-        case (x, y) =>
-          (x, generalization)
-      }).toMap;
     }
 
 }

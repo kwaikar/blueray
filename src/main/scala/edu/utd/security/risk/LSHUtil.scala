@@ -7,6 +7,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.DataFrameReader
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.SQLContext
+import org.apache.spark.broadcast.Broadcast
 
 object LSHUtil {
   def getMinMax(value: String): (Double, Double) = {
@@ -21,6 +22,39 @@ object LSHUtil {
   }
   var columnStartCounts = Array[Int]();
   var totalCounts = 0;
+  
+   /**
+   * This method calculates summary statitic for the Array of lines received.
+   * Assumption is that input dataset contains only attributes of our interest. i.e. quasiIdentifier fields.
+   * This assumption was made in order to get accurate statistics of the algorithm.
+   */
+  def assignSummaryStatistic(metadata: Broadcast[Metadata], lines: Array[(Long, Map[Int, String])]): Map[Long, String] =
+    {
+      var indexValueGroupedIntermediate = lines.flatMap({ case (x, y) => y }).groupBy(_._1).map(x => (x._1, x._2.map(_._2)));
+      var int2 = indexValueGroupedIntermediate.map({ case (index, list) => (index, list.toList.distinct) })
+      var map = indexValueGroupedIntermediate.map({
+        case (x, y) =>
+          val column = metadata.value.getMetadata(x).get;
+          if (column.getColType() == 's') {
+            (x, column.findCategory(y.toArray).value());
+          } else {
+            val listOfNumbers = y.map(_.toDouble);
+            if (listOfNumbers.min == listOfNumbers.max) {
+              (x, listOfNumbers.min.toString);
+            } else {
+              (x, listOfNumbers.min + "_" + listOfNumbers.max);
+            }
+          }
+      });
+      /**
+       * Once we have found the generalization hierarchy,map it to all lines and return the same.
+       */
+      val generalization = map.toArray.sortBy(_._1).map(_._2).mkString(",");
+      return lines.map({
+        case (x, y) =>
+          (x, generalization)
+      }).toMap;
+    }
 
   def getColumnStartCounts(metadata: Metadata): Array[Int] = {
     var nextStartCount = 0;
@@ -57,7 +91,7 @@ object LSHUtil {
    emptyRow = Array.fill(totalCounts)(0.0);
     return totalCounts;
   }
-  def getMinimalDataSet(metadata: Metadata, linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], quasiIdentifier: Boolean): RDD[(Long, scala.collection.mutable.Map[Int, String])] = {
+  /*def getMinimalDataSet(metadata: Metadata, linesRDD: RDD[(Long, Array[String])], quasiIdentifier: Boolean): RDD[(Long, Map[Int, String])] = {
     val list = ListBuffer[Row]();
     val columns = ListBuffer[Int]();
 
@@ -83,14 +117,14 @@ object LSHUtil {
         for (i <- columns) {
           newY.remove(i)
         }
-        (x, newY)
+        (x, newY.toMap)
       })
     });
     return map;
-  }
+  }*/
   val ONE=1.0;
 
-  def extractRow(metadata: Metadata, values: scala.collection.mutable.Map[Int, String]): Array[Double] = {
+  def extractRow(metadata: Metadata, values:  Map[Int, String]): Array[Double] = {
     columnStartCounts = getColumnStartCounts(metadata);
     var index = 0;
     var row=emptyRow.clone();

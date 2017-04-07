@@ -1,5 +1,13 @@
 package edu.utd.security.risk
 
+import java.util.concurrent.ConcurrentHashMap
+
+
+
+
+
+
+
 /**
  * Class responsible for holding details of column object.
  */
@@ -17,7 +25,10 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
   def getMin(): Double = {
     return min;
   }
-
+  var MINMAX=min+"_"+max
+ def getMinMax(): String= {
+    return MINMAX;
+  }
   def getMax(): Double = {
     return max;
   }
@@ -78,15 +89,15 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
     return rootCategory;
   }
 
-  var parentMap =  scala.collection.mutable.Map[String,Category](); 
-  var catMap =  scala.collection.mutable.Map[String,Category](); 
+  var parentMap = new ConcurrentHashMap[String,Category](); 
+  var catMap =  new ConcurrentHashMap[String,Category](); 
   
   def getParentCategory(childCategory: String): Category = {
 
     val parentVal =parentMap.get(childCategory);
-    if(parentVal!=None)
+    if(parentVal!=null)
     {
-      return parentVal.get;
+      return parentVal;
     }
     var category = rootCategory;
     var searchChild = true;
@@ -130,9 +141,9 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
   def getCategory(childCategory: String): Category = {
 
      val catVal =catMap.get(childCategory);
-    if(catVal!=None)
+    if(catVal!=null)
     {
-      return catVal.get;
+      return catVal;
     }
     
     var category = rootCategory;

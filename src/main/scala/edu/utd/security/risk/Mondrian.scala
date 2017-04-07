@@ -8,6 +8,8 @@ import org.apache.spark.rdd.RDD.rddToPairRDDFunctions
 import org.apache.spark.sql.SparkSession
 
 import edu.utd.security.mondrian.DataWriter
+import org.apache.spark.broadcast.Broadcast
+import scala.collection.mutable.ListBuffer
 
 /**
  * This is implementation of paper on Mondrian multi-dimensional paritioning for K-Anonymity
@@ -25,7 +27,7 @@ object Mondrian {
    * 3. Output File path
    * 4. value of k
    */
-  
+
   def main(args: Array[String]): Unit = {
 
     val t0 = System.nanoTime()
@@ -39,8 +41,8 @@ object Mondrian {
     println("Total IL " + 100 * (totalIL / InfoLossCalculator.getMaximulInformationLoss()) + " Benefit with no attack: " + 100 * (1 - (totalIL / InfoLossCalculator.getMaximulInformationLoss())));
 
   }
-  
-  var rdds: List[RDD[(Long, scala.collection.mutable.Map[Int, String])]] = List();
+
+  var rdds: ListBuffer[RDD[(Long, String)]] = ListBuffer();
   var discernabilityMetric: Double = 0;
   var metadataFilePath: String = null;
   var dataReader: DataReader = null;
@@ -59,43 +61,38 @@ object Mondrian {
     sc.setLogLevel("ERROR");
     val linesRDD = dataReader.readDataFile(sc, hdfsDataFilePath, 20);
 
-    val metadata = LBSMetadata.getInstance();
+    val metadata = LBSMetadataWithSparkContext.getInstance(sc);
     /**
      * First k-anonymity call.
      */
-    kanonymize(linesRDD, k)
+    kanonymize(linesRDD, k, metadata)
     writeOutputToFile(rdds, outputFilePath);
-    
+
   }
   /**
    * This method unites summary statistic and equivalence class and outputs the csv file on given path.
    */
-  def writeOutputToFile(rdds: List[RDD[(Long, scala.collection.mutable.Map[Int, String])]], filePath: String) {
+  def writeOutputToFile(rdds: ListBuffer[RDD[(Long, String)]], filePath: String) {
 
     /**
      * Merge individual RDDs
      */
     val rddsMerged = sc.union(rdds).sortBy(_._1);
-    new DataWriter(sc).writeRDDToAFile(filePath, rddsMerged.map({ case (x, y) => (x, y.toArray.sortBy(_._1).map(_._2).mkString(",")) }).sortBy(_._1).map(_._2));
+    rddsMerged.cache();
+    new DataWriter(sc).writeRDDToAFile(filePath, rddsMerged.values);
+ }
 
-    val totalIL = rddsMerged.map(_._2).map(x => InfoLossCalculator.IL(x)).mean();
-    println("Total IL " + 100 * (totalIL / InfoLossCalculator.getMaximulInformationLoss()) + " Benefit with no attack: " + 100 * (1 - (totalIL / InfoLossCalculator.getMaximulInformationLoss())));
-
-  }
-
- 
   /**
-   * This function finds dimension, performs cut based on the median value and in turn calls Kanonymize on both sides of the 
+   * This function finds dimension, performs cut based on the median value and in turn calls Kanonymize on both sides of the
    * cut.
    */
-  def kanonymize(linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], k: Int) {
+  def kanonymize(linesRDD: RDD[(Long, Map[Int, String])], k: Int, metadata: Broadcast[Metadata]) {
 
     linesRDD.cache();
-    var leftRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])] = null;
-    var rightRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])] = null;
+    var leftRDD: RDD[(Long, Map[Int, String])] = null;
+    var rightRDD: RDD[(Long, Map[Int, String])] = null;
     var leftPartitionedRange: String = null;
     var rightPartitionedRange: String = null;
-    var metadata = LBSMetadata.getInstance();
     /**
      * Get the dimension for the cut.
      */
@@ -103,7 +100,7 @@ object Mondrian {
     //  println("Dimension found  " + " : " + dimAndMedian.dimension() + " : "+dimAndMedian.tostring);
     if (dimAndMedian.dimension() >= 0) {
 
-      if (metadata.getMetadata(dimAndMedian.dimension()).get.getColType() == 's') {
+      if (metadata.value.getMetadata(dimAndMedian.dimension()).get.getColType() == 's') {
         leftRDD = linesRDD.filter({ case (x, y) => { dimAndMedian.leftSet().contains(y.get(dimAndMedian.dimension()).get) } });
         rightRDD = linesRDD.filter({ case (x, y) => { dimAndMedian.rightSet().contains(y.get(dimAndMedian.dimension()).get) } });
       } else {
@@ -118,75 +115,41 @@ object Mondrian {
          * Add the range value applicable to all left set elements
          */
         if (leftSize == k) {
-          assignSummaryStatisticAndAddToList(leftRDD);
+          assignSummaryStatisticAndAddToList(leftRDD, metadata);
         } else {
-          kanonymize(leftRDD, k);
+          kanonymize(leftRDD, k, metadata);
         }
         if (rightSize == k) {
-          assignSummaryStatisticAndAddToList(rightRDD);
+          assignSummaryStatisticAndAddToList(rightRDD, metadata);
         } else {
-          kanonymize(rightRDD, k);
+          kanonymize(rightRDD, k, metadata);
         }
 
       } else {
         //println("No cut [" + "](" + leftSize + ") : : (" + rightSize + ")");
-        assignSummaryStatisticAndAddToList(linesRDD);
+        assignSummaryStatisticAndAddToList(linesRDD, metadata);
       }
     } else {
       /**
        * Negative dimension means that we are out of records after Quasi-identifiers have been filtered.
        */
-      assignSummaryStatisticAndAddToList(linesRDD);
+      assignSummaryStatisticAndAddToList(linesRDD, metadata);
     }
   }
   /**
    * This method computes Range statistic for dimensions on which cut has not been performed yet.
    */
-  def assignSummaryStatisticAndAddToList(linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])]) {
+  def assignSummaryStatisticAndAddToList(linesRDD: RDD[(Long, Map[Int, String])], metadata: Broadcast[Metadata]) {
 
-    var metadata = LBSMetadata.getInstance();
-
-    var indexValuePairs = linesRDD.flatMap({ case (index1, map) => (map) });
-
-    var indexValueGroupedIntermediate = indexValuePairs.groupByKey().map({ case (index, list) => (index, list.toList.distinct) }).filter(_._1 < metadata.numColumns())
-
-    var indexValueGrouped = indexValueGroupedIntermediate.map({
-      case (x, y) =>
-        var column = metadata.getMetadata(x).get;
-        if (column.getIsQuasiIdentifier()) {
-          if (column.getColType() == 's') {
-            (x, column.findCategory(y.toArray).value());
-          } else {
-            var listOfNumbers = y.map(_.toDouble);
-            if (listOfNumbers.min == listOfNumbers.max) {
-              (x, listOfNumbers.min.toString);
-            } else {
-              (x, listOfNumbers.min + "_" + listOfNumbers.max);
-            }
-          }
-        } else {
-          (-1, "")
-        }
-    });
-
-    var map: scala.collection.Map[Int, String] = indexValueGrouped.collectAsMap();
-    var rdd = linesRDD.map({
-      case (x, y) =>
-
-        for (i <- 0 to metadata.numColumns() - 1) {
-
-          y.put(i, map.get(i).get);
-        }
-        (x, y)
-    });
-    rdds = rdds :+ sc.parallelize(rdd.collect());
+    val rdd =sc.parallelize(LSHUtil.assignSummaryStatistic(metadata, linesRDD.collect()).toSeq);
+    rdds.+=(rdd);
 
   }
 
   /**
    * Accept RDD containing row numbers and column values along with their index.
    */
-  def selectDimension(linesRDD: RDD[(Long, scala.collection.mutable.Map[Int, String])], k: Int): Dimensions = {
+  def selectDimension(linesRDD: RDD[(Long, Map[Int, String])], k: Int): Dimensions = {
 
     try {
       linesRDD.cache();
