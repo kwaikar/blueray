@@ -70,7 +70,6 @@ object LBSAndLSH {
 
   def setup(hdfsFilePath: String, outputFilePath: String, lbsParam: LBSParameters, useLSH: String, numNeighbours: Int, numParitions: Int) {
     var linesRDD = new DataReader().readDataFile(sc, hdfsFilePath, numParitions);
-    linesRDD.persist(StorageLevel.MEMORY_AND_DISK)
     executeAlgorithm(outputFilePath, linesRDD, useLSH, lbsParam, numNeighbours, numParitions);
   }
 
@@ -171,29 +170,23 @@ object LBSAndLSH {
    * 			X -> Row vector
    * 			r -> Fixed divisor.
    */
-  def getBuckets(metadata: Broadcast[Metadata], normalizedLinesRDD: RDD[(Long, Map[Int, String])], tuneDownFactor: Double): RDD[(Iterable[(Long, Map[Int, String])])] =
+  def getBuckets(normalizedLinesRDD: RDD[(Long, Map[Int, String], ListBuffer[Double])], tuneDownFactor: Double, emitBucketValue:Boolean): RDD[(Iterable[(Long, Map[Int, String],ListBuffer[Double])])] =
     {
-      val columnStartCounts = sc.broadcast(LSHUtil.getColumnStartCounts(metadata.value));
-      val columnCounts = LSHUtil.getTotalNewColumns(metadata.value);
-      val unitVectors = getRandomUnitVectors(columnCounts);
 
       /**
        * For each row, compute the Hash Value.
        */
       val buckets = normalizedLinesRDD.map({
-        case (x, y) => (
-          {
-            (x, y, LSHUtil.extractRow(metadata.value, y))
-          })
-      }).map({
-        case (x, y, mappedY) => {
-          val op = unitVectors.map(unitVect => {
-            (Math.round(((unitVect.zip(mappedY).map({ case (x, y) => x * y }).sum) / r) * tuneDownFactor) / tuneDownFactor)
-          });
-          (op.mkString(","), /*Seq[(Long, scala.collection.immutable.Map[Int, String])]*/ /*(*/ (x, y) /*)*/ )
+        case (x, y, sum) => {
+          val op = sum.map(x => { Math.round(x * tuneDownFactor) / tuneDownFactor });
+          if(emitBucketValue)
+          (op.mkString(","), /*Seq[(Long, scala.collection.immutable.Map[Int, String])]*/ /*(*/ (x, y,sum) /*)*/ );
+          else
+            (op.mkString(","), /*Seq[(Long, scala.collection.immutable.Map[Int, String])]*/ /*(*/ (x, y,null) /*)*/ );
         }
       }).groupByKey().values; /*reduceByKey(_ ++ _)*/ /*.map(x => (x._2.toArray));*/ /* Group values by Concatenated Hash key.*/
-      buckets;
+      buckets; 
+
     }
 
   /**
@@ -210,17 +203,18 @@ object LBSAndLSH {
      * The algorithm starts by specifying precision factor as a high value in order to get minimum number of
      * false positives.
      */
-    var inputData = linesRDD;
     var precisionFactor = 10000;
+
     /**
      * We hash entire dataset - this should lead to hashing of almost-duplicate entries into same bucket.
      */
-    var buckets = getBuckets(metadata, inputData, precisionFactor);
+    var inputData = getBucketMapping(metadata, linesRDD);
+    var buckets = getBuckets( inputData, precisionFactor, false);
     buckets.persist(StorageLevel.MEMORY_AND_DISK);
     val population = LBSMetadataWithSparkContext.getPopulation(sc);
     val zips = LBSMetadataWithSparkContext.getZip(sc);
     val hashedPopulation = LBSMetadataWithSparkContext.getHashedPopulation(sc);
-      val params = sc.broadcast(lbsParam);
+    val params = sc.broadcast(lbsParam);
     val outputs = buckets.mapPartitions(partition =>
       {
         val algo = new LBSAlgorithm(metadata.value, params.value, population.value, zips.value, hashedPopulation.value);
@@ -261,8 +255,9 @@ object LBSAndLSH {
       });
 
     outputs.persist(StorageLevel.MEMORY_AND_DISK);
+    buckets.unpersist(false);
     println("Checking pub benefit")
-    buckets.unpersist(true)
+
     val publisherBenefit = outputs.map({ case (x, y, z, t) => (x) }).mean();
 
     println("Checking adv benefit")
@@ -279,8 +274,23 @@ object LBSAndLSH {
 
     println("Time Taken: " + ((t1 - t0) / 1000000));
     outputs.unpersist(true)
+
   }
 
+  def getBucketMapping(metadata: Broadcast[Metadata], linesRDD: RDD[(Long, scala.collection.immutable.Map[Int, String])]): RDD[(Long, scala.collection.immutable.Map[Int, String], ListBuffer[Double])] = {
+
+    val columnCounts = LSHUtil.getTotalNewColumns(metadata.value);
+    val unitVectors = sc.broadcast(getRandomUnitVectors(columnCounts));
+    return linesRDD.map({
+      case (x, y) => (x, y, {
+
+        val mappedY = LSHUtil.extractRow(metadata.value, y)
+        unitVectors.value.map(unitVect => {
+          (unitVect.zip(mappedY).map({ case (x, y) => x * y }).sum) / r
+        });
+      })
+    });
+  }
   /**
    * This method implements Strict K-Anonymity using LSH based bucketing technique.
    * The method uses LSH in order to hash the input dataset into buckets, then
@@ -294,34 +304,37 @@ object LBSAndLSH {
     val numNeighborsVal = sc.broadcast(numNeighbors);
     val metadata = LBSMetadataWithSparkContext.getInstance(sc);
     val zips = LBSMetadataWithSparkContext.getZip(sc);
-    var inputData = linesRDD;
+
+    var inputData = getBucketMapping(metadata, linesRDD);
+
     /**
      * We start with 100000 as precision factor - which means bucket hash-value would be preserved upto 5 decimal places.
      * and hash all elements by calling getBuckets() function.
      */
     var precisionFactor = 100000.0;
     while (precisionFactor > 1) {
-      var buckets = getBuckets(metadata, inputData, precisionFactor);
+      inputData.persist(StorageLevel.MEMORY_AND_DISK);
+      var buckets = getBuckets( inputData, precisionFactor,true);
       buckets.persist(StorageLevel.MEMORY_AND_DISK);
       /**
        * We pickup buckets with size greater than or equal to "k" or number of neighbours
        */
-      var neighbours = buckets.filter({ case (y) => y.size >= numNeighbors});
+      var neighbours = buckets.filter({ case (y) => y.size >= numNeighbors });
       /**
        * We assign summary statistic to all elements and then filter these elements.
        */
-      var op = neighbours.flatMap(x => LSHUtil.assignSummaryStatistic(metadata, x.toArray));
-      var remaining = buckets.filter({ case (y) => y.size < numNeighbors});
+      var op = neighbours.flatMap(x => LSHUtil.assignSummaryStatistic(metadata, x.map({case(x,y,z)=>(x,y)}).toArray));
+      var remaining = buckets.filter({ case (y) => y.size < numNeighbors });
       /**
        * The remaining values are re-grouped in next iteration.
        */
-      inputData = remaining.flatMap(x => x)
+      inputData = remaining.flatMap(x => x) 
       rdds.append(op);
       buckets.unpersist(true);
-
+      inputData.unpersist(true);
       precisionFactor = precisionFactor / 10;
     }
-    val finalStep = inputData.collect();
+    val finalStep = inputData.map({case(x,y,z)=>(x,y)}).collect();
     println("Final step size" + finalStep.size)
     /**
      * We assign the final summary statistic to all remaining entries.

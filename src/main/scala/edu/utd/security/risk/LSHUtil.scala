@@ -57,10 +57,11 @@ object LSHUtil {
     }
 
   def getColumnStartCounts(metadata: Metadata): Array[Int] = {
-    var nextStartCount = 0;
+   
+    if (columnStartCounts.size == 0) {
+       var nextStartCount = 0;
     var index = 0;
     val counts = ListBuffer[Int]();
-    if (columnStartCounts.size == 0) {
       for (column <- metadata.getQuasiColumns()) {
         counts += nextStartCount;
         if (column.getColType() == 's') {
@@ -88,7 +89,6 @@ object LSHUtil {
       }
     }
     
-   emptyRow = Array.fill(totalCounts)(0.0);
     return totalCounts;
   }
   /*def getMinimalDataSet(metadata: Metadata, linesRDD: RDD[(Long, Array[String])], quasiIdentifier: Boolean): RDD[(Long, Map[Int, String])] = {
@@ -127,12 +127,12 @@ object LSHUtil {
   def extractRow(metadata: Metadata, values:  Map[Int, String]): Array[Double] = {
     columnStartCounts = getColumnStartCounts(metadata);
     var index = 0;
-    var row=emptyRow.clone();
+    var row=new Array[Double](totalCounts);
     for (column <- metadata.getQuasiColumns()) {
       if (column.getColType() == 's') {
         row((columnStartCounts(index) + column.getRootCategory().getIndexOfColumnValue(values.get(column.getIndex()).get))) = ONE;
       } else {
-        row(columnStartCounts(index)) = ((values.get(column.getIndex()).get.toDouble) - column.getMin()) / (column.getMax() - column.getMin());
+        row(columnStartCounts(index)) = ((values.get(column.getIndex()).get.toDouble) - column.getMin()) / (column.getRange());
       }
       index = index + 1;
     }

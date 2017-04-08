@@ -29,6 +29,10 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
  def getMinMax(): String= {
     return MINMAX;
   }
+  var range =max-min;
+  def getRange():Double ={
+    return range;
+  }
   def getMax(): Double = {
     return max;
   }
