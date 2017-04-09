@@ -52,18 +52,27 @@ object LBSAndLSH {
 
   var sc: SparkContext = null;
 
-  var numHashFunctions: Int = 10;
-  var r: Double = 2.5;
+  var numHashFunctions: Int = 3;
+  var r: Double = 3;
+  var precisionFactor = 10000.0;
   def main(args: Array[String]): Unit = {
 
-    if (args.length < 10) {
-      println("Program variables expected : <SPARK_MASTER> <HDFS_Data_file_path> <output_file_path> <recordCost> <maxPublisherBenefit> <publishersLoss> <numPartitions> <Algorithm(lbs/lbslsh/lsh)> <LSH_NUM_NEIGHBORS> <LSH_NUM_HASH_FUNCTIONS>")
+    if (args.length < 9) {
+      println("Program variables expected : <SPARK_MASTER> <HDFS_Data_file_path> <output_file_path> <recordCost> <maxPublisherBenefit> <publishersLoss> <numPartitions> <Algorithm(lbs/lbslsh/lsh)> <LSH_NUM_NEIGHBORS>")
     } else {
       sc = SparkSession
         .builder.appName("LBS").master(args(0)).getOrCreate().sparkContext;
       sc.setLogLevel("ERROR");
-      numHashFunctions = args(9).toInt
+      /*  val precs = List(1.0,10.0,100.0,1000.0,10000.0,100000.0, 1000000.0, 1000000.0, 10000000.0,10000000000.0);
+      val hashes = List(1,3, 5, 10, 20, 35);
+      for (prec <- precs) {
+        for (hash <- hashes) {*/
+      //  println("Running experiment for =>"+prec + " "+hash);
+      /*numHashFunctions = hash;
+          precisionFactor = prec*/
       setup(args(1), args(2), new LBSParameters(args(3).toDouble, args(4).toDouble, args(5).toDouble), args(7), args(8).toInt, args(6).toInt)
+      /*}
+      } */
 
     }
   }
@@ -100,39 +109,40 @@ object LBSAndLSH {
       val population = LBSMetadataWithSparkContext.getPopulation(sc);
       val hashedPopulation = LBSMetadataWithSparkContext.getHashedPopulation(sc);
       val params = sc.broadcast(lbsParam);
-      /*
-       val i = 29779;
-      val algorithm = new LBSAlgorithm(metadata.value, lbsParam,population.value,zips.value,hashedPopulation.value);
-      val optimalRecord = algorithm.findOptimalStrategy(linesRDD.lookup(i.longValue())(0));
-      println(optimalRecord);*/
+
+      val countAcc = sc.longAccumulator("cnt");
+      val publisherBenefitAcc = sc.doubleAccumulator("p");
+      val advBenefitAcc = sc.doubleAccumulator("a");
 
       /**
-       * Here, we calculate the optimal Generalizaiton level for entire RDD.
+       * Here, we calculate the optimal generalization level for entire RDD.
        */
       val output = linesRDD.mapPartitions(partition =>
         {
           val algo = new LBSAlgorithm(metadata.value, params.value, population.value, zips.value, hashedPopulation.value);
-          partition.map { case (x, y) => (x, algo.findOptimalStrategy(y)) }
+          partition.map {
+            case (x, y) => {
+              val strategy = algo.findOptimalStrategy(y);
+              countAcc.add(1L);
+              publisherBenefitAcc.add(strategy._1);
+              advBenefitAcc.add(strategy._2);
+              (x, strategy._3)
+            }
+          }
         });
-      output.persist(StorageLevel.MEMORY_AND_DISK);
+ 
 
-      /**
-       * We cache RDD as we do not want to be recomputed for each of the following three actions.
-       */
-      val publisherBenefit = output.map({ case (x, (y, z, t)) => (y) }).mean();
-      linesRDD.unpersist(false);
-      val advBenefit = output.map({ case (x, (y, z, t)) => (z) }).mean();
-      val records = output.map({ case (x, (y, z, t)) => (x, t) });
-
+      val publisherBenefit = publisherBenefitAcc.value / countAcc.value;
+      val advBenefit = advBenefitAcc.value / countAcc.value;
       println("Avg PublisherPayOff found: " + publisherBenefit)
       println("Avg AdversaryBenefit found: " + advBenefit)
+
       val fileName = outputFilePath + "/LBS_" + lbsParam.V() + "_" + lbsParam.L() + "_" + lbsParam.C() + ".csv";
 
-      new DataWriter(sc).writeRDDToAFile(fileName, records.sortByKey().values);
+      new DataWriter(sc).writeRDDToAFile(fileName, output.sortByKey().values);
 
       val t1 = System.nanoTime()
       println("Time Taken: " + ((t1 - t0) / 1000000));
-      output.unpersist(true);
     }
 
   }
@@ -170,7 +180,8 @@ object LBSAndLSH {
    * 			X -> Row vector
    * 			r -> Fixed divisor.
    */
-  def getBuckets(normalizedLinesRDD: RDD[(Long, Map[Int, String], ListBuffer[Double])], tuneDownFactor: Double, emitBucketValue:Boolean): RDD[(Iterable[(Long, Map[Int, String],ListBuffer[Double])])] =
+
+  def getBuckets(normalizedLinesRDD: RDD[(Long, Map[Int, String], ListBuffer[Double])]): RDD[(Iterable[(Long, Map[Int, String])])] =
     {
 
       /**
@@ -178,14 +189,11 @@ object LBSAndLSH {
        */
       val buckets = normalizedLinesRDD.map({
         case (x, y, sum) => {
-          val op = sum.map(x => { Math.round(x * tuneDownFactor) / tuneDownFactor });
-          if(emitBucketValue)
-          (op.mkString(","), /*Seq[(Long, scala.collection.immutable.Map[Int, String])]*/ /*(*/ (x, y,sum) /*)*/ );
-          else
-            (op.mkString(","), /*Seq[(Long, scala.collection.immutable.Map[Int, String])]*/ /*(*/ (x, y,null) /*)*/ );
+          val op = sum.map(x => { Math.round(x * precisionFactor) / precisionFactor });
+          (op.mkString(","), /*Seq[(Long, scala.collection.immutable.Map[Int, String])]*/ /*(*/ (x, y) /*)*/ );
         }
       }).groupByKey().values; /*reduceByKey(_ ++ _)*/ /*.map(x => (x._2.toArray));*/ /* Group values by Concatenated Hash key.*/
-      buckets; 
+      buckets;
 
     }
 
@@ -203,14 +211,16 @@ object LBSAndLSH {
      * The algorithm starts by specifying precision factor as a high value in order to get minimum number of
      * false positives.
      */
-    var precisionFactor = 10000;
 
     /**
      * We hash entire dataset - this should lead to hashing of almost-duplicate entries into same bucket.
      */
     var inputData = getBucketMapping(metadata, linesRDD);
-    var buckets = getBuckets( inputData, precisionFactor, false);
-    buckets.persist(StorageLevel.MEMORY_AND_DISK);
+    var buckets = getBuckets(inputData);
+    val countAcc = sc.longAccumulator("cnt");
+    val publisherBenefitAcc = sc.doubleAccumulator("p");
+    val advBenefitAcc = sc.doubleAccumulator("a");
+
     val population = LBSMetadataWithSparkContext.getPopulation(sc);
     val zips = LBSMetadataWithSparkContext.getZip(sc);
     val hashedPopulation = LBSMetadataWithSparkContext.getHashedPopulation(sc);
@@ -225,45 +235,49 @@ object LBSAndLSH {
              * We take first entry, find out generalization level.
              */
             val itr = bucket.iterator;
-            var list = ListBuffer[(Double, Double, Long, String)]();
+            var list = ListBuffer[(Long, String)]();
             if (itr.hasNext) {
               var current = itr.next();
               var strategy = algo.findOriginalOptimalStrategy(current._2);
-
+              countAcc.add(1L);
               var stringRepresentation = strategy._3.toArray.sortBy(_._1).map(_._2).mkString(",");
-              list.append((strategy._1, strategy._2, current._1, stringRepresentation));
+              list.append((current._1, stringRepresentation));
               /**
                * We loop on rest of the entries from the bucket and see if generalization level can be
                * applied or not. If not possible, it computes generalization for the same by invoking LBS algorithm.
                */
+              publisherBenefitAcc.add(strategy._1);
+              advBenefitAcc.add(strategy._2);
 
               while (itr.hasNext) {
                 current = itr.next();
                 if (isNeighbourSubset(metadata.value, strategy._3, current._2)) {
 
-                  list.append((strategy._1, strategy._2, current._1, stringRepresentation));
+                  publisherBenefitAcc.add(strategy._1);
+                  advBenefitAcc.add(strategy._2);
+                  list.append((current._1, stringRepresentation));
                 } else {
                   var childStrategy = algo.findOptimalStrategy(current._2);
-                  list.append((childStrategy._1, childStrategy._2, current._1, childStrategy._3));
+
+                  publisherBenefitAcc.add(childStrategy._1);
+                  advBenefitAcc.add(childStrategy._2);
+                  list.append((current._1, childStrategy._3));
                 }
+                countAcc.add(1L);
+
               }
 
             }
             list
           });
-
       });
 
-    outputs.persist(StorageLevel.MEMORY_AND_DISK);
-    buckets.unpersist(false);
-    println("Checking pub benefit")
+    println("Checking pub benefit" + countAcc.value)
 
-    val publisherBenefit = outputs.map({ case (x, y, z, t) => (x) }).mean();
+    val records = outputs.sortByKey().values;
 
-    println("Checking adv benefit")
-    val advBenefit = outputs.map({ case (x, y, z, t) => (y) }).mean();
-    val records = outputs.map({ case (x, y, z, t) => (z, t) }).sortByKey().map(_._2);
-
+    val publisherBenefit = publisherBenefitAcc.value / countAcc.value;
+    val advBenefit = advBenefitAcc.value / countAcc.value;
     println("Avg PublisherPayOff found: " + publisherBenefit)
     println("Avg AdversaryBenefit found: " + advBenefit)
 
@@ -273,7 +287,6 @@ object LBSAndLSH {
     val t1 = System.nanoTime()
 
     println("Time Taken: " + ((t1 - t0) / 1000000));
-    outputs.unpersist(true)
 
   }
 
@@ -281,13 +294,40 @@ object LBSAndLSH {
 
     val columnCounts = LSHUtil.getTotalNewColumns(metadata.value);
     val unitVectors = sc.broadcast(getRandomUnitVectors(columnCounts));
-    return linesRDD.map({
-      case (x, y) => (x, y, {
 
-        val mappedY = LSHUtil.extractRow(metadata.value, y)
-        unitVectors.value.map(unitVect => {
-          (unitVect.zip(mappedY).map({ case (x, y) => x * y }).sum) / r
-        });
+    var totalCols = sc.broadcast(LSHUtil.getTotalNewColumns(metadata.value));
+
+    return linesRDD.mapPartitions({
+      var nextStartCount = 0;
+      val counts = ListBuffer[Int]();
+      for (column <- metadata.value.getQuasiColumns()) {
+        counts += nextStartCount;
+        if (column.isCharColumn()) {
+          nextStartCount = nextStartCount + column.getNumUnique();
+        } else {
+          nextStartCount = nextStartCount + 1;
+        }
+      }
+      val countsArr = counts.toArray
+      _.map({
+        case (x, y) => (x, y, {
+          var index = 0;
+          var row = new Array[Double](totalCols.value);
+          for (column <- metadata.value.getQuasiColumns()) {
+            if (column.isCharColumn()) {
+              /*  println(row.size)
+              println("=>"+(countsArr(index) + column.getRootCategory().getIndexOfColumnValue(y.get(column.getIndex()).get)))
+              println("->"+y.get(column.getIndex()).get);*/
+              row((countsArr(index) + column.getRootCategory().getIndexOfColumnValue(y.get(column.getIndex()).get))) = 1.0;
+            } else {
+              row(countsArr(index)) = ((y.get(column.getIndex()).get.toDouble) - column.getMin()) / (column.getRange());
+            }
+            index = index + 1;
+          }
+          unitVectors.value.map(unitVect => {
+            (unitVect.zip(row).map({ case (x, y) => x * y }).sum) / r
+          });
+        })
       })
     });
   }
@@ -311,49 +351,41 @@ object LBSAndLSH {
      * We start with 100000 as precision factor - which means bucket hash-value would be preserved upto 5 decimal places.
      * and hash all elements by calling getBuckets() function.
      */
-    var precisionFactor = 100000.0;
-    while (precisionFactor > 1) {
-      inputData.persist(StorageLevel.MEMORY_AND_DISK);
-      var buckets = getBuckets( inputData, precisionFactor,true);
-      buckets.persist(StorageLevel.MEMORY_AND_DISK);
-      /**
-       * We pickup buckets with size greater than or equal to "k" or number of neighbours
-       */
-      var neighbours = buckets.filter({ case (y) => y.size >= numNeighbors });
-      /**
-       * We assign summary statistic to all elements and then filter these elements.
-       */
-      var op = neighbours.flatMap(x => LSHUtil.assignSummaryStatistic(metadata, x.map({case(x,y,z)=>(x,y)}).toArray));
-      var remaining = buckets.filter({ case (y) => y.size < numNeighbors });
-      /**
-       * The remaining values are re-grouped in next iteration.
-       */
-      inputData = remaining.flatMap(x => x) 
-      rdds.append(op);
-      buckets.unpersist(true);
-      inputData.unpersist(true);
-      precisionFactor = precisionFactor / 10;
-    }
-    val finalStep = inputData.map({case(x,y,z)=>(x,y)}).collect();
-    println("Final step size" + finalStep.size)
+    var buckets = getBuckets(inputData);
+    buckets.persist(StorageLevel.MEMORY_AND_DISK);
+    /**
+     * We pickup buckets with size greater than or equal to "k" or number of neighbours
+     */
+    var neighbours = buckets.filter({ case (y) => y.size >= numNeighbors });
+    /**
+     * We assign summary statistic to all elements and then filter these elements.
+     */
+    var op = neighbours.flatMap(x => LSHUtil.assignSummaryStatistic(metadata, x.toArray));
+    var remaining = buckets.filter({ case (y) => y.size < numNeighbors });
+    /**
+     * The remaining values are re-grouped in next iteration.
+     */
+    rdds.append(op);
+
     /**
      * We assign the final summary statistic to all remaining entries.
      */
-    var op = sc.parallelize(LSHUtil.assignSummaryStatistic(metadata, finalStep).toSeq);
-    rdds.append(op);
-
+    rdds.append(LSHUtil.assignSummaryStatisticToRDD(metadata, remaining.flatMap(x => x)));
     val fileName = outputFilePath + "/LSH_" + numNeighborsVal.value + "_" + numHashFunctions + "_" + r + ".csv";
     new DataWriter(sc).writeRDDToAFile(fileName, sc.union(rdds).sortByKey().map(_._2));
     val t1 = System.nanoTime()
-    println("Time Taken: " + ((t1 - t0) / 1000000));
+    println("Time Taken: " + ((t1 - t0) / 1000000) + " :" + fileName);
+
+    buckets.unpersist(true);
     /**
      * Following code is for computation of the Information loss and thus is not included while calculating performance.
      */
     val linesRDDOP = new DataReader().readDataFile(sc, fileName, numPartitons);
     linesRDDOP.persist(StorageLevel.MEMORY_AND_DISK)
     val totalIL = linesRDDOP.map(_._2).map(x => InfoLossCalculator.IL(x)).mean();
-    println("Total IL " + 100 * (totalIL / InfoLossCalculator.getMaximulInformationLoss()) + " Benefit with no attack: " + 100 * (1 - (totalIL / InfoLossCalculator.getMaximulInformationLoss())));
+    // println("Total IL " + 100 * (totalIL / InfoLossCalculator.getMaximulInformationLoss()) + " Benefit with no attack: " + 100 * (1 - (totalIL / InfoLossCalculator.getMaximulInformationLoss())));
     linesRDDOP.unpersist(true);
+    println((precisionFactor + "\t" + numHashFunctions + "\t" + (t1 - t0) / 1000000) + "\t" + 100 * (1 - (totalIL / InfoLossCalculator.getMaximulInformationLoss())) + "\t" + fileName);
   }
   /**
    * This method checks whether generalizedParent is valid parent of "neighbour"
@@ -372,7 +404,7 @@ object LBSAndLSH {
           val neighborValue = neighbour.get(column.getIndex()).get.trim();
 
           if (genHierarchyValue != neighborValue) {
-            if (column.getColType() == 's') {
+            if (column.isCharColumn()) {
               val genCategory = column.getCategory(genHierarchyValue);
               if (!genCategory.children.contains(neighborValue)) {
                 neighborIsSubSet = false;
@@ -391,5 +423,23 @@ object LBSAndLSH {
       }
       neighborIsSubSet;
     }
+
+  val ONE = 1.0;
+  def extractRow(metadata: Metadata, values: Map[Int, String], totalCnt: Int, colStartCounts: Array[Int]): Array[Double] = {
+
+    var index = 0;
+    var row = new Array[Double](totalCnt);
+
+    for (column <- metadata.getQuasiColumns()) {
+      if (column.isCharColumn()) {
+        row((colStartCounts(index) + column.getRootCategory().getIndexOfColumnValue(values.get(column.getIndex()).get))) = ONE;
+      } else {
+        row(colStartCounts(index)) = ((values.get(column.getIndex()).get.toDouble) - column.getMin()) / (column.getRange());
+      }
+      index = index + 1;
+    }
+
+    return row;
+  }
 
 }

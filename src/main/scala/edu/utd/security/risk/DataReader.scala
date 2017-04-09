@@ -57,17 +57,17 @@ class DataReader() extends Serializable {
            * For String column types.
            */
           if (node.\("hierarchy").text.length() > 0) {
-            val column = new Column(node.\("name").text, node.\("index").text.toInt, node.\("type").text.charAt(0), node.\("isQuasiIdentifier").text.toBoolean, getHierarchy(node.\("hierarchy"), "*"),-1,-1, node.\("num_unique").text.toInt);
+            val column = new Column(node.\("name").text, node.\("index").text.toInt,true, node.\("isQuasiIdentifier").text.toBoolean, getHierarchy(node.\("hierarchy"), "*"),-1,-1, node.\("num_unique").text.toInt);
             columns += ((column.getIndex(), column));
           } else {
-            val column = new Column(node.\("name").text, node.\("index").text.toInt, node.\("type").text.charAt(0), node.\("isQuasiIdentifier").text.toBoolean, new Category("*"),-1,-1, node.\("num_unique").text.toInt);
+            val column = new Column(node.\("name").text, node.\("index").text.toInt, true, node.\("isQuasiIdentifier").text.toBoolean, new Category("*"),-1,-1, node.\("num_unique").text.toInt);
             columns += ((column.getIndex(), column));
           }
         } else {
           /**
            * Numeric columns.
            */
-          val column = new Column(node.\("name").text, node.\("index").text.toInt, node.\("type").text.charAt(0), node.\("isQuasiIdentifier").text.toBoolean,getHierarchy(node.\("hierarchy"), node.\("min").text.toDouble+"_"+node.\("max").text.toDouble),node.\("min").text.toDouble,node.\("max").text.toDouble, node.\("num_unique").text.toInt);
+          val column = new Column(node.\("name").text, node.\("index").text.toInt, false, node.\("isQuasiIdentifier").text.toBoolean,getHierarchy(node.\("hierarchy"), node.\("min").text.toDouble+"_"+node.\("max").text.toDouble),node.\("min").text.toDouble,node.\("max").text.toDouble, node.\("num_unique").text.toInt);
           columns += ((column.getIndex(), column));
         }
       }

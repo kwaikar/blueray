@@ -100,7 +100,7 @@ object Mondrian {
     //  println("Dimension found  " + " : " + dimAndMedian.dimension() + " : "+dimAndMedian.tostring);
     if (dimAndMedian.dimension() >= 0) {
 
-      if (metadata.value.getMetadata(dimAndMedian.dimension()).get.getColType() == 's') {
+      if (metadata.value.getMetadata(dimAndMedian.dimension()).get.isCharColumn() ) {
         leftRDD = linesRDD.filter({ case (x, y) => { dimAndMedian.leftSet().contains(y.get(dimAndMedian.dimension()).get) } });
         rightRDD = linesRDD.filter({ case (x, y) => { dimAndMedian.rightSet().contains(y.get(dimAndMedian.dimension()).get) } });
       } else {
@@ -152,7 +152,6 @@ object Mondrian {
   def selectDimension(linesRDD: RDD[(Long, Map[Int, String])], k: Int): Dimensions = {
 
     try {
-      linesRDD.cache();
       val metadata = LBSMetadata.getInstance();
       /**
        * Remove row IDs.
@@ -167,7 +166,8 @@ object Mondrian {
       /**
        * Group values by index, make it a distinct list, cache it on executors.
        */
-      val indexValueGrouped = filteredColumns.groupByKey().map({ case (index, list) => (index, list.toList) }).cache();
+      val indexValueGrouped = filteredColumns.groupByKey().map({ case (index, list) => (index, list.toList) });
+      indexValueGrouped.cache();
       /**
        * get size of the group for each index.
        */
@@ -188,7 +188,7 @@ object Mondrian {
        * Find the exact list for selected dimension, sort list of values, extract middle element
        */
 
-      if (metadata.getMetadata(dimToBeReturned).get.getColType() == 's') {
+      if (metadata.getMetadata(dimToBeReturned).get.isCharColumn() ) {
         // distribute keys by putting alternate ones in alternate list. This way two partition sizes should roughly be near each other
 
         val sortedListOfValues = indexValueGrouped.filter(_._1 == dimToBeReturned).flatMap({ case (x, y) => (y) }).map(x => (x, 1)).reduceByKey((a, b) => a + b).sortByKey(true).collect();
@@ -205,7 +205,7 @@ object Mondrian {
             rightList = rightList.::(pair._1);
           }
         }
-        linesRDD.unpersist(true);
+        indexValueGrouped.unpersist(true);
         return new Dimensions(dimToBeReturned, 0, 0, 0, leftList.toArray, rightList.toArray);
 
       } else {
@@ -219,11 +219,10 @@ object Mondrian {
         val median = reverseIndex.lookup((sortedListOfValues.count() / 2))(0).toDouble;
         val max = reverseIndex.lookup(sortedListOfValues.count() - 1)(0).toDouble;
 
+        indexValueGrouped.unpersist(true);
         /**
          * return the tuple.
          */
-
-        linesRDD.unpersist(true);
         return new Dimensions(dimToBeReturned, min, median, max, null, null);
       }
     } catch {

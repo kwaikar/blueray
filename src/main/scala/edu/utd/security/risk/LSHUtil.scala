@@ -22,27 +22,28 @@ object LSHUtil {
   }
   var columnStartCounts = Array[Int]();
   var totalCounts = 0;
-  
-   /**
+
+  /**
    * This method calculates summary statitic for the Array of lines received.
    * Assumption is that input dataset contains only attributes of our interest. i.e. quasiIdentifier fields.
    * This assumption was made in order to get accurate statistics of the algorithm.
    */
   def assignSummaryStatistic(metadata: Broadcast[Metadata], lines: Array[(Long, Map[Int, String])]): Map[Long, String] =
     {
-      var indexValueGroupedIntermediate = lines.flatMap({ case (x, y) => y }).groupBy(_._1).map(x => (x._1, x._2.map(_._2)));
-      var int2 = indexValueGroupedIntermediate.map({ case (index, list) => (index, list.toList.distinct) })
+      var indexValueGroupedIntermediate = lines.flatMap({ case (x, y) => y }).groupBy(_._1).map(x => (x._1, x._2.map(_._2).toList.distinct));
       var map = indexValueGroupedIntermediate.map({
         case (x, y) =>
           val column = metadata.value.getMetadata(x).get;
-          if (column.getColType() == 's') {
+          if (column.isCharColumn() ) {
             (x, column.findCategory(y.toArray).value());
           } else {
             val listOfNumbers = y.map(_.toDouble);
-            if (listOfNumbers.min == listOfNumbers.max) {
-              (x, listOfNumbers.min.toString);
+            val min = listOfNumbers.min;
+            val max = listOfNumbers.max;
+            if (min == max) {
+              (x, min.toString);
             } else {
-              (x, listOfNumbers.min + "_" + listOfNumbers.max);
+              (x, min + "_" + max);
             }
           }
       });
@@ -55,16 +56,45 @@ object LSHUtil {
           (x, generalization)
       }).toMap;
     }
+  def assignSummaryStatisticToRDD(metadata: Broadcast[Metadata], lines: RDD[(Long, Map[Int, String])]): RDD[(Long, String)] =
+    {
+      var indexValueGroupedIntermediate = lines.flatMap({ case (x, y) => y }).groupBy(_._1).map(x => (x._1, x._2.map(_._2).toSet));
+      var map = indexValueGroupedIntermediate.map({
+        case (x, y) =>
+          val column = metadata.value.getMetadata(x).get;
+          if (column.isCharColumn() ) {
+            (x, column.findCategory(y.toArray).value());
+          } else {
+            var listOfNumbers = y.map(_.toDouble);
+            val min = listOfNumbers.min;
+            val max = listOfNumbers.max;
+            listOfNumbers = null;
+            if (min == max) {
+              (x, min.toString);
+            } else {
+              (x, min + "_" + max);
+            }
+          }
+      });
+      /**
+       * Once we have found the generalization hierarchy,map it to all lines and return the same.
+       */
+      val generalization = map.collect().sortBy(_._1).map(_._2).mkString(",");
+      return lines.map({
+        case (x, y) =>
+          (x, generalization)
+      });
+    }
 
   def getColumnStartCounts(metadata: Metadata): Array[Int] = {
-   
+
     if (columnStartCounts.size == 0) {
-       var nextStartCount = 0;
-    var index = 0;
-    val counts = ListBuffer[Int]();
+      var nextStartCount = 0;
+      var index = 0;
+      val counts = ListBuffer[Int]();
       for (column <- metadata.getQuasiColumns()) {
         counts += nextStartCount;
-        if (column.getColType() == 's') {
+        if (column.isCharColumn()) {
           nextStartCount = nextStartCount + column.getNumUnique();
         } else {
           nextStartCount = nextStartCount + 1;
@@ -72,23 +102,23 @@ object LSHUtil {
         index = index + 1;
       }
       columnStartCounts = counts.toArray;
-    getTotalNewColumns(metadata);
+      getTotalNewColumns(metadata);
     }
     return columnStartCounts;
   }
-    var emptyRow: Array[Double] =Array[Double](); 
+  var emptyRow: Array[Double] = Array[Double]();
   def getTotalNewColumns(metadata: Metadata): Int = {
     if (totalCounts == 0) {
-      
+
       for (column <- metadata.getQuasiColumns()) {
-        if (column.getColType() == 's') {
+        if (column.isCharColumn()) {
           totalCounts = totalCounts + column.getNumUnique();
         } else {
           totalCounts = totalCounts + 1;
         }
       }
     }
-    
+
     return totalCounts;
   }
   /*def getMinimalDataSet(metadata: Metadata, linesRDD: RDD[(Long, Array[String])], quasiIdentifier: Boolean): RDD[(Long, Map[Int, String])] = {
@@ -122,23 +152,9 @@ object LSHUtil {
     });
     return map;
   }*/
-  val ONE=1.0;
 
-  def extractRow(metadata: Metadata, values:  Map[Int, String]): Array[Double] = {
-    columnStartCounts = getColumnStartCounts(metadata);
-    var index = 0;
-    var row=new Array[Double](totalCounts);
-    for (column <- metadata.getQuasiColumns()) {
-      if (column.getColType() == 's') {
-        row((columnStartCounts(index) + column.getRootCategory().getIndexOfColumnValue(values.get(column.getIndex()).get))) = ONE;
-      } else {
-        row(columnStartCounts(index)) = ((values.get(column.getIndex()).get.toDouble) - column.getMin()) / (column.getRange());
-      }
-      index = index + 1;
-    }
-    return row;
-  }
-
+  
+/*
   def extractReturnObject(metadata: Metadata, data: Array[Double]): scala.collection.mutable.Map[Int, String] =
     {
       var index: Int = 0;
@@ -164,5 +180,5 @@ object LSHUtil {
       }
       //println(map);
       return map;
-    }
+    }*/
 }

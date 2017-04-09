@@ -117,13 +117,13 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters, population:
       for (column <- metadata.getQuasiColumns()) {
         var count: Long = 0;
         val value = g.get(column.getIndex()).get.trim()
-        if (column.getColType() == 's') {
+        if (column.isCharColumn() ) {
           val children = column.getCategory(value);
           if (children.leaves.length != 0) {
             infoLoss += (-Math.log10(1.0 / children.leaves.length));
           }
         } else {
-          val minMax = LSHUtil.getMinMax(value);
+          val minMax = getMinMax(value);
           if (column.getName().trim().equalsIgnoreCase("age")) {
             infoLoss += (-Math.log10(1.0 / (1 + minMax._2 - minMax._1)));
           } else {
@@ -171,8 +171,8 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters, population:
             return value.get;
           }
         }
-        val ageRange = LSHUtil.getMinMax(key.get(2).get);
-        val zipRange = LSHUtil.getMinMax(key.get(1).get);
+        val ageRange = getMinMax(key.get(2).get);
+        val zipRange = getMinMax(key.get(1).get);
         val keyForMap = races.mkString(",").trim() + "|" + genders.mkString(",").trim() + "|" + ageRange._1 + "_" + ageRange._2 + "|" + zipRange._1 + "_" + zipRange._2;
         /**
          * Once keys have been identified, check map in order to retrieve population size.
@@ -243,7 +243,7 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters, population:
       for (column <- metadata.getQuasiColumns()) {
         val value = map.get(column.getIndex()).get.trim()
         if (!value.equalsIgnoreCase("*")) {
-          if (column.getColType() == 's') {
+          if (column.isCharColumn() ) {
             if (!value.equalsIgnoreCase(column.getRootCategory().value())) {
               return false;
             }
@@ -256,4 +256,14 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters, population:
       }
       return true;
     }
+ def getMinMax(value: String): (Double, Double) = {
+    if (value.contains("_")) {
+      val range = value.split("_");
+      val min = range(0).toDouble
+      val max = range(1).toDouble
+      (min, max)
+    } else {
+      (value.toDouble, value.toDouble)
+    }
+  }
 }

@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * Class responsible for holding details of column object.
  */
-class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean, rootCategory: Category, min: Double, max: Double, numUnique: Int) extends Serializable {
+class Column(name: String, index: Int, colType: Boolean, isQuasiIdentifier: Boolean, rootCategory: Category, min: Double, max: Double, numUnique: Int) extends Serializable {
   def getName(): String = {
     return name;
   }
@@ -37,7 +37,7 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
     return max;
   }
 
-  def getColType(): Char = {
+  def isCharColumn(): Boolean = {
     return colType;
   }
   def getIsQuasiIdentifier(): Boolean = {
@@ -113,7 +113,7 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
       searchChild = false;
       val children = category.children.toArray
       for (i <- 0 to (children.size - 1)) {
-        if (colType == 's') {
+        if (colType ) {
           if (children(i).childrenString.contains(childCategory)) {
             parent = category;
             category = children(i);
@@ -159,7 +159,7 @@ class Column(name: String, index: Int, colType: Char, isQuasiIdentifier: Boolean
       searchChild = false;
       val children = category.children.toArray
       for (i <- 0 to (children.size - 1)) {
-        if (colType == 's') {
+        if (colType ) {
           if (children(i).childrenString.contains(childCategory)) {
             category = children(i);
             searchChild = true;

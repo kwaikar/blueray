@@ -38,7 +38,7 @@ object InfoLossCalculator {
       for (column <- metadata.getQuasiColumns()) {
         var count: Long = 0;
         val value = g.get(column.getIndex()).get.trim()
-        if (column.getColType() == 's') {
+        if (column.isCharColumn() ) {
           val children = column.getCategory(value);
           if (children.leaves.length != 0) {
             infoLoss += (-Math.log10(1.0 / children.leaves.length));
