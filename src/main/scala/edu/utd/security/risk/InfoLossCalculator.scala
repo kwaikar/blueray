@@ -10,7 +10,7 @@ object InfoLossCalculator {
   def main(args: Array[String]): Unit = {
 
   var sc: SparkContext = SparkSession
-    .builder.appName("Mondrian").master(args(0)).getOrCreate().sparkContext;
+    .builder.appName("InfoLossCalculator").master(args(0)).getOrCreate().sparkContext;
     if (args.length < 3) {
       println("Program variables expected :<SPARK_MASTER_URL> <HDFS_Data_file_path> <PUBLISHER_BENEFIT>")
     } else {

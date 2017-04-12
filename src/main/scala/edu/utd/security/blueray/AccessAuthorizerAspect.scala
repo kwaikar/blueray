@@ -25,7 +25,7 @@ class AccessAuthorizerAspect {
 
   var dataMetadata: Metadata = null;
   var algorithm: LBSAlgorithm = null;
- // @Around(value = "execution(* org.apache.spark.rdd.MapPartitionsRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
+  @Around(value = "execution(* org.apache.spark.rdd.MapPartitionsRDD.compute(..)) && args(theSplit,context)", argNames = "jp,theSplit,context")
   def aroundAdvice_spark(jp: ProceedingJoinPoint, theSplit: Partition, context: TaskContext): AnyRef = {
 
     val iterator = (jp.proceed(jp.getArgs()));
@@ -66,7 +66,7 @@ class AccessAuthorizerAspect {
 
   def getPolicy(context: org.apache.spark.TaskContext, jp: org.aspectj.lang.ProceedingJoinPoint, pcType: Any): Option[Policy] = {
     var policy: Option[Policy] = None;
-    val auth: Option[String] = Some(context.getLocalProperty("USER")) // Util.extractAuth(context)
+    val auth: Option[String] = Some(sys.env("USER")) // Util.extractAuth(context)
 
     var path = extractPathForSpark(jp);
     if (path == null || path.trim().length() == 0) {

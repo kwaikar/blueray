@@ -42,6 +42,33 @@ class DataReader() extends Serializable {
     return linesRDD;
   }
 
+  def readDataFileToNativeFormat(sc: SparkContext,hdfsDataPath: String, numPartitions:Int): RDD[(Long, (String,Int,Int,String))] = {
+    val file = sc.textFile(hdfsDataPath ,numPartitions)
+    /**
+     * Split by new line, filter lines containing missing data.
+     */
+    val lines = file.flatMap(_.split("\n"))
+
+    var linesWithIndex=lines.zipWithIndex();
+    /**
+     * Retain indices of lines
+     */
+    if (true) {
+      linesWithIndex = lines.filter { !_.contains("?") }.zipWithIndex;
+    }  
+
+    /**
+     * split columns inside each line, zip with index.
+     */
+    val linesRDD = linesWithIndex.map({ case (value, index) => (index, value.split(",")) }).map({
+      case (index, data) =>
+    
+        (index, (data(0),data(1).toDouble.intValue(),data(2).toDouble.intValue(),data(3)));
+    })
+    return linesRDD;
+  }
+
+  
   /**
    * This method reads metadata object from an xml file.
    */

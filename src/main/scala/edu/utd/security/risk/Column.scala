@@ -53,14 +53,20 @@ class Column(name: String, index: Int, colType: Boolean, isQuasiIdentifier: Bool
       return index + ":" + name + "=" + colType + "_" + isQuasiIdentifier + "[" + rootCategory.toString + "]";
   }
    
+
+  var findMap = new ConcurrentHashMap[String,Category](); 
   /**
    * Given list of string values, this method finds the bottom most category that contains all elements containing given set.
    */
   def findCategory(columnValues: Array[String]): Category = {
 
+     val catVal =findMap.get(columnValues.sorted.mkString(","));
+    if(catVal!=null)
+    {
+      return catVal;
+    }
     var category = rootCategory;
     var childFound = true;
-
     /**
      * Start from ancestor and Recurse until the parent node is found.
      */
@@ -80,6 +86,8 @@ class Column(name: String, index: Int, colType: Boolean, isQuasiIdentifier: Bool
          * current level itself is a common parent for all values.
          */
         if (!childFound) {
+          
+     findMap.get(columnValues.sorted.mkString(","),category);
           return category;
         }
 
@@ -87,9 +95,11 @@ class Column(name: String, index: Int, colType: Boolean, isQuasiIdentifier: Bool
         /**
          * Reached leaf - this is the bottommost level possible!
          */
+     findMap.get(columnValues.sorted.mkString(","),category);
         return category;
       }
     }
+     findMap.get(columnValues.sorted.mkString(","),rootCategory);
     return rootCategory;
   }
 

@@ -8,6 +8,7 @@ import org.apache.spark.sql.DataFrameReader
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.broadcast.Broadcast
+import scala.collection.immutable.HashSet
 
 object LSHUtil {
   def getMinMax(value: String): (Double, Double) = {
@@ -30,11 +31,11 @@ object LSHUtil {
    */
   def assignSummaryStatistic(metadata: Broadcast[Metadata], lines: Array[(Long, Map[Int, String])]): Map[Long, String] =
     {
-      var indexValueGroupedIntermediate = lines.flatMap({ case (x, y) => y }).groupBy(_._1).map(x => (x._1, x._2.map(_._2).toList.distinct));
+      var indexValueGroupedIntermediate = lines.flatMap(_._2).map({ case (x, y) => (x, Set[String](y)) }).groupBy(_._1).map(x => (x._1, x._2.map(_._2).flatten));
       var map = indexValueGroupedIntermediate.map({
         case (x, y) =>
           val column = metadata.value.getMetadata(x).get;
-          if (column.isCharColumn() ) {
+          if (column.isCharColumn()) {
             (x, column.findCategory(y.toArray).value());
           } else {
             val listOfNumbers = y.map(_.toDouble);
@@ -56,9 +57,46 @@ object LSHUtil {
           (x, generalization)
       }).toMap;
     }
-  def assignSummaryStatisticToRDD(metadata: Broadcast[Metadata], lines: RDD[(Long, Map[Int, String])]): RDD[(Long, String)] =
+  def assignSummaryStatisticToRDD(metadata: Broadcast[Metadata], lines: RDD[(Long, (String, Int, Int, String))]): RDD[(Long, String)] =
     {
-      var indexValueGroupedIntermediate = lines.flatMap({ case (x, y) => y }).groupBy(_._1).map(x => (x._1, x._2.map(_._2).toSet));
+
+      val val0 = lines.map(_._2._1).distinct().collect();
+      val val1 = lines.map(_._2._2).distinct().collect();
+      val val2 = lines.map(_._2._3).distinct().collect();
+      val val3 = lines.map(_._2._4).distinct().collect();
+ 
+
+      var column = metadata.value.getMetadata(0).get;
+
+      var generalization = column.findCategory(val0.toArray).value()
+      var min = val1.min;
+      var max = val1.max;
+      if (min == max) {
+        generalization += "," + min;
+      } else {
+        generalization += "," + min + "_" + max;
+      }
+      min = val2.min;
+      max = val2.max;
+      if (min == max) {
+        generalization += "," + min;
+      } else {
+        generalization += "," + min + "_" + max;
+      }
+
+      column = metadata.value.getMetadata(3).get;
+      generalization += ","+column.findCategory(val3.toArray).value() /*mapPartitions(
+         
+         partition=>partition.flatMap(_._2))*/ ;
+      /*     indexValueGroupedIntermediate.cache();
+       val map0Gender=indexValueGroupedIntermediate.filter(_._1=="0").values.reduce((a,b)=>a.union(b));
+        val map3Race =indexValueGroupedIntermediate.filter(_._1=="3").values.reduce((a,b)=>a.union(b));
+        val age = indexValueGroupedIntermediate.filter(_._1=="2").values.distinct();
+        val zip= indexValueGroupedIntermediate.filter(_._1=="1").values.distinct();
+        indexValueGroupedIntermediate.unpersist(false);
+    */
+      /* .reduceByKey((a,b)=>(a.union(b)));
+        
       var map = indexValueGroupedIntermediate.map({
         case (x, y) =>
           val column = metadata.value.getMetadata(x).get;
@@ -75,13 +113,80 @@ object LSHUtil {
               (x, min + "_" + max);
             }
           }
-      });
+      });*/
       /**
        * Once we have found the generalization hierarchy,map it to all lines and return the same.
        */
-      val generalization = map.collect().sortBy(_._1).map(_._2).mkString(",");
-      return lines.map({
+      println("total keys:"+lines.keys.count())
+      //    val generalization = map.collect().sortBy(_._1).map(_._2).mkString(",");
+      return lines.keys.map({
+        case (x) =>
+          (x, generalization)
+      });
+    }
+
+  def assignSummaryStatisticArray(metadata: Broadcast[Metadata], lines: Array[(Long, (String, Int, Int, String))]): Array[(Long, String)] =
+    {
+
+      val val0 = lines.map(_._2._1).distinct;
+      val val1 = lines.map(_._2._2).distinct;
+      val val2 = lines.map(_._2._3).distinct;
+      val val3 = lines.map(_._2._4).distinct;
+
+      var column = metadata.value.getMetadata(0).get;
+
+      var generalization = column.findCategory(val0.toArray).value()
+      var min = val1.min;
+      var max = val1.max;
+      if (min == max) {
+        generalization += "," + min;
+      } else {
+        generalization += "," + min + "_" + max;
+      }
+      min = val2.min;
+      max = val2.max;
+      if (min == max) {
+        generalization += "," + min;
+      } else {
+        generalization += "," + min + "_" + max;
+      }
+
+      column = metadata.value.getMetadata(3).get;
+      generalization += ","+column.findCategory(val3.toArray).value() /*mapPartitions(
+         
+         partition=>partition.flatMap(_._2))*/ ;
+      /*     indexValueGroupedIntermediate.cache();
+       val map0Gender=indexValueGroupedIntermediate.filter(_._1=="0").values.reduce((a,b)=>a.union(b));
+        val map3Race =indexValueGroupedIntermediate.filter(_._1=="3").values.reduce((a,b)=>a.union(b));
+        val age = indexValueGroupedIntermediate.filter(_._1=="2").values.distinct();
+        val zip= indexValueGroupedIntermediate.filter(_._1=="1").values.distinct();
+        indexValueGroupedIntermediate.unpersist(false);
+    */
+      /* .reduceByKey((a,b)=>(a.union(b)));
+        
+      var map = indexValueGroupedIntermediate.map({
         case (x, y) =>
+          val column = metadata.value.getMetadata(x).get;
+          if (column.isCharColumn() ) {
+            (x, column.findCategory(y.toArray).value());
+          } else {
+            var listOfNumbers = y.map(_.toDouble);
+            val min = listOfNumbers.min;
+            val max = listOfNumbers.max;
+            listOfNumbers = null;
+            if (min == max) {
+              (x, min.toString);
+            } else {
+              (x, min + "_" + max);
+            }
+          }
+      });*/
+      /**
+       * Once we have found the generalization hierarchy,map it to all lines and return the same.
+       */
+      //    val generalization = map.collect().sortBy(_._1).map(_._2).mkString(",");
+      return lines.map({
+        case (x, (p, q, r, s)) =>
           (x, generalization)
       });
     }
@@ -153,8 +258,7 @@ object LSHUtil {
     return map;
   }*/
 
-  
-/*
+  /*
   def extractReturnObject(metadata: Metadata, data: Array[Double]): scala.collection.mutable.Map[Int, String] =
     {
       var index: Int = 0;
@@ -181,4 +285,30 @@ object LSHUtil {
       //println(map);
       return map;
     }*/
-}
+   /*def extractReturnObject(metadata: Metadata, data: Array[Double]): scala.collection.mutable.Map[Int, String] =
+    {
+      var index: Int = 0;
+      columnStartCounts = getColumnStartCounts(metadata);
+
+      var map = scala.collection.mutable.Map[Int, String]();
+      for (column <- metadata.getQuasiColumns()) {
+        if (column.isCharColumn()) {
+          var position = columnStartCounts(index);
+          var max = data(position);
+          var maxPosition = position;
+          for (pos <- position to (position + column.getNumUnique() - 1)) {
+            if (max < data(pos)) {
+              max = data(pos);
+              maxPosition = pos;
+            }
+          }
+          map.put(column.getIndex(), column.getRootCategory().getValueAtIndex((maxPosition - columnStartCounts(index))));
+        } else {
+          map.put(column.getIndex(), (data(columnStartCounts(index)) * (column.getMax() - column.getMin()) + column.getMin()).toString);
+        }
+        index = index + 1;
+      }
+      //println(map);
+      return map;
+    }
+*/}

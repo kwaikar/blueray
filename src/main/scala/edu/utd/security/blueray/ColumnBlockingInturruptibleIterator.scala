@@ -5,13 +5,13 @@ import org.apache.spark.TaskContext
 import org.apache.spark.sql.catalyst.expressions.UnsafeRow
 
 import edu.utd.security.risk.Metadata
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Custom Implementation of InteruptibleIterator that blocks the value passed while iterating over the array.
  */
-class ColumnBlockingInterruptibleIterator[T]
-      (context: TaskContext, delegate: Iterator[T], val columnsToBeBlocked: String, val dataMetadata: Metadata)
-      extends InterruptibleIterator[T](context, delegate) {
+class ColumnBlockingInterruptibleIterator[T](context: TaskContext, delegate: Iterator[T], val columnsToBeBlocked: String, val dataMetadata: Metadata)
+    extends InterruptibleIterator[T](context, delegate) {
 
   val numColumns = columnsToBeBlocked.substring(0, columnsToBeBlocked.indexOf('[')).toInt;
   val blockCols = columnsToBeBlocked.substring(columnsToBeBlocked.indexOf('[') + 1,
@@ -51,10 +51,10 @@ class ColumnBlockingInterruptibleIterator[T]
         } else if (nextElement.getClass == classOf[UnsafeRow]) {
           val unsafeRow: UnsafeRow = nextElement.asInstanceOf[UnsafeRow];
           var newElement: UnsafeRow = new UnsafeRow(unsafeRow.numFields());
-          localNextElementStr = localNextElementStr.trim().r.replaceAllIn(localNextElementStr, 
-                                split.mkString(","));
-          newElement.pointTo(localNextElementStr.map(_.toByte).toArray, unsafeRow.getBaseOffset, 
-                             unsafeRow.getSizeInBytes)
+          localNextElementStr = localNextElementStr.trim().r.replaceAllIn(localNextElementStr,
+            split.mkString(","));
+          newElement.pointTo(localNextElementStr.map(_.toByte).toArray, unsafeRow.getBaseOffset,
+            unsafeRow.getSizeInBytes)
           return newElement.asInstanceOf[T];
         } else {
           return nextElement;
@@ -66,14 +66,19 @@ class ColumnBlockingInterruptibleIterator[T]
       return nextElement;
     }
   }
-
+  var fixedMap = new ConcurrentHashMap[Int, String]()
   def getStringOfLength(index: Int, value: String): String = {
     if (dataMetadata == null) {
-      var sb: StringBuilder = new StringBuilder();
-      for (c <- 1 to value.length()) {
-        sb.append("-");
+      var string = fixedMap.get(index);
+      if (string == null) {
+        var sb: StringBuilder = new StringBuilder();
+        for (c <- 1 to value.length()) {
+          sb.append("-");
+        }
+        string = sb.toString;
+        fixedMap.put(index, string);
       }
-      sb.toString;
+      return string;
     } else {
       return dataMetadata.getMetadata(index).get.getParentCategory(value).value();
     }
