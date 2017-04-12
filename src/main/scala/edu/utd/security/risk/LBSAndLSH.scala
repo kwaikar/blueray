@@ -183,7 +183,7 @@ object LBSAndLSH {
    * 			r -> Fixed divisor.
    */
 
-  def getBucket(normalizedLinesRDD: RDD[(Long, (String,Int,Int,String), ListBuffer[Double])]): RDD[(Iterable[(Long, (String,Int,Int,String))])] =
+  def getBucket(normalizedLinesRDD: RDD[(Long, (String, Int, Int, String), ListBuffer[Double])]): RDD[(Iterable[(Long, (String, Int, Int, String))])] =
     {
 
       /**
@@ -191,7 +191,7 @@ object LBSAndLSH {
        */
       val buckets = normalizedLinesRDD.map({
         case (x, y, sum) => {
-          (sum.map(x => { Math.round(x * precisionFactor) / precisionFactor }).mkString(","), Seq[(Long, (String,Int,Int,String))]((x, y)));
+          (sum.map(x => { Math.round(x * precisionFactor) / precisionFactor }).mkString(","), Seq[(Long, (String, Int, Int, String))]((x, y)));
         }
       }) /*.groupByKey().values;*/ .reduceByKey(_ ++ _).values.map(_.toIterable) /*.map(x => (x._2.toArray));*/ /* Group values by Concatenated Hash key.*/
       buckets;
@@ -320,7 +320,7 @@ object LBSAndLSH {
           row(countsArr(1)) = ((q) - column.getMin()) / (column.getRange());
           column = metadata.value.getMetadata(2).get;
           row(countsArr(2)) = ((r) - column.getMin()) / (column.getRange());
-          
+
           unitVectors.value.map(unitVect => {
             (unitVect.zip(row).map({ case (x, y) => x * y }).sum) / r
           });
@@ -383,11 +383,11 @@ object LBSAndLSH {
     val numNeighborsVal = sc.broadcast(numNeighbors);
     val metadata = LBSMetadataWithSparkContext.getInstance(sc);
     val zips = LBSMetadataWithSparkContext.getZip(sc);
-
+    linesRDD.cache();
     var inputData = getBucketMappingNative(metadata, linesRDD);
 
     val buckets = getBucket(inputData);
-
+    linesRDD.persist();
     buckets.persist(StorageLevel.MEMORY_AND_DISK_SER);
     val remaining = buckets.filter({ case (y) => y.size < numNeighbors });
 
@@ -399,11 +399,13 @@ object LBSAndLSH {
     /**
      * We assign summary statistic to all elements and then filter these elements.
      */
-    rdds.append(neighbours.flatMap(x => LSHUtil.assignSummaryStatisticArray(metadata, x.toArray))); /**
+    rdds.append(neighbours.flatMap(x => LSHUtil.assignSummaryStatisticArray(metadata, x.toArray)));
+    /**
      * The remaining values are re-grouped in next iteration.
-     */ /**
+     */
+    /**
      * We assign the final summary statistic to all remaining entries.
-     */ ;
+     */
     val fileName = outputFilePath + "/LSH_" + numNeighborsVal.value + "_" + numHashFunctions + "_" + r + ".csv";
     val rdd = sc.union(rdds).sortByKey().map(_._2);
 
@@ -415,7 +417,7 @@ object LBSAndLSH {
     */
     /**
      * Following code is for computation of the Information loss and thus is not included while calculating performance.
-     */  
+     */
     val linesRDDOP = new DataReader().readDataFile(sc, fileName, numPartitons);
     linesRDDOP.persist(StorageLevel.MEMORY_AND_DISK)
     val totalIL = linesRDDOP.map(_._2).map(x => InfoLossCalculator.IL(x)).mean();

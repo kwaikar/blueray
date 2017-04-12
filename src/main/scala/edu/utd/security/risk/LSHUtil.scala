@@ -117,7 +117,6 @@ object LSHUtil {
       /**
        * Once we have found the generalization hierarchy,map it to all lines and return the same.
        */
-      println("total keys:"+lines.keys.count())
       //    val generalization = map.collect().sortBy(_._1).map(_._2).mkString(",");
       return lines.keys.map({
         case (x) =>
