@@ -38,6 +38,17 @@ class LBSAlgorithm(metadata: Metadata, lbsParameters: LBSParameters, population:
     val strategy = findOriginalOptimalStrategy(top);
     return (strategy._1, strategy._2, strategy._3.toArray.sortBy(_._1).map(_._2).mkString(","))
   }
+
+    def findOptStrategy(recordStr: String): (Double, Double, String) = {
+       val record = scala.collection.mutable.Map[Int, String]();
+      val split = recordStr.split(",")
+      for (i <- 0 to split.length - 1) {
+        record.put(i, split(i));
+      }
+    val strategy = findOriginalOptimalStrategy(record.toMap);
+    return (strategy._1, strategy._2, strategy._3.toArray.sortBy(_._1).map(_._2).mkString(","))
+  }
+
   /**
    * This method takes the top of the lattice as the entry point and executes LAttice-Based-Search algorithm
    * until ideal generalization level is found.

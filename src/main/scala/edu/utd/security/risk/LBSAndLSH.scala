@@ -43,6 +43,7 @@ import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.storage.StorageLevel
 import scala.collection.immutable.HashSet
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * This class implements three algorithms described in the thesis
@@ -79,7 +80,7 @@ object LBSAndLSH {
 */ }
   }
 
-  def executeAlgorithm(hdfsFilePath: String, outputFilePath: String, lbsParam: LBSParameters, useLSH: String, numNeighbours: Int, numPartitons: Int) {
+  def executeAlgorithm(hdfsFilePath: String, outputFilePath: String, lbsParam: LBSParameters, useLSH: String, numNeighbours: Int, numPartitions: Int) {
 
     var totalPublisherPayOff = 0.0;
     var totalAdvBenefit = 0.0;
@@ -87,12 +88,14 @@ object LBSAndLSH {
     var list: ListBuffer[(Int, String)] = ListBuffer();
     var rdds: List[RDD[(Int, String)]] = List();
     if (useLSH.equalsIgnoreCase("lsh")) {
-      var linesRDD = new DataReader().readDataFileToNativeFormat(sc, hdfsFilePath, numPartitons);
-      lsh(linesRDD, lbsParam, numNeighbours, outputFilePath, numPartitons)
+      lsh(hdfsFilePath, numPartitions, numNeighbours, outputFilePath)
     } else if (useLSH.equalsIgnoreCase("lbslsh")) {
-      var linesRDD = new DataReader().readDataFile(sc, hdfsFilePath, numPartitons);
+      var linesRDD = new DataReader().readDataFile(sc, hdfsFilePath, numPartitions);
 
-      lbslsh(linesRDD, lbsParam, outputFilePath);
+      lbslsh(hdfsFilePath, lbsParam, numPartitions, numNeighbours, outputFilePath)
+    } else if (useLSH.equalsIgnoreCase("groupby")) {
+      var linesRDD = new DataReader().readDataFile(sc, hdfsFilePath, numPartitions);
+      println(linesRDD.groupByKey().count());
     } else {
       /**
        * Execute LBS algorithm based on following paper.
@@ -101,7 +104,6 @@ object LBSAndLSH {
        * booktitle = {In ICDE},
        * year = {2015}
        */
-      var linesRDD = new DataReader().readDataFile(sc, hdfsFilePath, numPartitons);
 
       val t0 = System.nanoTime()
       val metadata = LBSMetadataWithSparkContext.getInstance(sc);
@@ -115,16 +117,18 @@ object LBSAndLSH {
       val optimalRecord = algorithm.findOptimalStrategy(linesRDD.lookup(i.longValue())(0));
       println(optimalRecord);*/
 
+      val file = sc.textFile(hdfsFilePath, numPartitions)
+      val lines = file.flatMap(_.split("\n")).zipWithIndex()
       /**
-       * Here, we calculate the optimal Generalizaiton level for entire RDD.
+       * Here, we calculate the optimal Generalization level for entire RDD.
        */
-      val output = linesRDD.mapPartitions(partition =>
+      val output = lines.mapPartitions(partition =>
         {
           val algo = new LBSAlgorithm(metadata.value, params.value, population.value, zips.value, hashedPopulation.value);
           partition.map {
             case (x, y) => {
-              val strategy = algo.findOptimalStrategy(y);
-              (x, strategy._1, strategy._2, strategy._3)
+              val strategy = algo.findOptStrategy(x);
+              (y, strategy._1, strategy._2, strategy._3)
             }
           }
         });
@@ -183,40 +187,11 @@ object LBSAndLSH {
    * 			r -> Fixed divisor.
    */
 
-  def getBucket(normalizedLinesRDD: RDD[(Long, (String, Int, Int, String), ListBuffer[Double])]): RDD[(Iterable[(Long, (String, Int, Int, String))])] =
-    {
-
-      /**
-       * For each row, compute the Hash Value.
-       */
-      val buckets = normalizedLinesRDD.map({
-        case (x, y, sum) => {
-          (sum.map(x => { Math.round(x * precisionFactor) / precisionFactor }).mkString(","), Seq[(Long, (String, Int, Int, String))]((x, y)));
-        }
-      }) /*.groupByKey().values;*/ .reduceByKey(_ ++ _).values.map(_.toIterable) /*.map(x => (x._2.toArray));*/ /* Group values by Concatenated Hash key.*/
-      buckets;
-
-    }
-
-  def getBucketsNoNormalization(normalizedLinesRDD: RDD[(Long, Map[Int, String], ListBuffer[Double])]): RDD[(Iterable[(Long, Map[Int, String])])] =
-    {
-
-      /**
-       * For each row, compute the Hash Value.
-       */
-      val buckets = normalizedLinesRDD.map({
-        case (x, y, sum) => {
-          (sum.map(x => { Math.round(x * precisionFactor) / precisionFactor }).mkString(","), Seq[(Long, scala.collection.immutable.Map[Int, String])]((x, y.map(z => (z._1, z._2)))));
-        }
-      }) /*.groupByKey().values;*/ .reduceByKey(_ ++ _).values.map(_.toIterable) /*.map(x => (x._2.toArray));*/ /* Group values by Concatenated Hash key.*/
-      buckets;
-
-    }
-
+  
   /**
    * This method is used for using LSH bucketing feature for improving performance of LBS algorithm.
    */
-  def lbslsh(linesRDD: RDD[(Long, scala.collection.immutable.Map[Int, String])], lbsParam: LBSParameters, outputFilePath: String) = {
+  def lbslsh(hdfsFilePath: String, lbsParam: LBSParameters, numPartitions: Int, numNeighbors: Int, outputFilePath: String) = {
 
     val t0 = System.nanoTime()
     var rdds: ListBuffer[RDD[(Long, String)]] = ListBuffer();
@@ -229,196 +204,228 @@ object LBSAndLSH {
      */
     var precisionFactor = 10000;
 
+    var buckets = getLBSLSHData(sc, lbsParam, metadata, hdfsFilePath, numPartitions, precisionFactor, numNeighbors);
+
     /**
      * We hash entire dataset - this should lead to hashing of almost-duplicate entries into same bucket.
      */
-    var inputData = getBucketMapping(metadata, linesRDD);
-    var buckets = getBucketsNoNormalization(inputData);
+
+    val fileName = outputFilePath + "/LBSLSH_" + numHashFunctions + "_" + r + ".csv";
+    new DataWriter(sc).writeRDDToAFile(fileName, buckets);
+    val t1 = System.nanoTime()
+    println("Output written to file :" + fileName);
+    println("Time Taken: " + ((t1 - t0) / 1000000));
+
+  }
+  def getLSHedData(metadata: Broadcast[Metadata], hdfsFilePath: String, numPartitions: Int, precisionFactor: Double, numNeighbors: Broadcast[Int]): RDD[(Long, String)] = {
+
+    val file = sc.textFile(hdfsFilePath, numPartitions)
+    val lines = file.flatMap(_.split("\n")).zipWithIndex()
+    val columnCounts = LSHUtil.getTotalNewColumns(metadata.value);
+    val unitVectors = sc.broadcast(getRandomUnitVectors(columnCounts));
+
+    var totalCols = sc.broadcast(LSHUtil.getTotalNewColumns(metadata.value));
+
+    val generalizedBucket = lines.mapPartitions({
+      var nextStartCount = 0;
+      val counts = ListBuffer[Int]();
+      for (column <- metadata.value.getQuasiColumns()) {
+        counts += nextStartCount;
+        if (column.isCharColumn()) {
+          nextStartCount = nextStartCount + column.getNumUnique();
+        } else {
+          nextStartCount = nextStartCount + 1;
+        }
+      }
+      val countsArr = counts.toArray;
+
+      _.map({
+        case (x, y) => {
+          var index = 0;
+          var row = new Array[Double](totalCols.value);
+          val split = x.split(",")
+          var column = metadata.value.getMetadata(0).get;
+          row((countsArr(0) + column.getRootCategory().getIndexOfColumnValue(split(0)))) = 1.0;
+          column = metadata.value.getMetadata(3).get;
+          row((countsArr(3) + column.getRootCategory().getIndexOfColumnValue(split(3)))) = 1.0;
+          column = metadata.value.getMetadata(1).get;
+          row(countsArr(1)) = ((split(1).toDouble) - column.getMin()) / (column.getRange());
+          column = metadata.value.getMetadata(2).get;
+          row(countsArr(2)) = ((split(2).toDouble) - column.getMin()) / (column.getRange());
+
+          val concatenatedBucket = unitVectors.value.map(unitVect => {
+            Math.round(((unitVect.zip(row).map({ case (x, y) => x * y }).sum) / r) * precisionFactor) / precisionFactor
+          }).mkString(",");
+          (concatenatedBucket, (Array[Long](y), (Set[String](split(0)), Array.fill(2)(split(1).toInt), Array.fill(2)(split(2).toInt), Set[String](split(3)))))
+        }
+      })
+    }).reduceByKey({
+      case ((id1, (a, b, c, d)), (id2, (p, q, r, s))) => {
+        var bq = Array[Int](b(0), b(1));
+        if (b(0) > q(0)) {
+          bq(0) = q(0);
+        }
+        if (b(1) < q(1)) {
+          bq(1) = q(1);
+        }
+
+        var cr = Array[Int](c(0), c(1));
+        if (c(0) > r(0)) {
+          cr(0) = r(0);
+        }
+        if (c(1) < r(1)) {
+          cr(1) = r(1);
+        }
+        (id1.union(id2), (a.union(p), bq, cr, d.union(s)))
+      }
+    });
+
+    val op = generalizedBucket.values.flatMap({
+      case ((ids, (genders, zips, ages, races))) =>
+        {
+          if (ids.size >= numNeighbors.value) {
+
+            var column = metadata.value.getMetadata(0).get;
+
+            var generalization = column.findCategory(genders.toArray).value()
+            var min = zips.min;
+            var max = zips.max;
+            if (min == max) {
+              generalization += "," + min;
+            } else {
+              generalization += "," + min + "_" + max;
+            }
+            min = ages.min;
+            max = ages.max;
+            if (min == max) {
+              generalization += "," + min;
+            } else {
+              generalization += "," + min + "_" + max;
+            }
+            column = metadata.value.getMetadata(3).get;
+            generalization += "," + column.findCategory(races.toArray).value()
+            ids.map(x => (x, generalization));
+          } else {
+
+            ids.map(x => (x, "*,37010_72338,29,*"));
+          }
+
+        }
+    });
+    return op;
+  }
+
+  def getLBSLSHData(sc: SparkContext, lbsParam: LBSParameters, metadata: Broadcast[Metadata], hdfsFilePath: String, numPartitions: Int, precisionFactor: Double, numNeighbors: Int): RDD[(String)] = {
+
     val population = LBSMetadataWithSparkContext.getPopulation(sc);
     val zips = LBSMetadataWithSparkContext.getZip(sc);
     val hashedPopulation = LBSMetadataWithSparkContext.getHashedPopulation(sc);
     val params = sc.broadcast(lbsParam);
-    val output = buckets.mapPartitions(partition =>
-      {
-        val algo = new LBSAlgorithm(metadata.value, params.value, population.value, zips.value, hashedPopulation.value);
-        partition.flatMap(bucket =>
-          {
-            /**
-             * We loop on each bucket in order to identify the ideal generalization level.
-             * We take first entry, find out generalization level.
-             */
-            val itr = bucket.iterator;
-            var list = ListBuffer[(Long, Double, Double, String)]();
-            if (itr.hasNext) {
-              var current = itr.next();
-              var strategy = algo.findOriginalOptimalStrategy(current._2);
-              var stringRepresentation = strategy._3.toArray.sortBy(_._1).map(_._2).mkString(",");
-              list.append((current._1, strategy._1, strategy._2, stringRepresentation));
-              /**
-               * We loop on rest of the entries from the bucket and see if generalization level can be
-               * applied or not. If not possible, it computes generalization for the same by invoking LBS algorithm.
-               */
-              while (itr.hasNext) {
-                current = itr.next();
-                if (isNeighbourSubset(metadata.value, strategy._3, current._2)) {
-                  list.append((current._1, strategy._1, strategy._2, stringRepresentation));
-                } else {
-                  var childStrategy = algo.findOptimalStrategy(current._2);
-                  list.append((current._1, childStrategy._1, childStrategy._2, childStrategy._3));
+
+    val file = sc.textFile(hdfsFilePath, numPartitions)
+    val lines = file.flatMap(_.split("\n")).zipWithIndex()
+    val columnCounts = LSHUtil.getTotalNewColumns(metadata.value);
+    val unitVectors = sc.broadcast(getRandomUnitVectors(columnCounts));
+
+    var totalCols = sc.broadcast(LSHUtil.getTotalNewColumns(metadata.value));
+
+    val generalizedBucket = lines.mapPartitions({
+      var nextStartCount = 0;
+      val counts = ListBuffer[Int]();
+      for (column <- metadata.value.getQuasiColumns()) {
+        counts += nextStartCount;
+        if (column.isCharColumn()) {
+          nextStartCount = nextStartCount + column.getNumUnique();
+        } else {
+          nextStartCount = nextStartCount + 1;
+        }
+      }
+      val countsArr = counts.toArray;
+
+      _.map({
+        case (x, y) => {
+          var index = 0;
+          var row = new Array[Double](totalCols.value);
+          val split = x.split(",")
+          var column = metadata.value.getMetadata(0).get;
+          row((countsArr(0) + column.getRootCategory().getIndexOfColumnValue(split(0)))) = 1.0;
+          column = metadata.value.getMetadata(3).get;
+          row((countsArr(3) + column.getRootCategory().getIndexOfColumnValue(split(3)))) = 1.0;
+          column = metadata.value.getMetadata(1).get;
+          row(countsArr(1)) = ((split(1).toDouble) - column.getMin()) / (column.getRange());
+          column = metadata.value.getMetadata(2).get;
+          row(countsArr(2)) = ((split(2).toDouble) - column.getMin()) / (column.getRange());
+
+          val concatenatedBucket = unitVectors.value.map(unitVect => {
+            Math.round(((unitVect.zip(row).map({ case (x, y) => x * y }).sum) / r) * precisionFactor) / precisionFactor
+          }).mkString(",");
+          (concatenatedBucket, Array[(Long, String, Int, Int, String)]((y, split(0), split(1).toInt, split(2).toInt, split(3))))
+        }
+      })
+    }).reduceByKey({
+      case ((a), (b)) => {
+        a.union(b)
+      }
+    });
+
+    val op = generalizedBucket.values.mapPartitions({
+      partition =>
+        {
+
+          val algo = new LBSAlgorithm(metadata.value, params.value, population.value, zips.value, hashedPopulation.value);
+          partition.flatMap(array =>
+            {
+              val itr = array.iterator;
+              var list = ListBuffer[(Long, (Double, Double, String))]();
+              if (itr.hasNext) {
+                var current = itr.next();
+                var map = Map(0 -> current._2, 1 -> current._3.toString(), 2 -> current._4.toString(), 3 -> current._5);
+                var strategy = algo.findOriginalOptimalStrategy(map);
+                var stringRepresentation = strategy._3.toArray.sortBy(_._1).map(_._2).mkString(",");
+                list.append((current._1, (strategy._1, strategy._2, stringRepresentation)));
+                /**
+                 * We loop on rest of the entries from the bucket and see if generalization level can be
+                 * applied or not. If not possible, it computes generalization for the same by invoking LBS algorithm.
+                 */
+                while (itr.hasNext) {
+                  current = itr.next();
+                  map = Map(0 -> current._2, 1 -> current._3.toString(), 2 -> current._4.toString(), 3 -> current._5);
+
+                  if (isNeighbourSubset(metadata.value, strategy._3, map)) {
+                    list.append((current._1, (strategy._1, strategy._2, stringRepresentation)));
+                  } else {
+                    var childStrategy = algo.findOptimalStrategy(map);
+                    list.append((current._1, (childStrategy._1, childStrategy._2, childStrategy._3)));
+                  }
                 }
               }
-            }
-            list
-          });
-      });
-    output.persist(StorageLevel.MEMORY_AND_DISK);
-
-    val publisherBenefit = output.map(_._2).mean();
-    val advBenefit = output.map(_._3).mean();
-    val records = output.sortBy(_._1).map(_._4);
-
-    println("Avg PublisherPayOff found: " + publisherBenefit)
-    println("Avg AdversaryBenefit found: " + advBenefit)
-
-    val fileName = outputFilePath + "LBSLSH_" + numHashFunctions + "_" + r + ".csv";
-    new DataWriter(sc).writeRDDToAFile(fileName, records);
-
-    val t1 = System.nanoTime()
-
-    println("Time Taken: " + ((t1 - t0) / 1000000));
-
-  }
-  def getBucketMappingNative(metadata: Broadcast[Metadata], linesRDD: RDD[(Long, (String, Int, Int, String))]): RDD[(Long, (String, Int, Int, String), ListBuffer[Double])] = {
-
-    val columnCounts = LSHUtil.getTotalNewColumns(metadata.value);
-    val unitVectors = sc.broadcast(getRandomUnitVectors(columnCounts));
-
-    var totalCols = sc.broadcast(LSHUtil.getTotalNewColumns(metadata.value));
-
-    return linesRDD.mapPartitions({
-      var nextStartCount = 0;
-      val counts = ListBuffer[Int]();
-      for (column <- metadata.value.getQuasiColumns()) {
-        counts += nextStartCount;
-        if (column.isCharColumn()) {
-          nextStartCount = nextStartCount + column.getNumUnique();
-        } else {
-          nextStartCount = nextStartCount + 1;
+              list;
+            })
         }
-      }
-      val countsArr = counts.toArray
-      _.map({
-        case (x, (p, q, r, s)) => (x, (p, q, r, s), {
-          var index = 0;
-          var row = new Array[Double](totalCols.value);
-
-          var column = metadata.value.getMetadata(0).get;
-          row((countsArr(0) + column.getRootCategory().getIndexOfColumnValue(p))) = 1.0;
-          column = metadata.value.getMetadata(3).get;
-          row((countsArr(3) + column.getRootCategory().getIndexOfColumnValue(s))) = 1.0;
-          column = metadata.value.getMetadata(1).get;
-          row(countsArr(1)) = ((q) - column.getMin()) / (column.getRange());
-          column = metadata.value.getMetadata(2).get;
-          row(countsArr(2)) = ((r) - column.getMin()) / (column.getRange());
-
-          unitVectors.value.map(unitVect => {
-            (unitVect.zip(row).map({ case (x, y) => x * y }).sum) / r
-          });
-        })
-      })
     });
+    op.cache();
+    println("Publisher benefit found: " + op.map(_._2._1).mean());
+    println("Adversary benefit found: " + op.map(_._2._2).mean());
+    return op.sortByKey().map(x => (x._2._3));
   }
-
-  def getBucketMapping(metadata: Broadcast[Metadata], linesRDD: RDD[(Long, scala.collection.immutable.Map[Int, String])]): RDD[(Long, scala.collection.immutable.Map[Int, String], ListBuffer[Double])] = {
-
-    val columnCounts = LSHUtil.getTotalNewColumns(metadata.value);
-    val unitVectors = sc.broadcast(getRandomUnitVectors(columnCounts));
-
-    var totalCols = sc.broadcast(LSHUtil.getTotalNewColumns(metadata.value));
-
-    return linesRDD.mapPartitions({
-      var nextStartCount = 0;
-      val counts = ListBuffer[Int]();
-      for (column <- metadata.value.getQuasiColumns()) {
-        counts += nextStartCount;
-        if (column.isCharColumn()) {
-          nextStartCount = nextStartCount + column.getNumUnique();
-        } else {
-          nextStartCount = nextStartCount + 1;
-        }
-      }
-      val countsArr = counts.toArray
-      _.map({
-        case (x, y) => (x, y, {
-          var index = 0;
-          var row = new Array[Double](totalCols.value);
-          for (column <- metadata.value.getQuasiColumns()) {
-            if (column.isCharColumn()) {
-              /*  println(row.size)
-              println("=>"+(countsArr(index) + column.getRootCategory().getIndexOfColumnValue(y.get(column.getIndex()).get)))
-              println("->"+y.get(column.getIndex()).get);*/
-              row((countsArr(index) + column.getRootCategory().getIndexOfColumnValue(y.get(column.getIndex()).get))) = 1.0;
-            } else {
-              row(countsArr(index)) = ((y.get(column.getIndex()).get.toDouble) - column.getMin()) / (column.getRange());
-            }
-            index = index + 1;
-          }
-          unitVectors.value.map(unitVect => {
-            (unitVect.zip(row).map({ case (x, y) => x * y }).sum) / r
-          });
-        })
-      })
-    });
-  }
-  /**
-   * This method implements Strict K-Anonymity using LSH based bucketing technique.
-   * The method uses LSH in order to hash the input dataset into buckets, then
-   * It computes and assigns summary statistic for the bucket to all items.
-   * It then reduces precision factor by  1/10'th of its original value and performs second
-   * pass. It continues until precision factor size reaches 1.
-   */
-  def lsh(linesRDD: RDD[(Long, (String, Int, Int, String))], lbsParam: LBSParameters, numNeighbors: Int, outputFilePath: String, numPartitons: Int) = {
+    def lsh(hdfsFilePath: String, numPartitions: Int, numNeighbors: Int, outputFilePath: String) = {
     val t0 = System.nanoTime()
     var rdds: ListBuffer[RDD[(Long, String)]] = ListBuffer();
     val numNeighborsVal = sc.broadcast(numNeighbors);
     val metadata = LBSMetadataWithSparkContext.getInstance(sc);
-    val zips = LBSMetadataWithSparkContext.getZip(sc);
-    linesRDD.cache();
-    var inputData = getBucketMappingNative(metadata, linesRDD);
-
-    val buckets = getBucket(inputData);
-    linesRDD.persist();
-    buckets.persist(StorageLevel.MEMORY_AND_DISK_SER);
-    val remaining = buckets.filter({ case (y) => y.size < numNeighbors });
-
-    rdds.append(LSHUtil.assignSummaryStatisticToRDD(metadata, remaining.flatMap(x => x)))
-    /**
-     * We pickup buckets with size greater than or equal to "k" or number of neighbours
-     */
-    val neighbours = buckets.filter({ case (y) => y.size >= numNeighbors });
-    /**
-     * We assign summary statistic to all elements and then filter these elements.
-     */
-    rdds.append(neighbours.flatMap(x => LSHUtil.assignSummaryStatisticArray(metadata, x.toArray)));
-    /**
-     * The remaining values are re-grouped in next iteration.
-     */
-    /**
-     * We assign the final summary statistic to all remaining entries.
-     */
     val fileName = outputFilePath + "/LSH_" + numNeighborsVal.value + "_" + numHashFunctions + "_" + r + ".csv";
-    val rdd = sc.union(rdds).sortByKey().map(_._2);
 
+    var buckets = getLSHedData(metadata, hdfsFilePath, numPartitions, precisionFactor, numNeighborsVal);
+
+    val rdd = buckets.sortByKey().map(_._2);
     new DataWriter(sc).writeRDDToAFile(fileName, rdd);
     val t1 = System.nanoTime()
     println("Time Taken: " + ((t1 - t0) / 1000000) + " :" + fileName);
 
-    /*buckets.unpersist(true);
-    */
     /**
      * Following code is for computation of the Information loss and thus is not included while calculating performance.
      */
-    val linesRDDOP = new DataReader().readDataFile(sc, fileName, numPartitons);
+    val linesRDDOP = new DataReader().readDataFile(sc, fileName, numPartitions);
     linesRDDOP.persist(StorageLevel.MEMORY_AND_DISK)
     val totalIL = linesRDDOP.map(_._2).map(x => InfoLossCalculator.IL(x)).mean();
     // println("Total IL " + 100 * (totalIL / InfoLossCalculator.getMaximulInformationLoss()) + " Benefit with no attack: " + 100 * (1 - (totalIL / InfoLossCalculator.getMaximulInformationLoss())));
@@ -460,23 +467,6 @@ object LBSAndLSH {
       }
       neighborIsSubSet;
     }
-
-  val ONE = 1.0;
-  def extractRow(metadata: Metadata, values: Map[Int, String], totalCnt: Int, colStartCounts: Array[Int]): Array[Double] = {
-
-    var index = 0;
-    var row = new Array[Double](totalCnt);
-
-    for (column <- metadata.getQuasiColumns()) {
-      if (column.isCharColumn()) {
-        row((colStartCounts(index) + column.getRootCategory().getIndexOfColumnValue(values.get(column.getIndex()).get))) = ONE;
-      } else {
-        row(colStartCounts(index)) = ((values.get(column.getIndex()).get.toDouble) - column.getMin()) / (column.getRange());
-      }
-      index = index + 1;
-    }
-
-    return row;
-  }
+  
 
 }

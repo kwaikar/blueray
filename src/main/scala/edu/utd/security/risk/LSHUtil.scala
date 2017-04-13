@@ -59,33 +59,48 @@ object LSHUtil {
     }
   def assignSummaryStatisticToRDD(metadata: Broadcast[Metadata], lines: RDD[(Long, (String, Int, Int, String))]): RDD[(Long, String)] =
     {
+      val op = lines.map(x => (Set[String](x._2._1), Array.fill(2)(x._2._2),  Array.fill(2)(x._2._3), Set[String](x._2._4)));
+      val opt = op.reduce({
+        case ((a, b, c, d), (p, q, r, s)) => {
+          var bq = Array[Int](b(0), b(1));
+          if (b(0) > q(0)) {
+            bq(0) = q(0);
+          }
+          if (b(1) < q(1)) {
+            bq(1) = q(1);
+          }
 
-      val val0 = lines.map(_._2._1).distinct().collect();
-      val val1 = lines.map(_._2._2).distinct().collect();
-      val val2 = lines.map(_._2._3).distinct().collect();
-      val val3 = lines.map(_._2._4).distinct().collect();
- 
+          var cr = Array[Int](c(0), c(1));
+          if (c(0) > r(0)) {
+            cr(0) = r(0);
+          }
+          if (c(1) < r(1)) {
+            cr(1) = r(1);
+          }
+
+          (a.union(p), bq, cr, d.union(s))
+        }
+      });
 
       var column = metadata.value.getMetadata(0).get;
 
-      var generalization = column.findCategory(val0.toArray).value()
-      var min = val1.min;
-      var max = val1.max;
+      var generalization = column.findCategory(opt._1.toArray).value()
+      var min = opt._2.min;
+      var max = opt._2.max;
       if (min == max) {
         generalization += "," + min;
       } else {
         generalization += "," + min + "_" + max;
       }
-      min = val2.min;
-      max = val2.max;
+      min = opt._3.min;
+      max = opt._3.max;
       if (min == max) {
         generalization += "," + min;
       } else {
         generalization += "," + min + "_" + max;
       }
-
       column = metadata.value.getMetadata(3).get;
-      generalization += ","+column.findCategory(val3.toArray).value() /*mapPartitions(
+      generalization += "," + column.findCategory(opt._4.toArray).value() /*mapPartitions(
          
          partition=>partition.flatMap(_._2))*/ ;
       /*     indexValueGroupedIntermediate.cache();
@@ -151,7 +166,7 @@ object LSHUtil {
       }
 
       column = metadata.value.getMetadata(3).get;
-      generalization += ","+column.findCategory(val3.toArray).value() /*mapPartitions(
+      generalization += "," + column.findCategory(val3.toArray).value() /*mapPartitions(
          
          partition=>partition.flatMap(_._2))*/ ;
       /*     indexValueGroupedIntermediate.cache();
@@ -284,7 +299,7 @@ object LSHUtil {
       //println(map);
       return map;
     }*/
-   /*def extractReturnObject(metadata: Metadata, data: Array[Double]): scala.collection.mutable.Map[Int, String] =
+  /*def extractReturnObject(metadata: Metadata, data: Array[Double]): scala.collection.mutable.Map[Int, String] =
     {
       var index: Int = 0;
       columnStartCounts = getColumnStartCounts(metadata);
@@ -310,4 +325,4 @@ object LSHUtil {
       //println(map);
       return map;
     }
-*/}
+*/ }

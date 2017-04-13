@@ -21,13 +21,7 @@ class DataReader() extends Serializable {
     val lines = file.flatMap(_.split("\n"))
 
     var linesWithIndex=lines.zipWithIndex();
-    /**
-     * Retain indices of lines
-     */
-    if (true) {
-      linesWithIndex = lines.filter { !_.contains("?") }.zipWithIndex;
-    }  
-
+ 
     /**
      * split columns inside each line, zip with index.
      */
