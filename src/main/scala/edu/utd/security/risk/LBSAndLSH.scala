@@ -55,7 +55,7 @@ object LBSAndLSH {
 
   var sc: SparkContext = null;
 
-  var numHashFunctions: Int = 3;
+  var numHashFunctions: Int = 6;
   var r: Double = 3;
   var precisionFactor = 10000.0;
   def main(args: Array[String]): Unit = {
@@ -73,6 +73,8 @@ object LBSAndLSH {
           println("Running experiment for =>" + prec + " " + hash);
           numHashFunctions = hash;
           precisionFactor = prec*/
+      numHashFunctions =args(10).toInt
+      precisionFactor = args(9).toInt;
       executeAlgorithm(args(1), args(2), new LBSParameters(args(3).toDouble, args(4).toDouble, args(5).toDouble), args(7), args(8).toInt, args(6).toInt)
       /*}
       }
@@ -307,7 +309,7 @@ object LBSAndLSH {
             ids.map(x => (x, generalization));
           } else {
 
-            ids.map(x => (x, "*,37010_72338,29,*"));
+            ids.map(x => (x, "*,37010_72338,0_120,*"));
           }
 
         }
@@ -408,7 +410,7 @@ object LBSAndLSH {
     println("Adversary benefit found: " + op.map(_._2._2).mean());
     return op.sortByKey().map(x => (x._2._3));
   }
-    def lsh(hdfsFilePath: String, numPartitions: Int, numNeighbors: Int, outputFilePath: String) = {
+    def lsh(hdfsFilePath: String, numPartitions: Int, numNeighbors: Int, outputFilePath: String) :Boolean= {
     val t0 = System.nanoTime()
     var rdds: ListBuffer[RDD[(Long, String)]] = ListBuffer();
     val numNeighborsVal = sc.broadcast(numNeighbors);
@@ -430,7 +432,8 @@ object LBSAndLSH {
     val totalIL = linesRDDOP.map(_._2).map(x => InfoLossCalculator.IL(x)).mean();
     // println("Total IL " + 100 * (totalIL / InfoLossCalculator.getMaximulInformationLoss()) + " Benefit with no attack: " + 100 * (1 - (totalIL / InfoLossCalculator.getMaximulInformationLoss())));
     println((precisionFactor + "\t" + numHashFunctions + "\t" + (t1 - t0) / 1000000) + "\t" + 100 * (1 - (totalIL / InfoLossCalculator.getMaximulInformationLoss())) + "\t" + fileName);
-  }
+    return true;
+    }
   /**
    * This method checks whether generalizedParent is valid parent of "neighbour"
    */
