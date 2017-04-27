@@ -78,17 +78,17 @@ class DataReader() extends Serializable {
            * For String column types.
            */
           if (node.\("hierarchy").text.length() > 0) {
-            val column = new Column(node.\("name").text, node.\("index").text.toInt,true, node.\("isQuasiIdentifier").text.toBoolean, getHierarchy(node.\("hierarchy"), "*"),-1,-1, node.\("num_unique").text.toInt);
+            val column = new Column(node.\("name").text, node.\("index").text.toInt,true, node.\("isQuasiIdentifier").text.toBoolean, getHierarchy(node.\("hierarchy"), "*",null),-1,-1, node.\("num_unique").text.toInt);
             columns += ((column.getIndex(), column));
           } else {
-            val column = new Column(node.\("name").text, node.\("index").text.toInt, true, node.\("isQuasiIdentifier").text.toBoolean, new Category("*"),-1,-1, node.\("num_unique").text.toInt);
+            val column = new Column(node.\("name").text, node.\("index").text.toInt, true, node.\("isQuasiIdentifier").text.toBoolean, new Category("*",null),-1,-1, node.\("num_unique").text.toInt);
             columns += ((column.getIndex(), column));
           }
         } else {
           /**
            * Numeric columns.
            */
-          val column = new Column(node.\("name").text, node.\("index").text.toInt, false, node.\("isQuasiIdentifier").text.toBoolean,getHierarchy(node.\("hierarchy"), node.\("min").text.toDouble+"_"+node.\("max").text.toDouble),node.\("min").text.toDouble,node.\("max").text.toDouble, node.\("num_unique").text.toInt);
+          val column = new Column(node.\("name").text, node.\("index").text.toInt, false, node.\("isQuasiIdentifier").text.toBoolean,getHierarchy(node.\("hierarchy"), node.\("min").text.toDouble+"_"+node.\("max").text.toDouble,null),node.\("min").text.toDouble,node.\("max").text.toDouble, node.\("num_unique").text.toInt);
           columns += ((column.getIndex(), column));
         }
       }
@@ -98,12 +98,12 @@ class DataReader() extends Serializable {
   /**
    * This method accepts a categorical node sequence and parses entire generalization hierarchy and returns the root.
    */
-  def getHierarchy(node: NodeSeq, name: String): Category = {
+  def getHierarchy(node: NodeSeq, name: String, parent:Category): Category = {
 
-    var category = new Category(name);
+    var category = new Category(name,parent);
     node.\("children").foreach { x =>
       {
-        category.addChildren(getHierarchy(x, x.\("value").text));
+        category.addChildren(getHierarchy(x, x.\("value").text,category));
       }
     };
     return category;

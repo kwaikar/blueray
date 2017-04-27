@@ -1,13 +1,6 @@
 package edu.utd.security.risk
 
 import java.util.concurrent.ConcurrentHashMap
-
-
-
-
-
-
-
 /**
  * Class responsible for holding details of column object.
  */
@@ -18,7 +11,15 @@ class Column(name: String, index: Int, colType: Boolean, isQuasiIdentifier: Bool
   def getIndex(): Int = {
     return index;
   }
+  var numTotalUnique:Int= -1;
 
+  def getNumTotalUnique(): Int = {
+    return numTotalUnique;
+  }
+  def setNumTotalUnique(numTotalUnique: Int)= {
+    this.numTotalUnique=numTotalUnique;
+  }
+  
   def getNumUnique(): Int = {
     return numUnique;
   }
