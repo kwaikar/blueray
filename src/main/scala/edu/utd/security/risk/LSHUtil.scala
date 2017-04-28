@@ -138,6 +138,41 @@ object LSHUtil {
           (x, generalization)
       });
     }
+def assignSummaryStatisticToPlainData(metadata: Broadcast[Metadata], lines: Array[( String,Long)]): Array[(Long, String)] =
+    {
+
+      val val0 = lines.map(_._1.split(",")(0)).distinct;
+      val val1 = lines.map(_._1.split(",")(1).toDouble).distinct;
+      val val2 = lines.map(_._1.split(",")(2).toDouble).distinct;
+      val val3 = lines.map(_._1.split(",")(3)).distinct;
+
+      var column = metadata.value.getMetadata(0).get;
+
+      var generalization = column.findCategory(val0.toArray).value()
+      var min = val1.min;
+      var max = val1.max;
+      if (min == max) {
+        generalization += "," + min;
+      } else {
+        generalization += "," + min + "_" + max;
+      }
+      min = val2.min;
+      max = val2.max;
+      if (min == max) {
+        generalization += "," + min;
+      } else {
+        generalization += "," + min + "_" + max;
+      }
+
+      column = metadata.value.getMetadata(3).get;
+      generalization += "," + column.findCategory(val3.toArray).value()  
+        
+      return lines.map({
+        case (x, y) =>
+          (y, generalization)
+      });
+    }
+
 
   def assignSummaryStatisticArray(metadata: Broadcast[Metadata], lines: Array[(Long, (String, Int, Int, String))]): Array[(Long, String)] =
     {

@@ -63,7 +63,7 @@ class Category(value: String, par: Category) extends Serializable {
     {
       populateMapIfRequired();
       var list = ListBuffer[Int]();
-      println(":::" + key + " :" + parentMap);
+    //  println(":::" + key + " :" + parentMap);
       val index = parentMap.get(key.trim());
       list.+=(index)
       var value = revParentMap.get(index);
