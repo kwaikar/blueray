@@ -46,10 +46,10 @@ import scala.collection.immutable.HashSet
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * This class implements three algorithms described in the thesis
- * LBS algorithm based on Game theoretical approach
- * LSH algorithm based on iterative LSH bucketing technique
- * LBS-LSH algorithm which uses LSH in order to expedite LBS algorithm.
+ * This class implements three algorithms described in the thesis.
+ * LBS algorithm - based on Game theoretical approach
+ * LSH algorithm - based on iterative LSH bucketing technique
+ * LBS-LSH algorithm - uses LSH in order to expedite LBS algorithm.
  */
 object LBSAndLSH {
 
@@ -304,11 +304,11 @@ object LBSAndLSH {
       val generalizedBucket = partition(lines, metadata, hashes, countsArr, totalCols);
       val output = generalizedBucket.map({
         case (x, y) => {
-          var remaining: Array[(String, Long)] = Array();
+          var remaining: ListBuffer[Array[(String, Long)]] = ListBuffer();
           var summarize: ListBuffer[Array[(String, Long)]] = ListBuffer();
 
           if (y.size < numNeighbors.value) {
-            remaining = y;
+            remaining.+=(y);
           } else if (y.size == numNeighbors.value) {
             summarize.+=(y);
           } else {
@@ -317,11 +317,11 @@ object LBSAndLSH {
             val op = output.map({
               case (p, q) =>
                 {
-                  var remainingQ: Array[(String, Long)] = Array();
+                  var remainingQ:ListBuffer[Array[(String, Long)]] = ListBuffer();
                   var summarizeQ: ListBuffer[Array[(String, Long)]] = ListBuffer();
 
                   if (q.size < numNeighbors.value) {
-                    remainingQ = q;
+                    remainingQ .+=( q);
                   } else if (q.size == numNeighbors.value) {
                     summarizeQ.+=(q);
                   } else {
@@ -345,23 +345,23 @@ object LBSAndLSH {
           (remaining, summarize)
         }
       });
-      val merged = output.map(_._1).reduce(_ ++ _);
+      val merged = output.map(_._2).reduce(_ ++ _);
       // apply aglomerative clustering in merged
-      val op = output.map(_._1).map(LSHUtil.assignSummaryStatisticToPlainData(metadata, _)).reduce(_ ++ _);
+      val op = merged.map(LSHUtil.assignSummaryStatisticToPlainData(metadata, _)).reduce(_ ++ _);
       sc.parallelize(op)
     }
 
-  def lsh_RC(lines: Array[(String, Long)], metadata: Broadcast[Metadata], hashes: Broadcast[Array[(Int, Int)]], countsArr: Broadcast[Array[Int]], totalCols: Broadcast[Int], numNeighbors: Broadcast[Int]): Map[Array[(String, Long)], ListBuffer[Array[(String, Long)]]] =
+  def lsh_RC(lines: Array[(String, Long)], metadata: Broadcast[Metadata], hashes: Broadcast[Array[(Int, Int)]], countsArr: Broadcast[Array[Int]], totalCols: Broadcast[Int], numNeighbors: Broadcast[Int]): Map[ListBuffer[Array[(String, Long)]], ListBuffer[Array[(String, Long)]]] =
     {
       val generalizedBucket = partitionArray(lines, metadata, hashes, countsArr, totalCols);
       val output = generalizedBucket.map({
         case (x, y) => {
-          var remaining: Array[(String, Long)] = Array();
+          var remaining:ListBuffer[Array[(String, Long)]] = ListBuffer();
           var summarize: ListBuffer[Array[(String, Long)]] = ListBuffer();
           var divide: Array[(String, Long)] = Array();
 
           if (y.size < numNeighbors.value) {
-            remaining = y;
+            remaining.+=(y);
           } else if (y.size == numNeighbors.value) {
             summarize.+=(y);
           } else {
@@ -370,12 +370,12 @@ object LBSAndLSH {
             val op = output.map({
               case (p, q) =>
                 {
-                  var remainingQ: Array[(String, Long)] = Array();
+                  var remainingQ: ListBuffer[Array[(String, Long)]] = ListBuffer();
                   var summarizeQ: ListBuffer[Array[(String, Long)]] = ListBuffer();
                   var divideQ: Array[(String, Long)] = Array();
 
                   if (q.size < numNeighbors.value) {
-                    remainingQ = q;
+                    remainingQ .+=( q);
                   } else if (q.size == numNeighbors.value) {
                     summarizeQ.+=(q);
                   } else {
