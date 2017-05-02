@@ -219,7 +219,7 @@ object LBSAndLSH {
     println("Time Taken: " + ((t1 - t0) / 1000000));
 
   }
-  def partition(lines: RDD[(String, Long)], metadata: Broadcast[Metadata], hashes: Broadcast[Array[(Int, Int)]], countsArr: Broadcast[Array[Int]], totalCols: Broadcast[Int]): RDD[(String, Array[(String, Long)])] =
+  def partition(lines: RDD[(String, Long)], metadata: Broadcast[Metadata], hashes: Broadcast[Array[(Int, Int)]], countsArr: Broadcast[Array[Int]], totalCols: Broadcast[Int]): RDD[(String, Array[(ListBuffer[Int],String, Long)])] =
     {
       lines.mapPartitions({
 
@@ -249,7 +249,7 @@ object LBSAndLSH {
               //Math.round(((unitVect.zip(row).map({ case (x, y) => x * y }).sum) / r) * precisionFactor) / precisionFactor
             }).mkString(",");
             println(concatenatedBucket + ":" + x);
-            (concatenatedBucket, (Array[(String, Long)]((x, y))))
+            (concatenatedBucket, (Array[(ListBuffer[Int],String, Long)]((listBuffer,x, y))))
             //      (concatenatedBucket, (Array[Long](y), (Set[String](split(0)), Array.fill(2)(split(1).toInt), Array.fill(2)(split(2).toInt), Set[String](split(3)))))
           }
         })
@@ -260,11 +260,11 @@ object LBSAndLSH {
       });
     }
 
-  def partitionArray(lines: Array[(String, Long)], metadata: Broadcast[Metadata], hashes: Broadcast[Array[(Int, Int)]], countsArr: Broadcast[Array[Int]], totalCols: Broadcast[Int]): scala.collection.immutable.Map[String, Array[(String, Long)]] =
+  def partitionArray(lines: Array[(ListBuffer[Int],String, Long)], metadata: Broadcast[Metadata], hashes: Broadcast[Array[(Int, Int)]], countsArr: Broadcast[Array[Int]], totalCols: Broadcast[Int]): scala.collection.immutable.Map[String, Array[(ListBuffer[Int],String, Long)]] =
     {
 
       lines.map({
-        case (x, y) => {
+        case (p,x, y) => {
           var index = 0;
           //  var row = new Array[Double](totalCols.value);
           val split = x.split(",")
@@ -289,7 +289,7 @@ object LBSAndLSH {
             //Math.round(((unitVect.zip(row).map({ case (x, y) => x * y }).sum) / r) * precisionFactor) / precisionFactor
           }).mkString(",");
           println(concatenatedBucket + ":" + x);
-          (concatenatedBucket, (x, y))
+          (concatenatedBucket, (listBuffer,x, y))
           //      (concatenatedBucket, (Array[Long](y), (Set[String](split(0)), Array.fill(2)(split(1).toInt), Array.fill(2)(split(2).toInt), Set[String](split(3)))))
         }
       }).groupBy(_._1).mapValues({ case (Array(x, (y, z))) => (Array(z)) }) /*({
@@ -304,28 +304,28 @@ object LBSAndLSH {
       val generalizedBucket = partition(lines, metadata, hashes, countsArr, totalCols);
       val output = generalizedBucket.map({
         case (x, y) => {
-          var remaining: ListBuffer[Array[(String, Long)]] = ListBuffer();
+          var remaining: ListBuffer[(String,Array[(String, Long)])] = ListBuffer();
           var summarize: ListBuffer[Array[(String, Long)]] = ListBuffer();
 
           if (y.size < numNeighbors.value) {
-            remaining.+=(y);
+            remaining.+=((x,y.map(x=>(x._2,x._3))));
           } else if (y.size == numNeighbors.value) {
-            summarize.+=(y);
+            summarize.+=(y.map(x=>(x._2,x._3)));
           } else {
-            val output = partitionArray(y, metadata, hashes, countsArr, totalCols);
+            val output = partitionArray(y , metadata, hashes, countsArr, totalCols);
 
             val op = output.map({
               case (p, q) =>
                 {
-                  var remainingQ:ListBuffer[Array[(String, Long)]] = ListBuffer();
+                  var remainingQ: ListBuffer[(String,Array[(ListBuffer[Int],String, Long)])] = ListBuffer();
                   var summarizeQ: ListBuffer[Array[(String, Long)]] = ListBuffer();
 
                   if (q.size < numNeighbors.value) {
-                    remainingQ .+=( q);
+                    remainingQ.+=((p,q));
                   } else if (q.size == numNeighbors.value) {
-                    summarizeQ.+=(q);
+                    summarizeQ.+=(q.map(x=>(x._2,x._3)));
                   } else {
-                    val recursionOP = lsh_RC(q, metadata, hashes, countsArr, totalCols, numNeighbors);
+                    val recursionOP = lsh_RC(q , metadata, hashes, countsArr, totalCols, numNeighbors);
                     for (entry <- recursionOP) {
                       remainingQ.++=(entry._1);
                       for (value <- entry._2) {
@@ -345,44 +345,55 @@ object LBSAndLSH {
           (remaining, summarize)
         }
       });
+      /**
+       * Perform agglomerative clustering on small blocks
+       */
+      val mergedEntries = sc.parallelize(output.map(_._1).reduce(_ ++ _)).zipWithIndex();
+      val cartesian = mergedEntries.cartesian(mergedEntries);
+      val distance = cartesian.map({
+        case (((bucketId1,entries), id1), ((bucketId2,entries2), id2)) => {
+
+        }
+      });
+
       val merged = output.map(_._2).reduce(_ ++ _);
       // apply aglomerative clustering in merged
       val op = merged.map(LSHUtil.assignSummaryStatisticToPlainData(metadata, _)).reduce(_ ++ _);
       sc.parallelize(op)
     }
 
-  def lsh_RC(lines: Array[(String, Long)], metadata: Broadcast[Metadata], hashes: Broadcast[Array[(Int, Int)]], countsArr: Broadcast[Array[Int]], totalCols: Broadcast[Int], numNeighbors: Broadcast[Int]): Map[ListBuffer[Array[(String, Long)]], ListBuffer[Array[(String, Long)]]] =
+  def lsh_RC(lines: Array[(ListBuffer[Int],String, Long)], metadata: Broadcast[Metadata], hashes: Broadcast[Array[(Int, Int)]], countsArr: Broadcast[Array[Int]], totalCols: Broadcast[Int], numNeighbors: Broadcast[Int]): Map[ListBuffer[(String,Array[(ListBuffer[Int],String, Long)])], ListBuffer[Array[(String, Long)]]] =
     {
       val generalizedBucket = partitionArray(lines, metadata, hashes, countsArr, totalCols);
       val output = generalizedBucket.map({
         case (x, y) => {
-          var remaining:ListBuffer[Array[(String, Long)]] = ListBuffer();
+          var remaining: ListBuffer[(String,Array[(ListBuffer[Int],String, Long)])] = ListBuffer();
           var summarize: ListBuffer[Array[(String, Long)]] = ListBuffer();
           var divide: Array[(String, Long)] = Array();
 
           if (y.size < numNeighbors.value) {
-            remaining.+=(y);
+            remaining.+=((x,y));
           } else if (y.size == numNeighbors.value) {
-            summarize.+=(y);
+            summarize.+=(y.map(x=>(x._2,x._3)));
           } else {
-            val output = partitionArray(y, metadata, hashes, countsArr, totalCols);
+            val output = partitionArray(y , metadata, hashes, countsArr, totalCols);
 
             val op = output.map({
               case (p, q) =>
                 {
-                  var remainingQ: ListBuffer[Array[(String, Long)]] = ListBuffer();
+                  var remainingQ: ListBuffer[(String,Array[(ListBuffer[Int],String, Long)])] = ListBuffer();
                   var summarizeQ: ListBuffer[Array[(String, Long)]] = ListBuffer();
                   var divideQ: Array[(String, Long)] = Array();
 
                   if (q.size < numNeighbors.value) {
-                    remainingQ .+=( q);
+                    remainingQ.+=((p,q));
                   } else if (q.size == numNeighbors.value) {
-                    summarizeQ.+=(q);
+                    summarizeQ.+=(q.map(x=>(x._2,x._3)));
                   } else {
                     val recursionOP = lsh_RC(q, metadata, hashes, countsArr, totalCols, numNeighbors);
                     for (entry <- recursionOP) {
-                      remainingQ.++=(entry._1);
-                       for (value <- entry._2) {
+                      remainingQ.++=(entry._1); 
+                      for (value <- entry._2) {
                         summarizeQ.+=(value);
                       }
                     }
