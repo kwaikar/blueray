@@ -44,6 +44,7 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.storage.StorageLevel
 import scala.collection.immutable.HashSet
 import java.util.concurrent.ConcurrentHashMap
+import scala.collection.mutable.PriorityQueue
 
 /**
  * This class implements three algorithms described in the thesis.
@@ -219,7 +220,7 @@ object LBSAndLSH {
     println("Time Taken: " + ((t1 - t0) / 1000000));
 
   }
-  def partition(lines: RDD[(String, Long)], metadata: Broadcast[Metadata], hashes: Broadcast[Array[(Int, Int)]], countsArr: Broadcast[Array[Int]], totalCols: Broadcast[Int]): RDD[(String, Array[(ListBuffer[Int],String, Long)])] =
+  def partition(lines: RDD[(String, Long)], metadata: Broadcast[Metadata], hashes: Broadcast[Array[(Int, Int)]], countsArr: Broadcast[Array[Int]], totalCols: Broadcast[Int]): RDD[(String, Array[(ListBuffer[Int], String, Long)])] =
     {
       lines.mapPartitions({
 
@@ -249,7 +250,7 @@ object LBSAndLSH {
               //Math.round(((unitVect.zip(row).map({ case (x, y) => x * y }).sum) / r) * precisionFactor) / precisionFactor
             }).mkString(",");
             println(concatenatedBucket + ":" + x);
-            (concatenatedBucket, (Array[(ListBuffer[Int],String, Long)]((listBuffer,x, y))))
+            (concatenatedBucket, (Array[(ListBuffer[Int], String, Long)]((listBuffer, x, y))))
             //      (concatenatedBucket, (Array[Long](y), (Set[String](split(0)), Array.fill(2)(split(1).toInt), Array.fill(2)(split(2).toInt), Set[String](split(3)))))
           }
         })
@@ -260,11 +261,11 @@ object LBSAndLSH {
       });
     }
 
-  def partitionArray(lines: Array[(ListBuffer[Int],String, Long)], metadata: Broadcast[Metadata], hashes: Broadcast[Array[(Int, Int)]], countsArr: Broadcast[Array[Int]], totalCols: Broadcast[Int]): scala.collection.immutable.Map[String, Array[(ListBuffer[Int],String, Long)]] =
+  def partitionArray(lines: Array[(ListBuffer[Int], String, Long)], metadata: Broadcast[Metadata], hashes: Broadcast[Array[(Int, Int)]], countsArr: Broadcast[Array[Int]], totalCols: Broadcast[Int]): scala.collection.immutable.Map[String, Array[(ListBuffer[Int], String, Long)]] =
     {
 
       lines.map({
-        case (p,x, y) => {
+        case (p, x, y) => {
           var index = 0;
           //  var row = new Array[Double](totalCols.value);
           val split = x.split(",")
@@ -289,7 +290,7 @@ object LBSAndLSH {
             //Math.round(((unitVect.zip(row).map({ case (x, y) => x * y }).sum) / r) * precisionFactor) / precisionFactor
           }).mkString(",");
           println(concatenatedBucket + ":" + x);
-          (concatenatedBucket, (listBuffer,x, y))
+          (concatenatedBucket, (listBuffer, x, y))
           //      (concatenatedBucket, (Array[Long](y), (Set[String](split(0)), Array.fill(2)(split(1).toInt), Array.fill(2)(split(2).toInt), Set[String](split(3)))))
         }
       }).groupBy(_._1).mapValues({ case (Array(x, (y, z))) => (Array(z)) }) /*({
@@ -304,28 +305,28 @@ object LBSAndLSH {
       val generalizedBucket = partition(lines, metadata, hashes, countsArr, totalCols);
       val output = generalizedBucket.map({
         case (x, y) => {
-          var remaining: ListBuffer[(String,Array[(ListBuffer[Int],String, Long)])] = ListBuffer();
+          var remaining: ListBuffer[(String, Array[(ListBuffer[Int], String, Long)])] = ListBuffer();
           var summarize: ListBuffer[Array[(String, Long)]] = ListBuffer();
 
           if (y.size < numNeighbors.value) {
-            remaining.+=((x,y));
+            remaining.+=((x, y));
           } else if (y.size == numNeighbors.value) {
-            summarize.+=(y.map(x=>(x._2,x._3)));
+            summarize.+=(y.map(x => (x._2, x._3)));
           } else {
-            val output = partitionArray(y , metadata, hashes, countsArr, totalCols);
+            val output = partitionArray(y, metadata, hashes, countsArr, totalCols);
 
             val op = output.map({
               case (p, q) =>
                 {
-                  var remainingQ: ListBuffer[(String,Array[(ListBuffer[Int],String, Long)])] = ListBuffer();
+                  var remainingQ: ListBuffer[(String, Array[(ListBuffer[Int], String, Long)])] = ListBuffer();
                   var summarizeQ: ListBuffer[Array[(String, Long)]] = ListBuffer();
 
                   if (q.size < numNeighbors.value) {
-                    remainingQ.+=((p,q));
+                    remainingQ.+=((p, q));
                   } else if (q.size == numNeighbors.value) {
-                    summarizeQ.+=(q.map(x=>(x._2,x._3)));
+                    summarizeQ.+=(q.map(x => (x._2, x._3)));
                   } else {
-                    val recursionOP = lsh_RC(q , metadata, hashes, countsArr, totalCols, numNeighbors);
+                    val recursionOP = lsh_RC(q, metadata, hashes, countsArr, totalCols, numNeighbors);
                     for (entry <- recursionOP) {
                       remainingQ.++=(entry._1);
                       for (value <- entry._2) {
@@ -345,6 +346,11 @@ object LBSAndLSH {
           (remaining, summarize)
         }
       });
+
+      val merged = output.map(_._2).reduce(_ ++ _);
+      // apply aglomerative clustering in merged
+      val op = merged.map(LSHUtil.assignSummaryStatisticToPlainData(metadata, _)).reduce(_ ++ _);
+
       /**
        * Perform agglomerative clustering on small blocks
        */
@@ -352,60 +358,87 @@ object LBSAndLSH {
       val cartesian = mergedEntries.cartesian(mergedEntries);
       val distance = cartesian.map({
         case (((entries1), id1), ((entries2), id2)) => {
-          var maxDist =Integer.MAX_VALUE;
-          
-        for(entry1<-entries1)
-        {
-          for(entry2<-entries2)
-          {
-            val size = entry1._1.intersect(entry2._1).size
-            if(size<maxDist)
-            {
-              maxDist =size;
-            }
-          }
-        }
-        (id1,id2,((entries1.size+entries2.size -numNeighbors.value)*(1/numNeighbors.value)+1)*(maxDist+2*entries1(1)._1.size),entries1.union(entries2))
+          mergeClusters(entries1, id1, entries2, id2, numNeighbors)
         }
       });
+      var max = mergedEntries.count;
 
-      val merged = output.map(_._2).reduce(_ ++ _);
-      // apply aglomerative clustering in merged
-      val op = merged.map(LSHUtil.assignSummaryStatisticToPlainData(metadata, _)).reduce(_ ++ _);
+      val pq = PriorityQueue.empty[(Long, Long, Int, Array[(ListBuffer[Int], String, Long)])](
+        Ordering.by((_: (Long, Long, Int, Array[(ListBuffer[Int], String, Long)]))._3).reverse)
+      pq.++=(distance.collect());
+      val hashSet = new HashSet[Long]();
+      while (!pq.isEmpty) {
+        val dequedEntry = pq.dequeue();
+
+        if (!hashSet.contains(dequedEntry._1) && (hashSet.contains(dequedEntry._2))) {
+          if (dequedEntry._4.size >= numNeighbors.value) {
+            op.++(LSHUtil.assignSummaryStatisticToPlainData(metadata, dequedEntry._4.map(x => (x._2, x._3))))
+          } else {
+
+            max = max + 1;
+
+            val newEntry = Array[(Array[(ListBuffer[Int], String, Long)], Long)]()
+            val newEntries = mergedEntries.cartesian(sc.parallelize(newEntry.+:(dequedEntry._4, max)));
+            pq.++=(newEntries.map({
+              case (((entries1), id1), ((entries2), id2)) => {
+                mergeClusters(entries1, id1, entries2, id2, numNeighbors)
+              }
+            }).collect());
+          }
+        }
+
+      }
+
       sc.parallelize(op)
     }
 
-  def lsh_RC(lines: Array[(ListBuffer[Int],String, Long)], metadata: Broadcast[Metadata], hashes: Broadcast[Array[(Int, Int)]], countsArr: Broadcast[Array[Int]], totalCols: Broadcast[Int], numNeighbors: Broadcast[Int]): Map[ListBuffer[(String,Array[(ListBuffer[Int],String, Long)])], ListBuffer[Array[(String, Long)]]] =
+  def mergeClusters(entry1: Array[(ListBuffer[Int], String, Long)], id1: Long, entry2: Array[(ListBuffer[Int], String, Long)], id2: Long, numNeighbors: Broadcast[Int]) =
+    {
+      var maxDist = Integer.MAX_VALUE;
+
+      for (entry1 <- entry1) {
+        for (entry2 <- entry2) {
+          val size = entry1._1.intersect(entry2._1).size
+          if (size < maxDist) {
+            maxDist = size;
+          }
+        }
+      }
+      (id1, id2, ((entry1.size + entry2.size - numNeighbors.value) * (1 / numNeighbors.value) + 1) * (maxDist + 2 * entry1(1)._1.size), entry1.union(entry2))
+
+    }
+
+  def lsh_RC(lines: Array[(ListBuffer[Int], String, Long)], metadata: Broadcast[Metadata], hashes: Broadcast[Array[(Int, Int)]], countsArr: Broadcast[Array[Int]], totalCols: Broadcast[Int], numNeighbors: Broadcast[Int]): Map[ListBuffer[(String, Array[(ListBuffer[Int], String, Long)])], ListBuffer[Array[(String, Long)]]] =
     {
       val generalizedBucket = partitionArray(lines, metadata, hashes, countsArr, totalCols);
       val output = generalizedBucket.map({
         case (x, y) => {
-          var remaining: ListBuffer[(String,Array[(ListBuffer[Int],String, Long)])] = ListBuffer();
+          var remaining: ListBuffer[(String, Array[(ListBuffer[Int], String, Long)])] = ListBuffer();
           var summarize: ListBuffer[Array[(String, Long)]] = ListBuffer();
           var divide: Array[(String, Long)] = Array();
 
           if (y.size < numNeighbors.value) {
-            remaining.+=((x,y));
+            remaining.+=((x, y));
           } else if (y.size == numNeighbors.value) {
-            summarize.+=(y.map(x=>(x._2,x._3)));
+            summarize.+=(y.map(x => (x._2, x._3)));
           } else {
-            val output = partitionArray(y , metadata, hashes, countsArr, totalCols);
+            val output = partitionArray(y, metadata, hashes, countsArr, totalCols);
 
             val op = output.map({
               case (p, q) =>
                 {
-                  var remainingQ: ListBuffer[(String,Array[(ListBuffer[Int],String, Long)])] = ListBuffer();
+                  var remainingQ: ListBuffer[(String, Array[(ListBuffer[Int], String, Long)])] = ListBuffer();
                   var summarizeQ: ListBuffer[Array[(String, Long)]] = ListBuffer();
                   var divideQ: Array[(String, Long)] = Array();
 
                   if (q.size < numNeighbors.value) {
-                    remainingQ.+=((p,q));
+                    remainingQ.+=((p, q));
                   } else if (q.size == numNeighbors.value) {
-                    summarizeQ.+=(q.map(x=>(x._2,x._3)));
+                    summarizeQ.+=(q.map(x => (x._2, x._3)));
                   } else {
                     val recursionOP = lsh_RC(q, metadata, hashes, countsArr, totalCols, numNeighbors);
                     for (entry <- recursionOP) {
-                      remainingQ.++=(entry._1); 
+                      remainingQ.++=(entry._1);
                       for (value <- entry._2) {
                         summarizeQ.+=(value);
                       }
