@@ -304,11 +304,11 @@ object LBSAndLSH {
       val generalizedBucket = partition(lines, metadata, hashes, countsArr, totalCols);
       val output = generalizedBucket.map({
         case (x, y) => {
-          var remaining: ListBuffer[(String,Array[(String, Long)])] = ListBuffer();
+          var remaining: ListBuffer[(String,Array[(ListBuffer[Int],String, Long)])] = ListBuffer();
           var summarize: ListBuffer[Array[(String, Long)]] = ListBuffer();
 
           if (y.size < numNeighbors.value) {
-            remaining.+=((x,y.map(x=>(x._2,x._3))));
+            remaining.+=((x,y));
           } else if (y.size == numNeighbors.value) {
             summarize.+=(y.map(x=>(x._2,x._3)));
           } else {
@@ -348,11 +348,24 @@ object LBSAndLSH {
       /**
        * Perform agglomerative clustering on small blocks
        */
-      val mergedEntries = sc.parallelize(output.map(_._1).reduce(_ ++ _)).zipWithIndex();
+      val mergedEntries = sc.parallelize(output.map(_._1).reduce(_ ++ _)).values.zipWithIndex();
       val cartesian = mergedEntries.cartesian(mergedEntries);
       val distance = cartesian.map({
-        case (((bucketId1,entries), id1), ((bucketId2,entries2), id2)) => {
-
+        case (((entries1), id1), ((entries2), id2)) => {
+          var maxDist =Integer.MAX_VALUE;
+          
+        for(entry1<-entries1)
+        {
+          for(entry2<-entries2)
+          {
+            val size = entry1._1.intersect(entry2._1).size
+            if(size<maxDist)
+            {
+              maxDist =size;
+            }
+          }
+        }
+        (id1,id2,((entries1.size+entries2.size -numNeighbors.value)*(1/numNeighbors.value)+1)*(maxDist+2*entries1(1)._1.size),entries1.union(entries2))
         }
       });
 
