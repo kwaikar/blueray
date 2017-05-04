@@ -102,8 +102,18 @@ class Category(value: String, par: Category) extends Serializable {
       while (!queue.isEmpty) {
         val category = queue.dequeue();
         if (!parentMap.containsKey(category.value().trim())) {
+          if(index==0)
+          {
           parentMap.put(category.value().trim(), index)
           revParentMap.put(index, category)
+            
+          }
+          else
+          {
+          parentMap.put(category.value().trim(), index)
+          revParentMap.put(index, category)
+            
+          }
           index = index + 1;
           if (category.children.size > 0) {
             for (child <- category.children) {

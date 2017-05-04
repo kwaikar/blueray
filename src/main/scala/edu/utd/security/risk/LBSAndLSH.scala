@@ -246,10 +246,11 @@ object LBSAndLSH {
             }
 
             val concatenatedBucket = hashes.value.map(hash => {
-              println("List:"+ listBuffer.map(index => (hash._1 * index / hash._2) % totalCols.value))
-              listBuffer.map(index => (hash._1 * index / hash._2) % totalCols.value).min;
+              //
+              listBuffer.map(index => (hash._1 * index / hash._2) % totalCols.value).max;
               //Math.round(((unitVect.zip(row).map({ case (x, y) => x * y }).sum) / r) * precisionFactor) / precisionFactor
             }).mkString(",");
+            println("Bucket:"+ concatenatedBucket+"="+y)
             (concatenatedBucket, (Array[(ListBuffer[Int], String, Long)]((listBuffer, x, y))))
             //      (concatenatedBucket, (Array[Long](y), (Set[String](split(0)), Array.fill(2)(split(1).toInt), Array.fill(2)(split(2).toInt), Set[String](split(3)))))
           }
@@ -268,6 +269,7 @@ object LBSAndLSH {
         case (p, x, y) => {
           var index = 0;
           //  var row = new Array[Double](totalCols.value);
+          //println("x"+x+":"+p+":"+y);
           val split = x.split(",")
           val arr = Array[Int](0, 1, 2, 3);
           val listBuffer = new ListBuffer[Int]();
@@ -286,10 +288,10 @@ object LBSAndLSH {
           }
 
           val concatenatedBucket = hashes.value.map(hash => {
-            listBuffer.map(index => (hash._1 * index / hash._2) % totalCols.value).min;
+            listBuffer.map(index => (hash._1 * index / hash._2) % totalCols.value).max;
             //Math.round(((unitVect.zip(row).map({ case (x, y) => x * y }).sum) / r) * precisionFactor) / precisionFactor
           }).mkString(",");
-       //  println(concatenatedBucket + ":" + x+" | "+listBuffer+" ==>" +y);
+       println(concatenatedBucket + ":" + x+" | "+listBuffer+" ==>" +y);
           (concatenatedBucket, (listBuffer, x, y))
           //      (concatenatedBucket, (Array[Long](y), (Set[String](split(0)), Array.fill(2)(split(1).toInt), Array.fill(2)(split(2).toInt), Set[String](split(3)))))
         }
